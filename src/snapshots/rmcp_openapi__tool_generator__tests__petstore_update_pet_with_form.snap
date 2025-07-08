@@ -1,0 +1,57 @@
+---
+source: src/tool_generator.rs
+expression: metadata
+---
+{
+  "name": "updatePetWithForm",
+  "description": "Updates a pet in the store with form data\n\nEndpoint: POST /pet/{petId}",
+  "parameters": {
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "description": "Updated name of the pet",
+        "type": "string",
+        "x-parameter-location": "query",
+        "x-parameter-required": false
+      },
+      "petId": {
+        "description": "ID of pet that needs to be updated",
+        "format": "int64",
+        "type": "integer",
+        "x-parameter-location": "path",
+        "x-parameter-required": true
+      },
+      "request_body": {
+        "additionalProperties": true,
+        "description": "Request body data (JSON)",
+        "type": "object",
+        "x-content-type": "application/json",
+        "x-location": "body"
+      },
+      "status": {
+        "description": "Updated status of the pet",
+        "enum": [
+          "available",
+          "pending",
+          "sold"
+        ],
+        "type": "string",
+        "x-parameter-location": "query",
+        "x-parameter-required": false
+      },
+      "timeout_seconds": {
+        "default": 30,
+        "description": "Request timeout in seconds",
+        "maximum": 300,
+        "minimum": 1,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "petId"
+    ],
+    "type": "object"
+  },
+  "method": "post",
+  "path": "/pet/{petId}"
+}

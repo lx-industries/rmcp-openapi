@@ -1,0 +1,27 @@
+---
+source: src/tool_generator.rs
+expression: metadata
+---
+{
+  "name": "getPetById",
+  "description": "Find pet by ID\n\nReturns a single pet\n\nEndpoint: GET /pet/{petId}",
+  "parameters": {
+    "additionalProperties": false,
+    "properties": {
+      "petId": {
+        "description": "ID of pet to return",
+        "format": "int64",
+        "minimum": 1,
+        "type": "integer",
+        "x-parameter-location": "path",
+        "x-parameter-required": true
+      }
+    },
+    "required": [
+      "petId"
+    ],
+    "type": "object"
+  },
+  "method": "get",
+  "path": "/pet/{petId}"
+}

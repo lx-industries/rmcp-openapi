@@ -1,0 +1,38 @@
+[package]
+name = "rmcp-openapi"
+version = "0.1.0"
+edition = "2024"
+description = "Expose OpenAPI definition endpoints as MCP tools"
+license = "MIT"
+repository = "https://gitlab.com/lx-industries/rmcp-openapi"
+homepage = "https://gitlab.com/lx-industries/rmcp-openapi"
+readme = "README.md"
+keywords = ["mcp", "openapi", "llm"]
+categories = ["network-programming", "web-programming"]
+
+[lib]
+name = "rmcp_openapi"
+path = "src/lib.rs"
+
+[dependencies]
+rmcp = { version = "0.2.1", features = ["server"] }
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+regex = "1.0"
+
+[dev-dependencies]
+rmcp = { version = "0.2.1", features = [
+    "server",
+    "transport-sse-server",
+    "transport-child-process",
+    "transport-streamable-http-server",
+] }
+insta = { version = "1.43.1", features = ["json"] }
+anyhow = "1.0"
+tokio-util = "0.7"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = "0.1"
+axum = { version = "0.8", features = [] }

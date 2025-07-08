@@ -1,0 +1,92 @@
+---
+source: tests/test_with_js.rs
+expression: responses
+---
+[
+  {
+    "tools": [
+      {
+        "description": "Add a new pet to the store\n\nAdd a new pet to the store\n\nEndpoint: POST /pet",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "request_body": {
+              "additionalProperties": true,
+              "description": "Request body data (JSON)",
+              "type": "object",
+              "x-content-type": "application/json",
+              "x-location": "body"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "name": "addPet"
+      },
+      {
+        "description": "Finds Pets by status\n\nMultiple status values can be provided with comma separated strings\n\nEndpoint: GET /pet/findByStatus",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "description": "Status values that need to be considered for filter",
+              "items": {
+                "enum": [
+                  "available",
+                  "pending",
+                  "sold"
+                ],
+                "type": "string"
+              },
+              "type": "array",
+              "x-parameter-location": "query",
+              "x-parameter-required": true
+            },
+            "timeout_seconds": {
+              "default": 30,
+              "description": "Request timeout in seconds",
+              "maximum": 300,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        "name": "findPetsByStatus"
+      },
+      {
+        "description": "Find pet by ID\n\nReturns a single pet\n\nEndpoint: GET /pet/{petId}",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "petId": {
+              "description": "ID of pet to return",
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer",
+              "x-parameter-location": "path",
+              "x-parameter-required": true
+            }
+          },
+          "required": [
+            "petId"
+          ],
+          "type": "object"
+        },
+        "name": "getPetById"
+      }
+    ]
+  },
+  {
+    "resources": []
+  },
+  {
+    "resourceTemplates": []
+  },
+  {
+    "prompts": []
+  }
+]

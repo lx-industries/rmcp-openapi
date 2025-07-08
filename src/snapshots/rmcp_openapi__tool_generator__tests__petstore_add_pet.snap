@@ -1,0 +1,24 @@
+---
+source: src/tool_generator.rs
+expression: metadata
+---
+{
+  "name": "addPet",
+  "description": "Add a new pet to the store\n\nAdd a new pet to the store\n\nEndpoint: POST /pet",
+  "parameters": {
+    "additionalProperties": false,
+    "properties": {
+      "request_body": {
+        "additionalProperties": true,
+        "description": "Request body data (JSON)",
+        "type": "object",
+        "x-content-type": "application/json",
+        "x-location": "body"
+      }
+    },
+    "required": [],
+    "type": "object"
+  },
+  "method": "post",
+  "path": "/pet"
+}
