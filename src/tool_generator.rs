@@ -531,6 +531,41 @@ impl Default for RequestConfig {
 mod tests {
     use super::*;
     use openapiv3::*;
+    use serde_json::{Value, json};
+
+    fn validate_tool_against_mcp_schema(metadata: &ToolMetadata) {
+        let schema_content = std::fs::read_to_string("schema/2025-03-26/schema.json")
+            .expect("Failed to read MCP schema file");
+        let full_schema: Value =
+            serde_json::from_str(&schema_content).expect("Failed to parse MCP schema JSON");
+
+        // Create a schema that references the Tool definition from the full schema
+        let tool_schema = json!({
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "definitions": full_schema.get("definitions"),
+            "$ref": "#/definitions/Tool"
+        });
+
+        let validator =
+            jsonschema::validator_for(&tool_schema).expect("Failed to compile MCP Tool schema");
+
+        // Convert ToolMetadata to MCP Tool format
+        let mcp_tool = json!({
+            "name": metadata.name,
+            "description": metadata.description,
+            "inputSchema": metadata.parameters
+        });
+
+        // Validate the generated tool against MCP schema
+        let errors: Vec<String> = validator
+            .iter_errors(&mcp_tool)
+            .map(|e| e.to_string())
+            .collect();
+
+        if !errors.is_empty() {
+            panic!("Generated tool failed MCP schema validation: {errors:?}");
+        }
+    }
 
     #[test]
     fn test_petstore_get_pet_by_id() {
@@ -583,5 +618,8 @@ mod tests {
         assert_eq!(metadata.method, "get");
         assert_eq!(metadata.path, "/pet/{petId}");
         assert!(metadata.description.contains("Find pet by ID"));
+
+        // Validate against MCP Tool schema
+        validate_tool_against_mcp_schema(&metadata);
     }
 }
