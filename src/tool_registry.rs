@@ -1,5 +1,5 @@
 use crate::error::OpenApiError;
-use crate::openapi_spec::{OpenApiOperation, OpenApiSpec};
+use crate::openapi_spec::OpenApiSpec;
 use crate::server::ToolMetadata;
 use std::collections::HashMap;
 
@@ -9,7 +9,7 @@ pub struct ToolRegistry {
     /// Map of tool name to tool metadata
     tools: HashMap<String, ToolMetadata>,
     /// Map of tool name to OpenAPI operation for runtime lookup
-    operations: HashMap<String, OpenApiOperation>,
+    operations: HashMap<String, (openapiv3::Operation, String, String)>,
     /// Source OpenAPI spec for reference
     spec: Option<OpenApiSpec>,
 }
@@ -36,8 +36,8 @@ impl ToolRegistry {
         // Register each tool
         for tool in tools_metadata {
             // Find corresponding operation
-            if let Some(operation) = spec.get_operation(&tool.name) {
-                self.register_tool(tool, operation.clone())?;
+            if let Some((operation, method, path)) = spec.get_operation(&tool.name) {
+                self.register_tool(tool, (operation.clone(), method, path))?;
                 registered_count += 1;
             }
         }
@@ -52,7 +52,7 @@ impl ToolRegistry {
     pub fn register_tool(
         &mut self,
         tool: ToolMetadata,
-        operation: OpenApiOperation,
+        operation: (openapiv3::Operation, String, String),
     ) -> Result<(), OpenApiError> {
         let tool_name = tool.name.clone();
 
@@ -103,7 +103,10 @@ impl ToolRegistry {
     }
 
     /// Get operation by tool name
-    pub fn get_operation(&self, tool_name: &str) -> Option<&OpenApiOperation> {
+    pub fn get_operation(
+        &self,
+        tool_name: &str,
+    ) -> Option<&(openapiv3::Operation, String, String)> {
         self.operations.get(tool_name)
     }
 

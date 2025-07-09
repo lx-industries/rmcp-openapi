@@ -783,6 +783,7 @@ checksum = "fe4cd85333e22411419a0bcae1297d25e58c9443848b11dc6a86fefe8c78a661"
 dependencies = [
  "equivalent",
  "hashbrown",
+ "serde",
 ]
 
 [[package]]
@@ -979,6 +980,17 @@ name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+
+[[package]]
+name = "openapiv3"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c8d427828b22ae1fff2833a03d8486c2c881367f1c336349f307f321e7f4d05"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "openssl"
@@ -1330,7 +1342,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "indexmap",
  "insta",
+ "openapiv3",
  "regex",
  "reqwest",
  "rmcp",

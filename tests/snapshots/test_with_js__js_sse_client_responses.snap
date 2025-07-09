@@ -31,11 +31,6 @@ expression: responses
             "status": {
               "description": "Status values that need to be considered for filter",
               "items": {
-                "enum": [
-                  "available",
-                  "pending",
-                  "sold"
-                ],
                 "type": "string"
               },
               "type": "array",
@@ -64,7 +59,7 @@ expression: responses
           "properties": {
             "petId": {
               "description": "ID of pet to return",
-              "format": "int64",
+              "format": "Int64",
               "minimum": 1,
               "type": "integer",
               "x-parameter-location": "path",

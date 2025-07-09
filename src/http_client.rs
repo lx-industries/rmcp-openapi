@@ -347,16 +347,6 @@ impl HttpClient {
         Ok(request)
     }
 
-    /// Process the HTTP response into our response format
-    #[allow(dead_code)]
-    async fn process_response(
-        &self,
-        response: reqwest::Response,
-    ) -> Result<HttpResponse, OpenApiError> {
-        self.process_response_with_request(response, "", "", "")
-            .await
-    }
-
     /// Process the HTTP response with request details for better formatting
     async fn process_response_with_request(
         &self,
