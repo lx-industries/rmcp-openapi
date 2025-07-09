@@ -5,7 +5,7 @@ use rmcp_openapi::OpenApiServer;
 /// Create a test OpenApiServer with Petstore spec
 #[allow(dead_code)]
 pub async fn create_test_server() -> anyhow::Result<OpenApiServer> {
-    let spec_content = include_str!("petstore_spec.json");
+    let spec_content = include_str!("../assets/petstore-openapi.json");
     let mut server = OpenApiServer::new("test://petstore".to_string());
 
     // Parse the embedded spec
@@ -19,7 +19,7 @@ pub async fn create_test_server() -> anyhow::Result<OpenApiServer> {
 /// Create a test OpenApiServer with Petstore spec for MCP tests
 #[allow(dead_code)]
 pub async fn create_petstore_mcp_server() -> anyhow::Result<OpenApiServer> {
-    let spec_content = include_str!("petstore_spec.json");
+    let spec_content = include_str!("../assets/petstore-openapi.json");
     let mut server = OpenApiServer::new("test://petstore".to_string());
 
     // Parse the embedded spec
@@ -32,7 +32,7 @@ pub async fn create_petstore_mcp_server() -> anyhow::Result<OpenApiServer> {
 
 /// Create a petstore server synchronously for use with MCP service providers
 pub fn create_petstore_mcp_server_sync() -> OpenApiServer {
-    let spec_content = include_str!("petstore_spec.json");
+    let spec_content = include_str!("../assets/petstore-openapi.json");
     let mut server = OpenApiServer::new("test://petstore".to_string());
 
     // Parse the embedded spec

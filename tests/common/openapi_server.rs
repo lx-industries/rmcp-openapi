@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 /// Helper to create an OpenAPI server for testing
 #[allow(dead_code)]
 pub async fn create_petstore_server(base_url: Option<String>) -> anyhow::Result<OpenApiServer> {
-    let spec_content = include_str!("petstore_spec.json");
+    let spec_content = include_str!("../assets/petstore-openapi.json");
 
     let server = if let Some(url) = base_url {
         OpenApiServer::with_base_url("test://petstore".to_string(), url)
@@ -34,7 +34,7 @@ pub async fn start_sse_server_with_petstore(
     let ct = SseServer::serve(bind_addr.parse()?)
         .await?
         .with_service(move || {
-            let spec_content = include_str!("petstore_spec.json");
+            let spec_content = include_str!("../assets/petstore-openapi.json");
             let mut server = if let Some(ref url) = base_url {
                 OpenApiServer::with_base_url("test://petstore".to_string(), url.clone())
             } else {
