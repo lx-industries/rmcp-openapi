@@ -2,6 +2,7 @@ use crate::error::OpenApiError;
 use crate::server::ToolMetadata;
 use crate::tool_generator::ToolGenerator;
 use openapiv3::OpenAPI;
+use reqwest::Method;
 use serde_json::Value;
 
 /// OpenAPI specification wrapper that provides convenience methods
@@ -49,14 +50,14 @@ impl OpenApiSpec {
 
             // Handle operations in the path item
             let operations = [
-                ("get", &path_item.get),
-                ("post", &path_item.post),
-                ("put", &path_item.put),
-                ("delete", &path_item.delete),
-                ("patch", &path_item.patch),
-                ("head", &path_item.head),
-                ("options", &path_item.options),
-                ("trace", &path_item.trace),
+                (Method::GET, &path_item.get),
+                (Method::POST, &path_item.post),
+                (Method::PUT, &path_item.put),
+                (Method::DELETE, &path_item.delete),
+                (Method::PATCH, &path_item.patch),
+                (Method::HEAD, &path_item.head),
+                (Method::OPTIONS, &path_item.options),
+                (Method::TRACE, &path_item.trace),
             ];
 
             for (method, operation_ref) in operations {
@@ -87,14 +88,14 @@ impl OpenApiSpec {
             };
 
             let operations = [
-                ("get", &path_item.get),
-                ("post", &path_item.post),
-                ("put", &path_item.put),
-                ("delete", &path_item.delete),
-                ("patch", &path_item.patch),
-                ("head", &path_item.head),
-                ("options", &path_item.options),
-                ("trace", &path_item.trace),
+                (Method::GET, &path_item.get),
+                (Method::POST, &path_item.post),
+                (Method::PUT, &path_item.put),
+                (Method::DELETE, &path_item.delete),
+                (Method::PATCH, &path_item.patch),
+                (Method::HEAD, &path_item.head),
+                (Method::OPTIONS, &path_item.options),
+                (Method::TRACE, &path_item.trace),
             ];
 
             for (method, operation_ref) in operations {
@@ -127,14 +128,14 @@ impl OpenApiSpec {
             };
 
             let operations = [
-                ("get", &path_item.get),
-                ("post", &path_item.post),
-                ("put", &path_item.put),
-                ("delete", &path_item.delete),
-                ("patch", &path_item.patch),
-                ("head", &path_item.head),
-                ("options", &path_item.options),
-                ("trace", &path_item.trace),
+                (Method::GET, &path_item.get),
+                (Method::POST, &path_item.post),
+                (Method::PUT, &path_item.put),
+                (Method::DELETE, &path_item.delete),
+                (Method::PATCH, &path_item.patch),
+                (Method::HEAD, &path_item.head),
+                (Method::OPTIONS, &path_item.options),
+                (Method::TRACE, &path_item.trace),
             ];
 
             for (method, operation_ref) in operations {

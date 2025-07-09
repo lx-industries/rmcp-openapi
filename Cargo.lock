@@ -1344,6 +1344,7 @@ dependencies = [
  "axum",
  "indexmap",
  "insta",
+ "mime",
  "openapiv3",
  "regex",
  "reqwest",

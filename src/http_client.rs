@@ -1,4 +1,5 @@
-use reqwest::{Client, Method, RequestBuilder};
+use reqwest::header;
+use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -277,7 +278,7 @@ impl HttpClient {
                 .collect::<Vec<_>>()
                 .join("; ");
 
-            request = request.header("Cookie", cookie_header);
+            request = request.header(header::COOKIE, cookie_header);
         }
         Ok(request)
     }
@@ -294,11 +295,11 @@ impl HttpClient {
         }
 
         // Set content type header
-        request = request.header("Content-Type", &config.content_type);
+        request = request.header(header::CONTENT_TYPE, &config.content_type);
 
         // Handle different content types
         match config.content_type.as_str() {
-            "application/json" => {
+            s if s == mime::APPLICATION_JSON.as_ref() => {
                 // For JSON content type, serialize the body
                 if body.len() == 1 && body.contains_key("request_body") {
                     // Use the request_body directly if it's the only parameter
@@ -317,7 +318,7 @@ impl HttpClient {
                     request = request.body(json_string);
                 }
             }
-            "application/x-www-form-urlencoded" => {
+            s if s == mime::APPLICATION_WWW_FORM_URLENCODED.as_ref() => {
                 // Handle form data
                 let form_data: Vec<(String, String)> = body
                     .iter()
@@ -377,22 +378,40 @@ impl HttpClient {
         let status_text = status.canonical_reason().unwrap_or("Unknown").to_string();
 
         // Add additional context for common error status codes
-        let enhanced_status_text = match status_code {
-            400 => format!("{status_text} - Bad Request: Check request parameters"),
-            401 => format!("{status_text} - Unauthorized: Authentication required"),
-            403 => format!("{status_text} - Forbidden: Access denied"),
-            404 => format!("{status_text} - Not Found: Endpoint or resource does not exist"),
-            405 => format!(
+        let enhanced_status_text = match status {
+            StatusCode::BAD_REQUEST => {
+                format!("{status_text} - Bad Request: Check request parameters")
+            }
+            StatusCode::UNAUTHORIZED => {
+                format!("{status_text} - Unauthorized: Authentication required")
+            }
+            StatusCode::FORBIDDEN => format!("{status_text} - Forbidden: Access denied"),
+            StatusCode::NOT_FOUND => {
+                format!("{status_text} - Not Found: Endpoint or resource does not exist")
+            }
+            StatusCode::METHOD_NOT_ALLOWED => format!(
                 "{} - Method Not Allowed: {} method not supported",
                 status_text,
                 method.to_uppercase()
             ),
-            422 => format!("{status_text} - Unprocessable Entity: Request validation failed"),
-            429 => format!("{status_text} - Too Many Requests: Rate limit exceeded"),
-            500 => format!("{status_text} - Internal Server Error: Server encountered an error"),
-            502 => format!("{status_text} - Bad Gateway: Upstream server error"),
-            503 => format!("{status_text} - Service Unavailable: Server temporarily unavailable"),
-            504 => format!("{status_text} - Gateway Timeout: Upstream server timeout"),
+            StatusCode::UNPROCESSABLE_ENTITY => {
+                format!("{status_text} - Unprocessable Entity: Request validation failed")
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                format!("{status_text} - Too Many Requests: Rate limit exceeded")
+            }
+            StatusCode::INTERNAL_SERVER_ERROR => {
+                format!("{status_text} - Internal Server Error: Server encountered an error")
+            }
+            StatusCode::BAD_GATEWAY => {
+                format!("{status_text} - Bad Gateway: Upstream server error")
+            }
+            StatusCode::SERVICE_UNAVAILABLE => {
+                format!("{status_text} - Service Unavailable: Server temporarily unavailable")
+            }
+            StatusCode::GATEWAY_TIMEOUT => {
+                format!("{status_text} - Gateway Timeout: Upstream server timeout")
+            }
             _ => status_text,
         };
 
@@ -496,9 +515,14 @@ impl HttpResponse {
             result.push_str("\nHeaders:\n");
             for (key, value) in &self.headers {
                 // Only show commonly useful headers
-                if ["content-type", "content-length", "location", "set-cookie"]
-                    .iter()
-                    .any(|&h| key.to_lowercase().contains(h))
+                if [
+                    header::CONTENT_TYPE.as_str(),
+                    header::CONTENT_LENGTH.as_str(),
+                    header::LOCATION.as_str(),
+                    header::SET_COOKIE.as_str(),
+                ]
+                .iter()
+                .any(|&h| key.to_lowercase().contains(h))
                 {
                     result.push_str(&format!("  {key}: {value}\n"));
                 }

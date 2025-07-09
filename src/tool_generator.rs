@@ -151,7 +151,7 @@ impl ToolGenerator {
                     "description": "Request body data (JSON)",
                     "additionalProperties": true,
                     "x-location": "body",
-                    "x-content-type": "application/json"
+                    "x-content-type": mime::APPLICATION_JSON.as_ref()
                 }),
             );
         }
@@ -522,7 +522,7 @@ impl Default for RequestConfig {
     fn default() -> Self {
         Self {
             timeout_seconds: 30,
-            content_type: "application/json".to_string(),
+            content_type: mime::APPLICATION_JSON.to_string(),
         }
     }
 }
@@ -534,10 +534,12 @@ mod tests {
 
     #[test]
     fn test_petstore_get_pet_by_id() {
-        let mut operation = Operation::default();
-        operation.operation_id = Some("getPetById".to_string());
-        operation.summary = Some("Find pet by ID".to_string());
-        operation.description = Some("Returns a single pet".to_string());
+        let mut operation = Operation {
+            operation_id: Some("getPetById".to_string()),
+            summary: Some("Find pet by ID".to_string()),
+            description: Some("Returns a single pet".to_string()),
+            ..Default::default()
+        };
 
         // Create a path parameter
         let param_data = ParameterData {
