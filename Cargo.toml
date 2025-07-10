@@ -1,6 +1,6 @@
 [package]
 name = "rmcp-openapi"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Expose OpenAPI definition endpoints as MCP tools"
 license = "MIT"
