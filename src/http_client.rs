@@ -110,6 +110,19 @@ impl HttpClient {
             String::new()
         };
 
+        // Build the final URL with query parameters for logging
+        let final_url = if !extracted_params.query.is_empty() {
+            let mut final_url = url.clone();
+            let query_string = self.build_query_string(&extracted_params.query);
+            if !query_string.is_empty() {
+                final_url.push('?');
+                final_url.push_str(&query_string);
+            }
+            final_url
+        } else {
+            url.clone()
+        };
+
         // Execute the request
         let response = request.send().await.map_err(|e| {
             // Provide more specific error information
@@ -145,7 +158,7 @@ impl HttpClient {
         self.process_response_with_request(
             response,
             &tool_metadata.method,
-            &url,
+            &final_url,
             &request_body_string,
         )
         .await
@@ -216,27 +229,61 @@ impl HttpClient {
         query_params: &HashMap<String, Value>,
     ) -> Result<RequestBuilder, OpenApiError> {
         for (key, value) in query_params {
-            let value_str = match value {
-                Value::String(s) => s.clone(),
-                Value::Number(n) => n.to_string(),
-                Value::Bool(b) => b.to_string(),
+            match value {
                 Value::Array(arr) => {
-                    // Handle array parameters (comma-separated for now)
-                    arr.iter()
-                        .map(|v| match v {
+                    // Handle array parameters - add each value as a separate query parameter
+                    for item in arr {
+                        let item_str = match item {
                             Value::String(s) => s.clone(),
                             Value::Number(n) => n.to_string(),
                             Value::Bool(b) => b.to_string(),
-                            _ => v.to_string(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join(",")
+                            _ => item.to_string(),
+                        };
+                        request = request.query(&[(key, item_str)]);
+                    }
                 }
-                _ => value.to_string(),
-            };
-            request = request.query(&[(key, value_str)]);
+                _ => {
+                    let value_str = match value {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        _ => value.to_string(),
+                    };
+                    request = request.query(&[(key, value_str)]);
+                }
+            }
         }
         Ok(request)
+    }
+
+    /// Build query string from query parameters
+    fn build_query_string(&self, query_params: &HashMap<String, Value>) -> String {
+        let mut query_parts = Vec::new();
+        for (key, value) in query_params {
+            match value {
+                Value::Array(arr) => {
+                    for item in arr {
+                        let item_str = match item {
+                            Value::String(s) => s.clone(),
+                            Value::Number(n) => n.to_string(),
+                            Value::Bool(b) => b.to_string(),
+                            _ => item.to_string(),
+                        };
+                        query_parts.push(format!("{key}={item_str}"));
+                    }
+                }
+                _ => {
+                    let value_str = match value {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        _ => value.to_string(),
+                    };
+                    query_parts.push(format!("{key}={value_str}"));
+                }
+            }
+        }
+        query_parts.join("&")
     }
 
     /// Add headers to the request
