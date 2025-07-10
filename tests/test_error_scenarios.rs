@@ -1,6 +1,7 @@
 use rmcp_openapi::{HttpClient, OpenApiServer};
 use serde_json::json;
 use std::env;
+use url::Url;
 
 mod common;
 use common::mock_server::MockPetstoreServer;
@@ -20,8 +21,8 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
     let non_existent_pet_id = 999999u64;
 
     if should_use_live_api() {
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
             .registry
@@ -43,7 +44,7 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
         let _mock = mock_server.mock_get_pet_by_id_not_found(non_existent_pet_id);
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
             .registry
@@ -73,8 +74,8 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
     if should_use_live_api() {
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
             .registry
@@ -101,7 +102,7 @@ async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
         let _mock = mock_server.mock_add_pet_validation_error();
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
             .registry
@@ -140,7 +141,7 @@ async fn test_http_500_server_error() -> anyhow::Result<()> {
     let _mock = mock_server.mock_server_error("/pet/123");
 
     let server = create_server_with_base_url(mock_server.base_url()).await?;
-    let client = HttpClient::new().with_base_url(mock_server.base_url());
+    let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
         .registry
@@ -171,10 +172,10 @@ async fn test_http_500_server_error() -> anyhow::Result<()> {
 async fn test_network_connection_error() -> anyhow::Result<()> {
     // Test with an invalid/unreachable URL to simulate connection failure
     let server =
-        create_server_with_base_url("http://invalid-host-that-does-not-exist.com".to_string())
+        create_server_with_base_url(Url::parse("http://invalid-host-that-does-not-exist.com")?)
             .await?;
-    let client =
-        HttpClient::new().with_base_url("http://invalid-host-that-does-not-exist.com".to_string());
+    let client = HttpClient::new()
+        .with_base_url(Url::parse("http://invalid-host-that-does-not-exist.com")?)?;
 
     let tool_metadata = server
         .registry
@@ -202,8 +203,8 @@ async fn test_network_connection_error() -> anyhow::Result<()> {
 /// Test missing required parameter validation
 #[tokio::test]
 async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url("http://example.com".to_string()).await?;
-    let client = HttpClient::new().with_base_url("http://example.com".to_string());
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
         .registry
@@ -228,8 +229,8 @@ async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
 /// Test type validation error (string for integer parameter)
 #[tokio::test]
 async fn test_type_validation_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url("http://example.com".to_string()).await?;
-    let client = HttpClient::new().with_base_url("http://example.com".to_string());
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
         .registry
@@ -266,8 +267,8 @@ async fn test_type_validation_error() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
     if should_use_live_api() {
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
             .registry
@@ -290,7 +291,7 @@ async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
         let _mock = mock_server.mock_find_pets_by_status("available");
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
             .registry
@@ -327,7 +328,7 @@ async fn test_non_json_response_handling() -> anyhow::Result<()> {
         .create();
 
     let server = create_server_with_base_url(mock_server.base_url()).await?;
-    let client = HttpClient::new().with_base_url(mock_server.base_url());
+    let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
         .registry
@@ -368,7 +369,7 @@ async fn test_malformed_json_response_handling() -> anyhow::Result<()> {
         .create();
 
     let server = create_server_with_base_url(mock_server.base_url()).await?;
-    let client = HttpClient::new().with_base_url(mock_server.base_url());
+    let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
         .registry
@@ -409,7 +410,7 @@ async fn test_empty_response_handling() -> anyhow::Result<()> {
         .create();
 
     let server = create_server_with_base_url(mock_server.base_url()).await?;
-    let client = HttpClient::new().with_base_url(mock_server.base_url());
+    let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     // For this test, we'll manually create a DELETE request since deletePet might not be in our spec
     // Instead, let's test with a tool that exists and simulate 204 response
@@ -475,7 +476,7 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
         .create();
 
     let server = create_server_with_base_url(mock_server.base_url()).await?;
-    let client = HttpClient::new().with_base_url(mock_server.base_url());
+    let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
         .registry
@@ -507,9 +508,10 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
 }
 
 /// Helper function to create a server with a specific base URL
-async fn create_server_with_base_url(base_url: String) -> anyhow::Result<OpenApiServer> {
+async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     let spec_content = include_str!("assets/petstore-openapi.json");
-    let mut server = OpenApiServer::new(base_url);
+    let spec_url = Url::parse("test://petstore")?;
+    let mut server = OpenApiServer::with_base_url(spec_url, base_url)?;
 
     // Parse the embedded spec
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;

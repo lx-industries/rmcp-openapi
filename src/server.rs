@@ -9,6 +9,7 @@ use rmcp::{
 };
 use serde_json::Value;
 use std::sync::Arc;
+use url::Url;
 
 use crate::error::OpenApiError;
 use crate::http_client::HttpClient;
@@ -16,10 +17,10 @@ use crate::openapi_spec::OpenApiSpec;
 use crate::tool_registry::ToolRegistry;
 
 pub struct OpenApiServer {
-    pub spec_url: String,
+    pub spec_url: Url,
     pub registry: ToolRegistry,
     pub http_client: HttpClient,
-    pub base_url: Option<String>,
+    pub base_url: Option<Url>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -32,7 +33,7 @@ pub struct ToolMetadata {
 }
 
 impl OpenApiServer {
-    pub fn new(spec_url: String) -> Self {
+    pub fn new(spec_url: Url) -> Self {
         Self {
             spec_url,
             registry: ToolRegistry::new(),
@@ -42,22 +43,22 @@ impl OpenApiServer {
     }
 
     /// Create a new server with a base URL for API calls
-    pub fn with_base_url(spec_url: String, base_url: String) -> Self {
-        let http_client = HttpClient::new().with_base_url(base_url.clone());
-        Self {
+    pub fn with_base_url(spec_url: Url, base_url: Url) -> Result<Self, OpenApiError> {
+        let http_client = HttpClient::new().with_base_url(base_url.clone())?;
+        Ok(Self {
             spec_url,
             registry: ToolRegistry::new(),
             http_client,
             base_url: Some(base_url),
-        }
+        })
     }
 
     pub async fn load_openapi_spec(&mut self) -> Result<(), OpenApiError> {
         // Load the OpenAPI specification
-        let spec = if self.spec_url.starts_with("http") {
+        let spec = if self.spec_url.scheme() == "http" || self.spec_url.scheme() == "https" {
             OpenApiSpec::from_url(&self.spec_url).await?
         } else {
-            OpenApiSpec::from_file(&self.spec_url).await?
+            OpenApiSpec::from_file(self.spec_url.as_str()).await?
         };
 
         // Register tools from the spec

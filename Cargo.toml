@@ -25,6 +25,7 @@ regex = "1.0"
 openapiv3 = "2.2.0"
 indexmap = "2.0"
 mime = "0.3.17"
+url = "2.5.4"
 
 [dev-dependencies]
 rmcp = { version = "0.2.1", features = [

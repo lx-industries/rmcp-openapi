@@ -1,4 +1,5 @@
 use mockito::Server;
+use url::Url;
 
 /// Mock Petstore server for controlled testing
 ///
@@ -21,8 +22,8 @@ impl MockPetstoreServer {
     }
 
     /// Get the base URL for the mock server
-    pub fn base_url(&self) -> String {
-        self.server.url()
+    pub fn base_url(&self) -> Url {
+        Url::parse(&self.server.url()).expect("Mock server URL should be valid")
     }
 }
 

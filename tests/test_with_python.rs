@@ -1,6 +1,7 @@
 use rmcp::transport::SseServer;
 use rmcp_openapi::OpenApiServer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use url::Url;
 
 mod common;
 use common::mock_server::MockPetstoreServer;
@@ -8,16 +9,17 @@ use mockito::Mock;
 use serde_json::json;
 
 /// Create a petstore server with base URL for HTTP requests
-fn create_petstore_mcp_server_with_base_url(base_url: String) -> OpenApiServer {
+fn create_petstore_mcp_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     let spec_content = include_str!("assets/petstore-openapi.json");
-    let mut server = OpenApiServer::with_base_url("test://petstore".to_string(), base_url);
+    let spec_url = Url::parse("test://petstore")?;
+    let mut server = OpenApiServer::with_base_url(spec_url, base_url)?;
 
     // Parse the embedded spec
     let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
     let spec = rmcp_openapi::openapi_spec::OpenApiSpec::from_value(json_value).unwrap();
     server.registry.register_from_spec(spec).unwrap();
 
-    server
+    Ok(server)
 }
 
 async fn init() -> anyhow::Result<()> {
@@ -57,7 +59,7 @@ async fn test_with_python_client() -> anyhow::Result<()> {
     let base_url = mock_server.base_url();
     let ct = SseServer::serve(BIND_ADDRESS.parse()?)
         .await?
-        .with_service(move || create_petstore_mcp_server_with_base_url(base_url.clone()));
+        .with_service(move || create_petstore_mcp_server_with_base_url(base_url.clone()).unwrap());
 
     let output = tokio::process::Command::new("uv")
         .arg("run")

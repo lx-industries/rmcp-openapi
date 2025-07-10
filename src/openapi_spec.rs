@@ -4,6 +4,7 @@ use crate::tool_generator::ToolGenerator;
 use openapiv3::OpenAPI;
 use reqwest::Method;
 use serde_json::Value;
+use url::Url;
 
 /// OpenAPI specification wrapper that provides convenience methods
 /// for working with openapiv3::OpenAPI
@@ -14,9 +15,9 @@ pub struct OpenApiSpec {
 
 impl OpenApiSpec {
     /// Load and parse an OpenAPI specification from a URL
-    pub async fn from_url(url: &str) -> Result<Self, OpenApiError> {
+    pub async fn from_url(url: &Url) -> Result<Self, OpenApiError> {
         let client = reqwest::Client::new();
-        let response = client.get(url).send().await?;
+        let response = client.get(url.clone()).send().await?;
         let text = response.text().await?;
         let spec: OpenAPI = serde_json::from_str(&text)?;
 

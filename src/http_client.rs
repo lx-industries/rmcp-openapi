@@ -3,6 +3,7 @@ use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::time::Duration;
+use url::Url;
 
 use crate::error::OpenApiError;
 use crate::server::ToolMetadata;
@@ -11,7 +12,7 @@ use crate::tool_generator::{ExtractedParameters, ToolGenerator};
 /// HTTP client for executing OpenAPI requests
 pub struct HttpClient {
     client: Client,
-    base_url: Option<String>,
+    base_url: Option<Url>,
 }
 
 impl HttpClient {
@@ -42,9 +43,9 @@ impl HttpClient {
     }
 
     /// Set the base URL for all requests
-    pub fn with_base_url(mut self, base_url: String) -> Self {
+    pub fn with_base_url(mut self, base_url: Url) -> Result<Self, OpenApiError> {
         self.base_url = Some(base_url);
-        self
+        Ok(self)
     }
 
     /// Execute an OpenAPI tool call
@@ -57,15 +58,15 @@ impl HttpClient {
         let extracted_params = ToolGenerator::extract_parameters(tool_metadata, arguments)?;
 
         // Build the URL with path parameters
-        let url = self.build_url(tool_metadata, &extracted_params)?;
+        let mut url = self.build_url(tool_metadata, &extracted_params)?;
+
+        // Add query parameters with proper URL encoding
+        if !extracted_params.query.is_empty() {
+            self.add_query_parameters(&mut url, &extracted_params.query)?;
+        }
 
         // Create the HTTP request
         let mut request = self.create_request(&tool_metadata.method, &url)?;
-
-        // Add query parameters
-        if !extracted_params.query.is_empty() {
-            request = self.add_query_parameters(request, &extracted_params.query)?;
-        }
 
         // Add headers
         if !extracted_params.headers.is_empty() {
@@ -110,18 +111,8 @@ impl HttpClient {
             String::new()
         };
 
-        // Build the final URL with query parameters for logging
-        let final_url = if !extracted_params.query.is_empty() {
-            let mut final_url = url.clone();
-            let query_string = self.build_query_string(&extracted_params.query);
-            if !query_string.is_empty() {
-                final_url.push('?');
-                final_url.push_str(&query_string);
-            }
-            final_url
-        } else {
-            url.clone()
-        };
+        // Get the final URL for logging
+        let final_url = url.to_string();
 
         // Execute the request
         let response = request.send().await.map_err(|e| {
@@ -131,24 +122,24 @@ impl HttpClient {
                     "Request timeout after {} seconds while calling {} {}",
                     extracted_params.config.timeout_seconds,
                     tool_metadata.method.to_uppercase(),
-                    url
+                    final_url
                 ))
             } else if e.is_connect() {
                 OpenApiError::Http(format!(
-                    "Connection failed to {url} - check if the server is running and the URL is correct"
+                    "Connection failed to {final_url} - check if the server is running and the URL is correct"
                 ))
             } else if e.is_request() {
                 OpenApiError::Http(format!(
                     "Request error: {} (URL: {}, Method: {})",
                     e,
-                    url,
+                    final_url,
                     tool_metadata.method.to_uppercase()
                 ))
             } else {
                 OpenApiError::Http(format!(
                     "HTTP request failed: {} (URL: {}, Method: {})",
                     e,
-                    url,
+                    final_url,
                     tool_metadata.method.to_uppercase()
                 ))
             }
@@ -169,7 +160,7 @@ impl HttpClient {
         &self,
         tool_metadata: &ToolMetadata,
         extracted_params: &ExtractedParameters,
-    ) -> Result<String, OpenApiError> {
+    ) -> Result<Url, OpenApiError> {
         let mut path = tool_metadata.path.clone();
 
         // Substitute path parameters
@@ -186,13 +177,16 @@ impl HttpClient {
 
         // Combine with base URL if available
         if let Some(base_url) = &self.base_url {
-            let base = base_url.trim_end_matches('/');
-            let path = path.trim_start_matches('/');
-            Ok(format!("{base}/{path}"))
+            base_url.join(&path).map_err(|e| {
+                OpenApiError::Http(format!(
+                    "Failed to join URL '{base_url}' with path '{path}': {e}"
+                ))
+            })
         } else {
             // Assume the path is already a complete URL
             if path.starts_with("http") {
-                Ok(path)
+                Url::parse(&path)
+                    .map_err(|e| OpenApiError::Http(format!("Invalid URL '{path}': {e}")))
             } else {
                 Err(OpenApiError::Http(
                     "No base URL configured and path is not a complete URL".to_string(),
@@ -202,7 +196,7 @@ impl HttpClient {
     }
 
     /// Create a new HTTP request with the specified method and URL
-    fn create_request(&self, method: &str, url: &str) -> Result<RequestBuilder, OpenApiError> {
+    fn create_request(&self, method: &str, url: &Url) -> Result<RequestBuilder, OpenApiError> {
         let http_method = method.to_uppercase();
         let method = match http_method.as_str() {
             "GET" => Method::GET,
@@ -214,76 +208,49 @@ impl HttpClient {
             "OPTIONS" => Method::OPTIONS,
             _ => {
                 return Err(OpenApiError::Http(format!(
-                    "Unsupported HTTP method: {method}"
+                    "Unsupported HTTP method: {http_method}"
                 )));
             }
         };
 
-        Ok(self.client.request(method, url))
+        Ok(self.client.request(method, url.clone()))
     }
 
-    /// Add query parameters to the request
+    /// Add query parameters to the request using proper URL encoding
     fn add_query_parameters(
         &self,
-        mut request: RequestBuilder,
+        url: &mut Url,
         query_params: &HashMap<String, Value>,
-    ) -> Result<RequestBuilder, OpenApiError> {
-        for (key, value) in query_params {
-            match value {
-                Value::Array(arr) => {
-                    // Handle array parameters - add each value as a separate query parameter
-                    for item in arr {
-                        let item_str = match item {
+    ) -> Result<(), OpenApiError> {
+        {
+            let mut query_pairs = url.query_pairs_mut();
+            for (key, value) in query_params {
+                match value {
+                    Value::Array(arr) => {
+                        // Handle array parameters - add each value as a separate query parameter
+                        for item in arr {
+                            let item_str = match item {
+                                Value::String(s) => s.clone(),
+                                Value::Number(n) => n.to_string(),
+                                Value::Bool(b) => b.to_string(),
+                                _ => item.to_string(),
+                            };
+                            query_pairs.append_pair(key, &item_str);
+                        }
+                    }
+                    _ => {
+                        let value_str = match value {
                             Value::String(s) => s.clone(),
                             Value::Number(n) => n.to_string(),
                             Value::Bool(b) => b.to_string(),
-                            _ => item.to_string(),
+                            _ => value.to_string(),
                         };
-                        request = request.query(&[(key, item_str)]);
+                        query_pairs.append_pair(key, &value_str);
                     }
-                }
-                _ => {
-                    let value_str = match value {
-                        Value::String(s) => s.clone(),
-                        Value::Number(n) => n.to_string(),
-                        Value::Bool(b) => b.to_string(),
-                        _ => value.to_string(),
-                    };
-                    request = request.query(&[(key, value_str)]);
                 }
             }
         }
-        Ok(request)
-    }
-
-    /// Build query string from query parameters
-    fn build_query_string(&self, query_params: &HashMap<String, Value>) -> String {
-        let mut query_parts = Vec::new();
-        for (key, value) in query_params {
-            match value {
-                Value::Array(arr) => {
-                    for item in arr {
-                        let item_str = match item {
-                            Value::String(s) => s.clone(),
-                            Value::Number(n) => n.to_string(),
-                            Value::Bool(b) => b.to_string(),
-                            _ => item.to_string(),
-                        };
-                        query_parts.push(format!("{key}={item_str}"));
-                    }
-                }
-                _ => {
-                    let value_str = match value {
-                        Value::String(s) => s.clone(),
-                        Value::Number(n) => n.to_string(),
-                        Value::Bool(b) => b.to_string(),
-                        _ => value.to_string(),
-                    };
-                    query_parts.push(format!("{key}={value_str}"));
-                }
-            }
-        }
-        query_parts.join("&")
+        Ok(())
     }
 
     /// Add headers to the request
@@ -600,5 +567,263 @@ impl HttpResponse {
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tool_generator::ExtractedParameters;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_with_base_url_validation() {
+        // Test valid URLs
+        let url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(url);
+        assert!(client.is_ok());
+
+        let url = Url::parse("http://localhost:8080").unwrap();
+        let client = HttpClient::new().with_base_url(url);
+        assert!(client.is_ok());
+
+        // Test invalid URLs - these will fail at parse time now
+        assert!(Url::parse("not-a-url").is_err());
+        assert!(Url::parse("").is_err());
+
+        // Test schemes that parse successfully
+        let url = Url::parse("ftp://invalid-scheme.com").unwrap();
+        let client = HttpClient::new().with_base_url(url);
+        assert!(client.is_ok()); // url crate accepts ftp, our HttpClient should too
+    }
+
+    #[test]
+    fn test_build_url_with_base_url() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        let tool_metadata = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            description: "test".to_string(),
+            parameters: json!({}),
+            method: "GET".to_string(),
+            path: "/pets/{id}".to_string(),
+        };
+
+        let mut path_params = HashMap::new();
+        path_params.insert("id".to_string(), json!(123));
+
+        let extracted_params = ExtractedParameters {
+            path: path_params,
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        assert_eq!(url.to_string(), "https://api.example.com/pets/123");
+    }
+
+    #[test]
+    fn test_build_url_without_base_url() {
+        let client = HttpClient::new();
+
+        let tool_metadata = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            description: "test".to_string(),
+            parameters: json!({}),
+            method: "GET".to_string(),
+            path: "https://api.example.com/pets/123".to_string(),
+        };
+
+        let extracted_params = ExtractedParameters {
+            path: HashMap::new(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        assert_eq!(url.to_string(), "https://api.example.com/pets/123");
+
+        // Test error case: relative path without base URL
+        let tool_metadata_relative = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            description: "test".to_string(),
+            parameters: json!({}),
+            method: "GET".to_string(),
+            path: "/pets/123".to_string(),
+        };
+
+        let result = client.build_url(&tool_metadata_relative, &extracted_params);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("No base URL configured")
+        );
+    }
+
+    #[test]
+    fn test_query_parameter_encoding_integration() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        let tool_metadata = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            description: "test".to_string(),
+            parameters: json!({}),
+            method: "GET".to_string(),
+            path: "/search".to_string(),
+        };
+
+        // Test various query parameter values that need encoding
+        let mut query_params = HashMap::new();
+        query_params.insert("q".to_string(), json!("hello world")); // space
+        query_params.insert("category".to_string(), json!("pets&dogs")); // ampersand
+        query_params.insert("special".to_string(), json!("foo=bar")); // equals
+        query_params.insert("unicode".to_string(), json!("café")); // unicode
+        query_params.insert("percent".to_string(), json!("100%")); // percent
+
+        let extracted_params = ExtractedParameters {
+            path: HashMap::new(),
+            query: query_params,
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        client
+            .add_query_parameters(&mut url, &extracted_params.query)
+            .unwrap();
+
+        let url_string = url.to_string();
+
+        // Verify the URL contains properly encoded parameters
+        // Note: url crate encodes spaces as + in query parameters (which is valid)
+        assert!(url_string.contains("q=hello+world")); // space encoded as +
+        assert!(url_string.contains("category=pets%26dogs")); // & encoded as %26
+        assert!(url_string.contains("special=foo%3Dbar")); // = encoded as %3D
+        assert!(url_string.contains("unicode=caf%C3%A9")); // é encoded as %C3%A9
+        assert!(url_string.contains("percent=100%25")); // % encoded as %25
+    }
+
+    #[test]
+    fn test_array_query_parameters() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        let tool_metadata = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            description: "test".to_string(),
+            parameters: json!({}),
+            method: "GET".to_string(),
+            path: "/search".to_string(),
+        };
+
+        let mut query_params = HashMap::new();
+        query_params.insert("status".to_string(), json!(["available", "pending"]));
+        query_params.insert("tags".to_string(), json!(["red & blue", "fast=car"]));
+
+        let extracted_params = ExtractedParameters {
+            path: HashMap::new(),
+            query: query_params,
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        client
+            .add_query_parameters(&mut url, &extracted_params.query)
+            .unwrap();
+
+        let url_string = url.to_string();
+
+        // Verify array parameters are added multiple times with proper encoding
+        assert!(url_string.contains("status=available"));
+        assert!(url_string.contains("status=pending"));
+        assert!(url_string.contains("tags=red+%26+blue")); // "red & blue" encoded (spaces as +)
+        assert!(url_string.contains("tags=fast%3Dcar")); // "fast=car" encoded
+    }
+
+    #[test]
+    fn test_path_parameter_substitution() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        let tool_metadata = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            description: "test".to_string(),
+            parameters: json!({}),
+            method: "GET".to_string(),
+            path: "/users/{userId}/pets/{petId}".to_string(),
+        };
+
+        let mut path_params = HashMap::new();
+        path_params.insert("userId".to_string(), json!(42));
+        path_params.insert("petId".to_string(), json!("special-pet-123"));
+
+        let extracted_params = ExtractedParameters {
+            path: path_params,
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        assert_eq!(
+            url.to_string(),
+            "https://api.example.com/users/42/pets/special-pet-123"
+        );
+    }
+
+    #[test]
+    fn test_url_join_edge_cases() {
+        // Test trailing slash handling
+        let base_url1 = Url::parse("https://api.example.com/").unwrap();
+        let client1 = HttpClient::new().with_base_url(base_url1).unwrap();
+
+        let base_url2 = Url::parse("https://api.example.com").unwrap();
+        let client2 = HttpClient::new().with_base_url(base_url2).unwrap();
+
+        let tool_metadata = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            description: "test".to_string(),
+            parameters: json!({}),
+            method: "GET".to_string(),
+            path: "/pets".to_string(),
+        };
+
+        let extracted_params = ExtractedParameters {
+            path: HashMap::new(),
+            query: HashMap::new(),
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let url1 = client1
+            .build_url(&tool_metadata, &extracted_params)
+            .unwrap();
+        let url2 = client2
+            .build_url(&tool_metadata, &extracted_params)
+            .unwrap();
+
+        // Both should produce the same normalized URL
+        assert_eq!(url1.to_string(), "https://api.example.com/pets");
+        assert_eq!(url2.to_string(), "https://api.example.com/pets");
     }
 }

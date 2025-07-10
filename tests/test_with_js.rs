@@ -2,6 +2,7 @@ use rmcp::transport::streamable_http_server::session::local::LocalSessionManager
 use rmcp::transport::{SseServer, StreamableHttpServerConfig, StreamableHttpService};
 use rmcp_openapi::OpenApiServer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use url::Url;
 
 mod common;
 use common::mock_server::MockPetstoreServer;
@@ -9,16 +10,17 @@ use mockito::Mock;
 use serde_json::json;
 
 /// Create a petstore server with base URL for HTTP requests
-fn create_petstore_mcp_server_with_base_url(base_url: String) -> OpenApiServer {
+fn create_petstore_mcp_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     let spec_content = include_str!("assets/petstore-openapi.json");
-    let mut server = OpenApiServer::with_base_url("test://petstore".to_string(), base_url);
+    let spec_url = Url::parse("test://petstore")?;
+    let mut server = OpenApiServer::with_base_url(spec_url, base_url)?;
 
     // Parse the embedded spec
     let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
     let spec = rmcp_openapi::openapi_spec::OpenApiSpec::from_value(json_value).unwrap();
     server.registry.register_from_spec(spec).unwrap();
 
-    server
+    Ok(server)
 }
 
 const SSE_BIND_ADDRESS: &str = "127.0.0.1:8000";
@@ -59,7 +61,7 @@ async fn test_with_js_sse_client() -> anyhow::Result<()> {
     let base_url = mock_server.base_url();
     let ct = SseServer::serve(SSE_BIND_ADDRESS.parse()?)
         .await?
-        .with_service(move || create_petstore_mcp_server_with_base_url(base_url.clone()));
+        .with_service(move || create_petstore_mcp_server_with_base_url(base_url.clone()).unwrap());
 
     let output = tokio::process::Command::new("node")
         .arg("client.js")
@@ -118,7 +120,7 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
 
     let base_url = mock_server.base_url();
     let service = StreamableHttpService::new(
-        move || Ok(create_petstore_mcp_server_with_base_url(base_url.clone())),
+        move || Ok(create_petstore_mcp_server_with_base_url(base_url.clone()).unwrap()),
         std::sync::Arc::new(LocalSessionManager::default()),
         StreamableHttpServerConfig {
             stateful_mode: true,

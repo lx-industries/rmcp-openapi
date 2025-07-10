@@ -1,6 +1,7 @@
 use rmcp_openapi::{HttpClient, OpenApiServer};
 use serde_json::json;
 use std::env;
+use url::Url;
 
 mod common;
 use common::mock_server::MockPetstoreServer;
@@ -21,8 +22,8 @@ async fn test_get_pet_by_id_path_parameter() -> anyhow::Result<()> {
 
     if should_use_live_api() {
         // Test against live API
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         // Find a tool named "getPetById"
         let tool_metadata = server
@@ -46,7 +47,7 @@ async fn test_get_pet_by_id_path_parameter() -> anyhow::Result<()> {
         let _mock = mock_server.mock_get_pet_by_id(pet_id);
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         // Find a tool named "getPetById"
         let tool_metadata = server
@@ -81,8 +82,8 @@ async fn test_get_pet_by_id_not_found() -> anyhow::Result<()> {
     let pet_id = 99999u64; // Non-existent pet ID
 
     if should_use_live_api() {
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
             .registry
@@ -103,7 +104,7 @@ async fn test_get_pet_by_id_not_found() -> anyhow::Result<()> {
         let _mock = mock_server.mock_get_pet_by_id_not_found(pet_id);
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
             .registry
@@ -135,8 +136,8 @@ async fn test_find_pets_by_status_query_parameter() -> anyhow::Result<()> {
     let status = "available";
 
     if should_use_live_api() {
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
             .registry
@@ -159,7 +160,7 @@ async fn test_find_pets_by_status_query_parameter() -> anyhow::Result<()> {
         let _mock = mock_server.mock_find_pets_by_status(status);
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
             .registry
@@ -200,8 +201,8 @@ async fn test_find_pets_by_multiple_status_query_parameter() -> anyhow::Result<(
     let statuses = vec!["available", "pending"];
 
     if should_use_live_api() {
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
             .registry
@@ -229,7 +230,7 @@ async fn test_find_pets_by_multiple_status_query_parameter() -> anyhow::Result<(
         let _mock = mock_server.mock_find_pets_by_status("available");
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
             .registry
@@ -271,8 +272,8 @@ async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
     });
 
     if should_use_live_api() {
-        let server = create_server_with_base_url(LIVE_API_BASE_URL.to_string()).await?;
-        let client = HttpClient::new().with_base_url(LIVE_API_BASE_URL.to_string());
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
             .registry
@@ -300,7 +301,7 @@ async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
         let _mock = mock_server.mock_add_pet();
 
         let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url());
+        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
             .registry
@@ -337,7 +338,7 @@ async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
 /// Test available tools listing
 #[tokio::test]
 async fn test_available_tools() -> anyhow::Result<()> {
-    let server = create_server_with_base_url("http://example.com".to_string()).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
 
     let tool_names = server.registry.get_tool_names();
     println!("Available tools: {tool_names:?}");
@@ -351,9 +352,10 @@ async fn test_available_tools() -> anyhow::Result<()> {
 }
 
 /// Helper function to create a server with a specific base URL
-async fn create_server_with_base_url(base_url: String) -> anyhow::Result<OpenApiServer> {
+async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     let spec_content = include_str!("assets/petstore-openapi.json");
-    let mut server = OpenApiServer::new(base_url);
+    let spec_url = Url::parse("test://petstore")?;
+    let mut server = OpenApiServer::with_base_url(spec_url, base_url)?;
 
     // Parse the embedded spec
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
@@ -368,7 +370,7 @@ async fn create_server_with_base_url(base_url: String) -> anyhow::Result<OpenApi
 async fn test_url_construction_with_path_parameters() -> anyhow::Result<()> {
     let mock_server = MockPetstoreServer::new_with_port(9106).await;
     let server = create_server_with_base_url(mock_server.base_url()).await?;
-    let client = HttpClient::new().with_base_url(mock_server.base_url());
+    let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
         .registry
@@ -404,7 +406,7 @@ async fn test_content_type_header_for_json() -> anyhow::Result<()> {
     let _mock = mock_server.mock_add_pet();
 
     let server = create_server_with_base_url(mock_server.base_url()).await?;
-    let client = HttpClient::new().with_base_url(mock_server.base_url());
+    let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
         .registry
