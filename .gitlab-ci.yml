@@ -161,8 +161,6 @@ rustdoc:
   stage: docs
   script:
     # Build documentation with all features and check for warnings
-    - cargo doc --all-features --no-deps
-    # Verify no missing documentation warnings
     - cargo doc --all-features --no-deps 2>&1 | tee doc-output.txt
     - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
     # Also build with private items to ensure internal documentation is complete
