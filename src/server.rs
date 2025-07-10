@@ -13,11 +13,11 @@ use url::Url;
 
 use crate::error::OpenApiError;
 use crate::http_client::HttpClient;
-use crate::openapi_spec::OpenApiSpec;
+use crate::spec_location::OpenApiSpecLocation;
 use crate::tool_registry::ToolRegistry;
 
 pub struct OpenApiServer {
-    pub spec_url: Url,
+    pub spec_location: OpenApiSpecLocation,
     pub registry: ToolRegistry,
     pub http_client: HttpClient,
     pub base_url: Option<Url>,
@@ -33,9 +33,9 @@ pub struct ToolMetadata {
 }
 
 impl OpenApiServer {
-    pub fn new(spec_url: Url) -> Self {
+    pub fn new(spec_location: OpenApiSpecLocation) -> Self {
         Self {
-            spec_url,
+            spec_location,
             registry: ToolRegistry::new(),
             http_client: HttpClient::new(),
             base_url: None,
@@ -43,10 +43,13 @@ impl OpenApiServer {
     }
 
     /// Create a new server with a base URL for API calls
-    pub fn with_base_url(spec_url: Url, base_url: Url) -> Result<Self, OpenApiError> {
+    pub fn with_base_url(
+        spec_location: OpenApiSpecLocation,
+        base_url: Url,
+    ) -> Result<Self, OpenApiError> {
         let http_client = HttpClient::new().with_base_url(base_url.clone())?;
         Ok(Self {
-            spec_url,
+            spec_location,
             registry: ToolRegistry::new(),
             http_client,
             base_url: Some(base_url),
@@ -54,12 +57,8 @@ impl OpenApiServer {
     }
 
     pub async fn load_openapi_spec(&mut self) -> Result<(), OpenApiError> {
-        // Load the OpenAPI specification
-        let spec = if self.spec_url.scheme() == "http" || self.spec_url.scheme() == "https" {
-            OpenApiSpec::from_url(&self.spec_url).await?
-        } else {
-            OpenApiSpec::from_file(self.spec_url.as_str()).await?
-        };
+        // Load the OpenAPI specification using the new simplified approach
+        let spec = self.spec_location.load_spec().await?;
 
         // Register tools from the spec
         let registered_count = self.registry.register_from_spec(spec)?;

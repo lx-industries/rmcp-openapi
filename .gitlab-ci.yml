@@ -166,7 +166,7 @@ rustdoc:
     - cargo doc --all-features --no-deps 2>&1 | tee doc-output.txt
     - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
     # Also build with private items to ensure internal documentation is complete
-    - cargo rustdoc -- --document-private-items
+    - cargo rustdoc --lib -- --document-private-items
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache

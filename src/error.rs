@@ -25,6 +25,14 @@ pub enum OpenApiError {
     InvalidParameter { parameter: String, reason: String },
     #[error("Invalid parameter location: {0}")]
     InvalidParameterLocation(String),
+    #[error("Invalid URL: {0}")]
+    InvalidUrl(String),
+    #[error("File not found: {0}")]
+    FileNotFound(String),
+    #[error("MCP error: {0}")]
+    McpError(String),
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
 }
 
 impl From<OpenApiError> for ErrorData {
