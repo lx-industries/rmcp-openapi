@@ -1,4 +1,4 @@
-image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
+image: rust:1.88.0@sha256:5771a3cc2081935c59ac52b92d49c9e164d4fed92c9f6420aa8cc50364aead6e
 
 # Global variables for package versions
 variables:
@@ -70,7 +70,7 @@ workflow:
 
 # Semantic release job template - common setup for semantic-release jobs
 .semantic-release-template: &semantic-release-template
-  image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
+  image: rust:1.88.0@sha256:5771a3cc2081935c59ac52b92d49c9e164d4fed92c9f6420aa8cc50364aead6e
   before_script:
     # Install Node.js in Rust image
     - apt-get update -qq && apt-get install -y -qq curl
@@ -232,7 +232,7 @@ examples:
 # Integration test with JavaScript/Node.js
 integration-js:
   extends: .rust-template
-  image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
+  image: rust:1.88.0@sha256:5771a3cc2081935c59ac52b92d49c9e164d4fed92c9f6420aa8cc50364aead6e
   stage: integration
   before_script:
     - !reference [.rust-template, before_script]
@@ -253,7 +253,7 @@ integration-js:
 # Integration test with Python
 integration-python:
   extends: .rust-template
-  image: rust:1.88.0@sha256:95f6d6956bf8abd7461763ba7ccd243d8964a41c8eb3f41d895490c782628d7c
+  image: rust:1.88.0@sha256:5771a3cc2081935c59ac52b92d49c9e164d4fed92c9f6420aa8cc50364aead6e
   stage: integration
   before_script:
     - !reference [.rust-template, before_script]
