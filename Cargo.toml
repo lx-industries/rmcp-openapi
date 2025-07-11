@@ -23,7 +23,7 @@ rmcp = { version = "0.2.1", features = ["server", "transport-sse-server"] }
 reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 tokio = { version = "1.0", features = ["full"] }
 regex = "1.0"
 openapiv3 = "2.2.0"
