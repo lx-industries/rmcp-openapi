@@ -1478,7 +1478,7 @@ dependencies = [
  "rustc-hash",
  "rustls",
  "socket2",
- "thiserror 2.0.12",
+ "thiserror",
  "tokio",
  "tracing",
  "web-time",
@@ -1499,7 +1499,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.12",
+ "thiserror",
  "tinyvec",
  "tracing",
  "web-time",
@@ -1757,7 +1757,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-openapi"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "axum",
