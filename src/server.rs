@@ -34,6 +34,7 @@ pub struct ToolMetadata {
 }
 
 impl OpenApiServer {
+    #[must_use]
     pub fn new(spec_location: OpenApiSpecLocation) -> Self {
         Self {
             spec_location,
@@ -44,6 +45,10 @@ impl OpenApiServer {
     }
 
     /// Create a new server with a base URL for API calls
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the base URL is invalid
     pub fn with_base_url(
         spec_location: OpenApiSpecLocation,
         base_url: Url,
@@ -57,6 +62,11 @@ impl OpenApiServer {
         })
     }
 
+    /// Load the `OpenAPI` specification from the configured location
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the spec cannot be loaded or registered
     pub async fn load_openapi_spec(&mut self) -> Result<(), OpenApiError> {
         // Load the OpenAPI specification using the new simplified approach
         let spec = self.spec_location.load_spec().await?;
@@ -81,26 +91,34 @@ impl OpenApiServer {
     }
 
     /// Get the number of registered tools
+    #[must_use]
     pub fn tool_count(&self) -> usize {
         self.registry.tool_count()
     }
 
     /// Get all tool names
+    #[must_use]
     pub fn get_tool_names(&self) -> Vec<String> {
         self.registry.get_tool_names()
     }
 
     /// Check if a specific tool exists
+    #[must_use]
     pub fn has_tool(&self, name: &str) -> bool {
         self.registry.has_tool(name)
     }
 
     /// Get registry statistics
+    #[must_use]
     pub fn get_registry_stats(&self) -> crate::tool_registry::ToolRegistryStats {
         self.registry.get_stats()
     }
 
     /// Validate the registry integrity
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry validation fails
     pub fn validate_registry(&self) -> Result<(), OpenApiError> {
         self.registry.validate_registry()
     }

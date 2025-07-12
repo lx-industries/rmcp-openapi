@@ -8,11 +8,15 @@ use oas3::spec::{
     SchemaTypeSet,
 };
 
-/// Tool generator for creating MCP tools from OpenAPI operations
+/// Tool generator for creating MCP tools from `OpenAPI` operations
 pub struct ToolGenerator;
 
 impl ToolGenerator {
-    /// Generate tool metadata from an OpenAPI operation
+    /// Generate tool metadata from an `OpenAPI` operation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the operation cannot be converted to tool metadata
     pub fn generate_tool_metadata(
         operation: &Operation,
         method: String,
@@ -182,7 +186,7 @@ impl ToolGenerator {
         }))
     }
 
-    /// Convert OpenAPI parameter schema to JSON Schema for MCP tools
+    /// Convert `OpenAPI` parameter schema to JSON Schema for MCP tools
     fn convert_parameter_schema(param: &Parameter, location: &str) -> Result<Value, OpenApiError> {
         let mut result = serde_json::Map::new();
 
@@ -343,7 +347,7 @@ impl ToolGenerator {
         Ok(())
     }
 
-    /// Convert oas3::Schema to JSON Schema properties
+    /// Convert `oas3::Schema` to JSON Schema properties
     fn convert_schema_to_json_schema(
         schema: &Schema,
         result: &mut serde_json::Map<String, Value>,
@@ -458,6 +462,10 @@ impl ToolGenerator {
     }
 
     /// Extract parameter values from MCP tool call arguments
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the arguments are invalid or missing required parameters
     pub fn extract_parameters(
         tool_metadata: &ToolMetadata,
         arguments: &Value,
@@ -474,8 +482,8 @@ impl ToolGenerator {
         let mut config = RequestConfig::default();
 
         // Extract timeout if provided
-        if let Some(timeout) = args.get("timeout_seconds").and_then(|v| v.as_u64()) {
-            config.timeout_seconds = timeout as u32;
+        if let Some(timeout) = args.get("timeout_seconds").and_then(Value::as_u64) {
+            config.timeout_seconds = u32::try_from(timeout).unwrap_or(u32::MAX);
         }
 
         // Process each argument
@@ -628,7 +636,7 @@ impl ToolGenerator {
 
             if !param_found {
                 return Err(OpenApiError::InvalidParameter {
-                    parameter: required_param.to_string(),
+                    parameter: (*required_param).to_string(),
                     reason: "Required parameter is missing".to_string(),
                 });
             }

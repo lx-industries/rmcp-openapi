@@ -6,10 +6,10 @@ use rmcp_openapi::OpenApiSpecLocation;
 #[command(name = "rmcp-openapi-server")]
 #[command(about = "OpenAPI MCP Server - Expose OpenAPI endpoints as MCP tools")]
 pub struct Cli {
-    /// OpenAPI specification URL or file path
+    /// `OpenAPI` specification URL or file path
     pub spec: OpenApiSpecLocation,
 
-    /// Base URL to override the one in the OpenAPI spec
+    /// Base URL to override the one in the `OpenAPI` spec
     #[arg(long)]
     pub base_url: Option<String>,
 

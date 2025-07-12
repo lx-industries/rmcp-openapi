@@ -3,19 +3,20 @@ use crate::openapi::OpenApiSpec;
 use crate::server::ToolMetadata;
 use std::collections::HashMap;
 
-/// Registry for managing dynamically generated MCP tools from OpenAPI operations
+/// Registry for managing dynamically generated MCP tools from `OpenAPI` operations
 #[derive(Debug, Clone)]
 pub struct ToolRegistry {
     /// Map of tool name to tool metadata
     tools: HashMap<String, ToolMetadata>,
-    /// Map of tool name to OpenAPI operation for runtime lookup
+    /// Map of tool name to `OpenAPI` operation for runtime lookup
     operations: HashMap<String, (oas3::spec::Operation, String, String)>,
-    /// Source OpenAPI spec for reference
+    /// Source `OpenAPI` spec for reference
     spec: Option<OpenApiSpec>,
 }
 
 impl ToolRegistry {
     /// Create a new empty tool registry
+    #[must_use]
     pub fn new() -> Self {
         Self {
             tools: HashMap::new(),
@@ -24,7 +25,11 @@ impl ToolRegistry {
         }
     }
 
-    /// Register tools from an OpenAPI specification
+    /// Register tools from an `OpenAPI` specification
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any tool fails to be generated or registered
     pub fn register_from_spec(&mut self, spec: OpenApiSpec) -> Result<usize, OpenApiError> {
         // Clear existing tools
         self.clear();
@@ -49,6 +54,10 @@ impl ToolRegistry {
     }
 
     /// Register a single tool with its corresponding operation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tool metadata is invalid or the tool name already exists
     pub fn register_tool(
         &mut self,
         tool: ToolMetadata,
@@ -98,11 +107,13 @@ impl ToolRegistry {
     }
 
     /// Get tool metadata by name
+    #[must_use]
     pub fn get_tool(&self, name: &str) -> Option<&ToolMetadata> {
         self.tools.get(name)
     }
 
     /// Get operation by tool name
+    #[must_use]
     pub fn get_operation(
         &self,
         tool_name: &str,
@@ -111,21 +122,25 @@ impl ToolRegistry {
     }
 
     /// Get all tool names
+    #[must_use]
     pub fn get_tool_names(&self) -> Vec<String> {
         self.tools.keys().cloned().collect()
     }
 
     /// Get all tools
+    #[must_use]
     pub fn get_all_tools(&self) -> Vec<&ToolMetadata> {
         self.tools.values().collect()
     }
 
     /// Get number of registered tools
+    #[must_use]
     pub fn tool_count(&self) -> usize {
         self.tools.len()
     }
 
     /// Check if a tool exists
+    #[must_use]
     pub fn has_tool(&self, name: &str) -> bool {
         self.tools.contains_key(name)
     }
@@ -143,12 +158,14 @@ impl ToolRegistry {
         self.spec = None;
     }
 
-    /// Get the source OpenAPI spec
+    /// Get the source `OpenAPI` spec
+    #[must_use]
     pub fn get_spec(&self) -> Option<&OpenApiSpec> {
         self.spec.as_ref()
     }
 
     /// Get registry statistics
+    #[must_use]
     pub fn get_stats(&self) -> ToolRegistryStats {
         let mut method_counts = HashMap::new();
         let mut path_counts = HashMap::new();
@@ -167,6 +184,10 @@ impl ToolRegistry {
     }
 
     /// Validate all tools in the registry
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any tool is missing its operation, has invalid metadata, or there are orphaned operations
     pub fn validate_registry(&self) -> Result<(), OpenApiError> {
         for tool in self.tools.values() {
             // Check if corresponding operation exists
@@ -178,7 +199,7 @@ impl ToolRegistry {
             }
 
             // Validate tool metadata schema
-            self.validate_tool_metadata(&tool.name, tool)?;
+            Self::validate_tool_metadata(&tool.name, tool)?;
         }
 
         // Check for orphaned operations
@@ -195,7 +216,6 @@ impl ToolRegistry {
 
     /// Validate a single tool's metadata
     fn validate_tool_metadata(
-        &self,
         tool_name: &str,
         tool_metadata: &ToolMetadata,
     ) -> Result<(), OpenApiError> {
@@ -267,6 +287,7 @@ pub struct ToolRegistryStats {
 
 impl ToolRegistryStats {
     /// Get a summary string of the registry stats
+    #[must_use]
     pub fn summary(&self) -> String {
         let methods: Vec<String> = self
             .method_distribution

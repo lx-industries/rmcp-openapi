@@ -10,7 +10,7 @@ use crate::error::OpenApiError;
 use crate::server::ToolMetadata;
 use crate::tool_generator::{ExtractedParameters, ToolGenerator};
 
-/// HTTP client for executing OpenAPI requests
+/// HTTP client for executing `OpenAPI` requests
 #[derive(Clone)]
 pub struct HttpClient {
     client: Arc<Client>,
@@ -19,6 +19,11 @@ pub struct HttpClient {
 
 impl HttpClient {
     /// Create a new HTTP client
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTTP client cannot be created
+    #[must_use]
     pub fn new() -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))
@@ -32,6 +37,11 @@ impl HttpClient {
     }
 
     /// Create a new HTTP client with custom timeout
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTTP client cannot be created
+    #[must_use]
     pub fn with_timeout(timeout_seconds: u64) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(timeout_seconds))
@@ -45,12 +55,20 @@ impl HttpClient {
     }
 
     /// Set the base URL for all requests
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the base URL is invalid
     pub fn with_base_url(mut self, base_url: Url) -> Result<Self, OpenApiError> {
         self.base_url = Some(base_url);
         Ok(self)
     }
 
-    /// Execute an OpenAPI tool call
+    /// Execute an `OpenAPI` tool call
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the HTTP request fails or parameters are invalid
     pub async fn execute_tool_call(
         &self,
         tool_metadata: &ToolMetadata,
@@ -64,7 +82,7 @@ impl HttpClient {
 
         // Add query parameters with proper URL encoding
         if !extracted_params.query.is_empty() {
-            self.add_query_parameters(&mut url, &extracted_params.query)?;
+            Self::add_query_parameters(&mut url, &extracted_params.query);
         }
 
         // Create the HTTP request
@@ -72,45 +90,43 @@ impl HttpClient {
 
         // Add headers
         if !extracted_params.headers.is_empty() {
-            request = self.add_headers(request, &extracted_params.headers)?;
+            request = Self::add_headers(request, &extracted_params.headers);
         }
 
         // Add cookies
         if !extracted_params.cookies.is_empty() {
-            request = self.add_cookies(request, &extracted_params.cookies)?;
+            request = Self::add_cookies(request, &extracted_params.cookies);
         }
 
         // Add request body if present
         if !extracted_params.body.is_empty() {
             request =
-                self.add_request_body(request, &extracted_params.body, &extracted_params.config)?;
+                Self::add_request_body(request, &extracted_params.body, &extracted_params.config)?;
         }
 
         // Apply custom timeout if specified
         if extracted_params.config.timeout_seconds != 30 {
-            request = request.timeout(Duration::from_secs(
-                extracted_params.config.timeout_seconds as u64,
-            ));
+            request = request.timeout(Duration::from_secs(u64::from(
+                extracted_params.config.timeout_seconds,
+            )));
         }
 
         // Capture request details for response formatting
-        let request_body_string = if !extracted_params.body.is_empty() {
-            if extracted_params.body.len() == 1
-                && extracted_params.body.contains_key("request_body")
-            {
-                serde_json::to_string(&extracted_params.body["request_body"]).unwrap_or_default()
-            } else {
-                let body_object = Value::Object(
-                    extracted_params
-                        .body
-                        .iter()
-                        .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect(),
-                );
-                serde_json::to_string(&body_object).unwrap_or_default()
-            }
-        } else {
+        let request_body_string = if extracted_params.body.is_empty() {
             String::new()
+        } else if extracted_params.body.len() == 1
+            && extracted_params.body.contains_key("request_body")
+        {
+            serde_json::to_string(&extracted_params.body["request_body"]).unwrap_or_default()
+        } else {
+            let body_object = Value::Object(
+                extracted_params
+                    .body
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+            );
+            serde_json::to_string(&body_object).unwrap_or_default()
         };
 
         // Get the final URL for logging
@@ -219,48 +235,39 @@ impl HttpClient {
     }
 
     /// Add query parameters to the request using proper URL encoding
-    fn add_query_parameters(
-        &self,
-        url: &mut Url,
-        query_params: &HashMap<String, Value>,
-    ) -> Result<(), OpenApiError> {
+    fn add_query_parameters(url: &mut Url, query_params: &HashMap<String, Value>) {
         {
             let mut query_pairs = url.query_pairs_mut();
             for (key, value) in query_params {
-                match value {
-                    Value::Array(arr) => {
-                        // Handle array parameters - add each value as a separate query parameter
-                        for item in arr {
-                            let item_str = match item {
-                                Value::String(s) => s.clone(),
-                                Value::Number(n) => n.to_string(),
-                                Value::Bool(b) => b.to_string(),
-                                _ => item.to_string(),
-                            };
-                            query_pairs.append_pair(key, &item_str);
-                        }
-                    }
-                    _ => {
-                        let value_str = match value {
+                if let Value::Array(arr) = value {
+                    // Handle array parameters - add each value as a separate query parameter
+                    for item in arr {
+                        let item_str = match item {
                             Value::String(s) => s.clone(),
                             Value::Number(n) => n.to_string(),
                             Value::Bool(b) => b.to_string(),
-                            _ => value.to_string(),
+                            _ => item.to_string(),
                         };
-                        query_pairs.append_pair(key, &value_str);
+                        query_pairs.append_pair(key, &item_str);
                     }
+                } else {
+                    let value_str = match value {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        _ => value.to_string(),
+                    };
+                    query_pairs.append_pair(key, &value_str);
                 }
             }
         }
-        Ok(())
     }
 
     /// Add headers to the request
     fn add_headers(
-        &self,
         mut request: RequestBuilder,
         headers: &HashMap<String, Value>,
-    ) -> Result<RequestBuilder, OpenApiError> {
+    ) -> RequestBuilder {
         for (key, value) in headers {
             let value_str = match value {
                 Value::String(s) => s.clone(),
@@ -270,15 +277,14 @@ impl HttpClient {
             };
             request = request.header(key, value_str);
         }
-        Ok(request)
+        request
     }
 
     /// Add cookies to the request
     fn add_cookies(
-        &self,
         mut request: RequestBuilder,
         cookies: &HashMap<String, Value>,
-    ) -> Result<RequestBuilder, OpenApiError> {
+    ) -> RequestBuilder {
         if !cookies.is_empty() {
             let cookie_header = cookies
                 .iter()
@@ -296,12 +302,11 @@ impl HttpClient {
 
             request = request.header(header::COOKIE, cookie_header);
         }
-        Ok(request)
+        request
     }
 
     /// Add request body to the request
     fn add_request_body(
-        &self,
         mut request: RequestBuilder,
         body: &HashMap<String, Value>,
         config: &crate::tool_generator::RequestConfig,
@@ -465,12 +470,17 @@ pub struct HttpResponse {
 
 impl HttpResponse {
     /// Try to parse the response body as JSON
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the body is not valid JSON
     pub fn json(&self) -> Result<Value, OpenApiError> {
         serde_json::from_str(&self.body)
             .map_err(|e| OpenApiError::Http(format!("Failed to parse response as JSON: {e}")))
     }
 
     /// Get a formatted response summary for MCP
+    #[must_use]
     pub fn to_mcp_content(&self) -> String {
         let method = if self.request_method.is_empty() {
             None
@@ -507,7 +517,11 @@ impl HttpResponse {
 
         // Add request details if provided
         if let (Some(method), Some(url)) = (method, url) {
-            result.push_str(&format!("\nRequest: {} {}\n", method.to_uppercase(), url));
+            result.push_str("\nRequest: ");
+            result.push_str(&method.to_uppercase());
+            result.push(' ');
+            result.push_str(url);
+            result.push('\n');
 
             if let Some(body) = request_body {
                 if !body.is_empty() && body != "{}" {
@@ -540,7 +554,11 @@ impl HttpResponse {
                 .iter()
                 .any(|&h| key.to_lowercase().contains(h))
                 {
-                    result.push_str(&format!("  {key}: {value}\n"));
+                    result.push_str("  ");
+                    result.push_str(key);
+                    result.push_str(": ");
+                    result.push_str(value);
+                    result.push('\n');
                 }
             }
         }
@@ -559,10 +577,9 @@ impl HttpResponse {
             // Truncate very long responses
             if self.body.len() > 2000 {
                 result.push_str(&self.body[..2000]);
-                result.push_str(&format!(
-                    "\n... ({} more characters)",
-                    self.body.len() - 2000
-                ));
+                result.push_str("\n... (");
+                result.push_str(&(self.body.len() - 2000).to_string());
+                result.push_str(" more characters)");
             } else {
                 result.push_str(&self.body);
             }
@@ -703,9 +720,7 @@ mod tests {
         };
 
         let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
-        client
-            .add_query_parameters(&mut url, &extracted_params.query)
-            .unwrap();
+        HttpClient::add_query_parameters(&mut url, &extracted_params.query);
 
         let url_string = url.to_string();
 
@@ -745,9 +760,7 @@ mod tests {
         };
 
         let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
-        client
-            .add_query_parameters(&mut url, &extracted_params.query)
-            .unwrap();
+        HttpClient::add_query_parameters(&mut url, &extracted_params.query);
 
         let url_string = url.to_string();
 
