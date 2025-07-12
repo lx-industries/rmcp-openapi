@@ -61,21 +61,8 @@ async fn run() -> Result<(), OpenApiError> {
     .await
     .map_err(|e| OpenApiError::McpError(format!("Failed to start SSE server: {e}")))?
     .with_service(move || {
-        // Clone the server for each connection
-        let mut new_server = if let Some(base_url) = config.base_url.as_ref() {
-            OpenApiServer::with_base_url(config.spec_location.clone(), base_url.clone()).unwrap()
-        } else {
-            OpenApiServer::new(config.spec_location.clone())
-        };
-
-        // Load the spec for each connection (this could be optimized)
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current()
-                .block_on(async { new_server.load_openapi_spec().await })
-        })
-        .unwrap();
-
-        new_server
+        // Clone the already loaded server
+        server.clone()
     });
 
     eprintln!("Server ready! Connect MCP clients to: http://{bind_addr}/sse");

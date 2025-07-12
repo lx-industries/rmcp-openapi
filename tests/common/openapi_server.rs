@@ -19,7 +19,7 @@ pub async fn create_petstore_server(base_url: Option<Url>) -> anyhow::Result<Ope
     // Parse and register the spec
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
     let spec = OpenApiSpec::from_value(json_value)?;
-    server.registry.register_from_spec(spec)?;
+    server.register_spec(spec)?;
 
     Ok(server)
 }
@@ -46,7 +46,7 @@ pub async fn start_sse_server_with_petstore(
             // Parse and register the spec
             let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
             let spec = OpenApiSpec::from_value(json_value).unwrap();
-            server.registry.register_from_spec(spec).unwrap();
+            server.register_spec(spec).unwrap();
 
             server
         });

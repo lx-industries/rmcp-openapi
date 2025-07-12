@@ -517,7 +517,7 @@ async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiSer
     // Parse the embedded spec
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
     let spec = rmcp_openapi::openapi::OpenApiSpec::from_value(json_value)?;
-    server.registry.register_from_spec(spec)?;
+    server.register_spec(spec)?;
 
     Ok(server)
 }

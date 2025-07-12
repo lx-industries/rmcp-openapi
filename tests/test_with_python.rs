@@ -18,7 +18,7 @@ fn create_petstore_mcp_server_with_base_url(base_url: Url) -> anyhow::Result<Ope
     // Parse the embedded spec
     let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
     let spec = rmcp_openapi::openapi::OpenApiSpec::from_value(json_value).unwrap();
-    server.registry.register_from_spec(spec).unwrap();
+    server.register_spec(spec).unwrap();
 
     Ok(server)
 }

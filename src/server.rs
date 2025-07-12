@@ -16,9 +16,10 @@ use crate::http_client::HttpClient;
 use crate::openapi::OpenApiSpecLocation;
 use crate::tool_registry::ToolRegistry;
 
+#[derive(Clone)]
 pub struct OpenApiServer {
     pub spec_location: OpenApiSpecLocation,
-    pub registry: ToolRegistry,
+    pub registry: Arc<ToolRegistry>,
     pub http_client: HttpClient,
     pub base_url: Option<Url>,
 }
@@ -36,7 +37,7 @@ impl OpenApiServer {
     pub fn new(spec_location: OpenApiSpecLocation) -> Self {
         Self {
             spec_location,
-            registry: ToolRegistry::new(),
+            registry: Arc::new(ToolRegistry::new()),
             http_client: HttpClient::new(),
             base_url: None,
         }
@@ -50,7 +51,7 @@ impl OpenApiServer {
         let http_client = HttpClient::new().with_base_url(base_url.clone())?;
         Ok(Self {
             spec_location,
-            registry: ToolRegistry::new(),
+            registry: Arc::new(ToolRegistry::new()),
             http_client,
             base_url: Some(base_url),
         })
@@ -59,9 +60,19 @@ impl OpenApiServer {
     pub async fn load_openapi_spec(&mut self) -> Result<(), OpenApiError> {
         // Load the OpenAPI specification using the new simplified approach
         let spec = self.spec_location.load_spec().await?;
+        self.register_spec(spec)
+    }
 
-        // Register tools from the spec
-        let registered_count = self.registry.register_from_spec(spec)?;
+    /// Register a spec into the registry. This requires exclusive access to the server.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry is already shared or if spec registration fails
+    pub fn register_spec(&mut self, spec: crate::openapi::OpenApiSpec) -> Result<(), OpenApiError> {
+        // During initialization, we should have exclusive access to the Arc
+        let registry = Arc::get_mut(&mut self.registry)
+            .ok_or_else(|| OpenApiError::McpError("Registry is already shared".to_string()))?;
+        let registered_count = registry.register_from_spec(spec)?;
 
         println!("Loaded {registered_count} tools from OpenAPI spec");
         println!("Registry stats: {}", self.registry.get_stats().summary());
