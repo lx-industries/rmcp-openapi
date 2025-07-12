@@ -1,5 +1,5 @@
 use crate::error::OpenApiError;
-use crate::openapi_spec::OpenApiSpec;
+use crate::openapi::OpenApiSpec;
 use crate::server::ToolMetadata;
 use std::collections::HashMap;
 
@@ -9,7 +9,7 @@ pub struct ToolRegistry {
     /// Map of tool name to tool metadata
     tools: HashMap<String, ToolMetadata>,
     /// Map of tool name to OpenAPI operation for runtime lookup
-    operations: HashMap<String, (openapiv3::Operation, String, String)>,
+    operations: HashMap<String, (oas3::spec::Operation, String, String)>,
     /// Source OpenAPI spec for reference
     spec: Option<OpenApiSpec>,
 }
@@ -52,7 +52,7 @@ impl ToolRegistry {
     pub fn register_tool(
         &mut self,
         tool: ToolMetadata,
-        operation: (openapiv3::Operation, String, String),
+        operation: (oas3::spec::Operation, String, String),
     ) -> Result<(), OpenApiError> {
         let tool_name = tool.name.clone();
 
@@ -106,7 +106,7 @@ impl ToolRegistry {
     pub fn get_operation(
         &self,
         tool_name: &str,
-    ) -> Option<&(openapiv3::Operation, String, String)> {
+    ) -> Option<&(oas3::spec::Operation, String, String)> {
         self.operations.get(tool_name)
     }
 

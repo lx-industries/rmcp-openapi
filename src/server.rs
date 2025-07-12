@@ -13,7 +13,7 @@ use url::Url;
 
 use crate::error::OpenApiError;
 use crate::http_client::HttpClient;
-use crate::spec_location::OpenApiSpecLocation;
+use crate::openapi::OpenApiSpecLocation;
 use crate::tool_registry::ToolRegistry;
 
 pub struct OpenApiServer {

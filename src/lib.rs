@@ -1,16 +1,14 @@
 pub mod error;
 pub mod http_client;
 pub mod openapi;
-pub mod openapi_spec;
 pub mod server;
-pub mod spec_location;
 pub mod tool_generator;
 pub mod tool_registry;
 
 pub use error::OpenApiError;
 pub use http_client::{HttpClient, HttpResponse};
-pub use openapi_spec::OpenApiSpec;
+pub use openapi::OpenApiSpec;
+pub use openapi::OpenApiSpecLocation;
 pub use server::{OpenApiServer, ToolMetadata};
-pub use spec_location::OpenApiSpecLocation;
 pub use tool_generator::{ExtractedParameters, RequestConfig, ToolGenerator};
 pub use tool_registry::{ToolRegistry, ToolRegistryStats};

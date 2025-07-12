@@ -71,7 +71,7 @@ expression: responses
             "properties": {
               "petId": {
                 "description": "ID of pet to return",
-                "format": "Int64",
+                "format": "int64",
                 "minimum": 1,
                 "type": "integer",
                 "x-parameter-location": "path",
