@@ -18,7 +18,7 @@ function cleanToolResponseText(responseData) {
   return responseData;
 }
 
-const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:8001/mcp/`));
+const transport = new StreamableHTTPClientTransport(new URL(process.env.MCP_STREAMABLE_URL || `http://127.0.0.1:8001/mcp/`));
 
 const client = new Client(
   {

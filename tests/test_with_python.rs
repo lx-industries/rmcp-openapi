@@ -9,9 +9,17 @@ use mockito::Mock;
 use serde_json::json;
 
 /// Create a petstore server with base URL for HTTP requests
-fn create_petstore_mcp_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
-    // Using petstore-openapi-norefs.json until issue #18 is implemented
-    let spec_content = include_str!("assets/petstore-openapi-norefs.json");
+fn create_petstore_mcp_server_with_spec(
+    base_url: Url,
+    spec_path: &str,
+) -> anyhow::Result<OpenApiServer> {
+    let spec_content = match spec_path {
+        "assets/petstore-openapi-norefs.json" => {
+            include_str!("assets/petstore-openapi-norefs.json")
+        }
+        "assets/petstore-openapi.json" => include_str!("assets/petstore-openapi.json"),
+        _ => panic!("Unsupported spec path: {spec_path}"),
+    };
     let spec_url = Url::parse("test://petstore")?;
     let mut server =
         OpenApiServer::with_base_url(rmcp_openapi::OpenApiSpecLocation::Url(spec_url), base_url)?;
@@ -41,12 +49,16 @@ async fn init() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_with_python_client() -> anyhow::Result<()> {
+async fn run_python_sse_client_test(
+    spec_path: &str,
+    mock_port: u16,
+    sse_port: u16,
+    snapshot_name: &str,
+) -> anyhow::Result<()> {
     init().await?;
 
     // Start mock server for HTTP requests
-    let mut mock_server = MockPetstoreServer::new_with_port(8083).await;
+    let mut mock_server = MockPetstoreServer::new_with_port(mock_port).await;
 
     // Set up mock responses for all tool calls
     let _get_pet_mock = mock_server.mock_get_pet_by_id(123);
@@ -55,18 +67,21 @@ async fn test_with_python_client() -> anyhow::Result<()> {
     let _error_mock = mock_server.mock_get_pet_by_id_not_found(999999);
     let _validation_error_mock = mock_server.mock_add_pet_validation_error();
 
-    const BIND_ADDRESS: &str = "127.0.0.1:8000";
+    let sse_bind_address = format!("127.0.0.1:{sse_port}");
 
     // Start MCP server with mock API base URL
     let base_url = mock_server.base_url();
-    let ct = SseServer::serve(BIND_ADDRESS.parse()?)
+    let spec_path = spec_path.to_string(); // Convert to owned string
+    let ct = SseServer::serve(sse_bind_address.parse()?)
         .await?
-        .with_service(move || create_petstore_mcp_server_with_base_url(base_url.clone()).unwrap());
+        .with_service(move || {
+            create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path).unwrap()
+        });
 
     let output = tokio::process::Command::new("uv")
         .arg("run")
         .arg("client.py")
-        .arg(format!("http://{BIND_ADDRESS}/sse"))
+        .arg(format!("http://{sse_bind_address}/sse"))
         .current_dir("tests/test_with_python")
         .output()
         .await?;
@@ -101,13 +116,39 @@ async fn test_with_python_client() -> anyhow::Result<()> {
         }
     }
 
-    insta::assert_json_snapshot!("python_sse_client_responses", responses);
+    insta::assert_json_snapshot!(snapshot_name, responses);
     ct.cancel();
     Ok(())
 }
 
+#[tokio::test]
+async fn test_with_python_client() -> anyhow::Result<()> {
+    run_python_sse_client_test(
+        "assets/petstore-openapi-norefs.json",
+        8083,
+        8000,
+        "python_sse_client_responses",
+    )
+    .await
+}
+
 // TODO: Add test_nested_with_python_client once nested routing support is implemented
 // See https://gitlab.com/lx-industries/rmcp-actix-web/-/issues/2
+
+// =============================================================================
+// Tests using original petstore spec WITH $refs (to test $ref resolution)
+// =============================================================================
+
+#[tokio::test]
+async fn test_with_python_client_with_refs() -> anyhow::Result<()> {
+    run_python_sse_client_test(
+        "assets/petstore-openapi.json",
+        8088,
+        8004,
+        "python_sse_client_responses_with_refs",
+    )
+    .await
+}
 
 // Test-specific mock methods for MockPetstoreServer
 impl MockPetstoreServer {

@@ -10,9 +10,17 @@ use mockito::Mock;
 use serde_json::json;
 
 /// Create a petstore server with base URL for HTTP requests
-fn create_petstore_mcp_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
-    // Using petstore-openapi-norefs.json until issue #18 is implemented
-    let spec_content = include_str!("assets/petstore-openapi-norefs.json");
+fn create_petstore_mcp_server_with_spec(
+    base_url: Url,
+    spec_path: &str,
+) -> anyhow::Result<OpenApiServer> {
+    let spec_content = match spec_path {
+        "assets/petstore-openapi-norefs.json" => {
+            include_str!("assets/petstore-openapi-norefs.json")
+        }
+        "assets/petstore-openapi.json" => include_str!("assets/petstore-openapi.json"),
+        _ => panic!("Unsupported spec path: {spec_path}"),
+    };
     let spec_url = Url::parse("test://petstore")?;
     let mut server =
         OpenApiServer::with_base_url(rmcp_openapi::OpenApiSpecLocation::Url(spec_url), base_url)?;
@@ -24,9 +32,6 @@ fn create_petstore_mcp_server_with_base_url(base_url: Url) -> anyhow::Result<Ope
 
     Ok(server)
 }
-
-const SSE_BIND_ADDRESS: &str = "127.0.0.1:8000";
-const STREAMABLE_HTTP_BIND_ADDRESS: &str = "127.0.0.1:8001";
 
 async fn init() -> anyhow::Result<()> {
     let _ = tracing_subscriber::registry()
@@ -45,12 +50,16 @@ async fn init() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn test_with_js_sse_client() -> anyhow::Result<()> {
+async fn run_js_sse_client_test(
+    spec_path: &str,
+    mock_port: u16,
+    sse_port: u16,
+    snapshot_name: &str,
+) -> anyhow::Result<()> {
     init().await?;
 
     // Start mock server for HTTP requests
-    let mut mock_server = MockPetstoreServer::new_with_port(8084).await;
+    let mut mock_server = MockPetstoreServer::new_with_port(mock_port).await;
 
     // Set up mock responses for all tool calls
     let _get_pet_mock = mock_server.mock_get_pet_by_id(123);
@@ -61,15 +70,23 @@ async fn test_with_js_sse_client() -> anyhow::Result<()> {
 
     // Start MCP server with mock API base URL
     let base_url = mock_server.base_url();
-    let ct = SseServer::serve(SSE_BIND_ADDRESS.parse()?)
+    let sse_bind_address = format!("127.0.0.1:{sse_port}");
+    let spec_path = spec_path.to_string(); // Convert to owned string
+    let ct = SseServer::serve(sse_bind_address.parse()?)
         .await?
-        .with_service(move || create_petstore_mcp_server_with_base_url(base_url.clone()).unwrap());
+        .with_service(move || {
+            create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path).unwrap()
+        });
 
-    let output = tokio::process::Command::new("node")
-        .arg("client.js")
-        .current_dir("tests/test_with_js")
-        .output()
-        .await?;
+    let mut cmd = tokio::process::Command::new("node");
+    cmd.arg("client.js").current_dir("tests/test_with_js");
+
+    // Set environment variable for SSE URL if not using default port
+    if sse_port != 8000 {
+        cmd.env("MCP_SSE_URL", format!("http://{sse_bind_address}/sse"));
+    }
+
+    let output = cmd.output().await?;
 
     if !output.status.success() {
         eprintln!("JavaScript client failed:");
@@ -101,17 +118,21 @@ async fn test_with_js_sse_client() -> anyhow::Result<()> {
         }
     }
 
-    insta::assert_json_snapshot!("js_sse_client_responses", responses);
+    insta::assert_json_snapshot!(snapshot_name, responses);
     ct.cancel();
     Ok(())
 }
 
-#[tokio::test]
-async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
+async fn run_js_streamable_http_client_test(
+    spec_path: &str,
+    mock_port: u16,
+    streamable_port: u16,
+    snapshot_name: &str,
+) -> anyhow::Result<()> {
     init().await?;
 
-    // Start mock server for HTTP requests - use unique port for StreamableHTTP test
-    let mut mock_server = MockPetstoreServer::new_with_port(8085).await;
+    // Start mock server for HTTP requests
+    let mut mock_server = MockPetstoreServer::new_with_port(mock_port).await;
 
     // Set up mock responses for all tool calls
     let _get_pet_mock = mock_server.mock_get_pet_by_id(123);
@@ -121,8 +142,9 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
     let _validation_error_mock = mock_server.mock_add_pet_validation_error();
 
     let base_url = mock_server.base_url();
+    let spec_path = spec_path.to_string(); // Convert to owned string
     let service = StreamableHttpService::new(
-        move || Ok(create_petstore_mcp_server_with_base_url(base_url.clone()).unwrap()),
+        move || Ok(create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path).unwrap()),
         std::sync::Arc::new(LocalSessionManager::default()),
         StreamableHttpServerConfig {
             stateful_mode: true,
@@ -131,7 +153,8 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
     );
 
     let router = axum::Router::new().nest_service("/mcp", service);
-    let tcp_listener = tokio::net::TcpListener::bind(STREAMABLE_HTTP_BIND_ADDRESS).await?;
+    let streamable_bind_address = format!("127.0.0.1:{streamable_port}");
+    let tcp_listener = tokio::net::TcpListener::bind(&streamable_bind_address).await?;
     let ct = tokio_util::sync::CancellationToken::new();
 
     let server_handle = tokio::spawn({
@@ -146,11 +169,19 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
     // Give the server a moment to start
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-    let output = tokio::process::Command::new("node")
-        .arg("streamable_client.js")
-        .current_dir("tests/test_with_js")
-        .output()
-        .await?;
+    let mut cmd = tokio::process::Command::new("node");
+    cmd.arg("streamable_client.js")
+        .current_dir("tests/test_with_js");
+
+    // Set environment variable for Streamable URL if not using default port
+    if streamable_port != 8001 {
+        cmd.env(
+            "MCP_STREAMABLE_URL",
+            format!("http://{streamable_bind_address}/mcp/"),
+        );
+    }
+
+    let output = cmd.output().await?;
 
     if !output.status.success() {
         eprintln!("StreamableHttp client failed:");
@@ -182,11 +213,33 @@ async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
         }
     }
 
-    insta::assert_json_snapshot!("js_streamable_http_client_responses", responses);
+    insta::assert_json_snapshot!(snapshot_name, responses);
 
     ct.cancel();
     server_handle.await?;
     Ok(())
+}
+
+#[tokio::test]
+async fn test_with_js_sse_client() -> anyhow::Result<()> {
+    run_js_sse_client_test(
+        "assets/petstore-openapi-norefs.json",
+        8084,
+        8000,
+        "js_sse_client_responses",
+    )
+    .await
+}
+
+#[tokio::test]
+async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
+    run_js_streamable_http_client_test(
+        "assets/petstore-openapi-norefs.json",
+        8085,
+        8001,
+        "js_streamable_http_client_responses",
+    )
+    .await
 }
 
 // Test-specific mock methods for MockPetstoreServer
@@ -323,4 +376,30 @@ impl MockPetstoreServer {
             )
             .create()
     }
+}
+
+// =============================================================================
+// Tests using original petstore spec WITH $refs (to test $ref resolution)
+// =============================================================================
+
+#[tokio::test]
+async fn test_with_js_sse_client_with_refs() -> anyhow::Result<()> {
+    run_js_sse_client_test(
+        "assets/petstore-openapi.json",
+        8086,
+        8002,
+        "js_sse_client_responses_with_refs",
+    )
+    .await
+}
+
+#[tokio::test]
+async fn test_with_js_streamable_http_client_with_refs() -> anyhow::Result<()> {
+    run_js_streamable_http_client_test(
+        "assets/petstore-openapi.json",
+        8087,
+        8003,
+        "js_streamable_http_client_responses_with_refs",
+    )
+    .await
 }

@@ -18,7 +18,7 @@ function cleanToolResponseText(responseData) {
   return responseData;
 }
 
-const transport = new SSEClientTransport(new URL(`http://127.0.0.1:8000/sse`));
+const transport = new SSEClientTransport(new URL(process.env.MCP_SSE_URL || `http://127.0.0.1:8000/sse`));
 
 const client = new Client(
   {

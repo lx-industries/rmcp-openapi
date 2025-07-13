@@ -1,11 +1,11 @@
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::error::OpenApiError;
 use crate::server::ToolMetadata;
 use oas3::spec::{
     ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody, Schema,
-    SchemaType, SchemaTypeSet,
+    SchemaType, SchemaTypeSet, Spec,
 };
 
 /// Tool generator for creating MCP tools from `OpenAPI` operations
@@ -21,6 +21,7 @@ impl ToolGenerator {
         operation: &Operation,
         method: String,
         path: String,
+        spec: &Spec,
     ) -> Result<ToolMetadata, OpenApiError> {
         let name = operation.operation_id.clone().unwrap_or_else(|| {
             format!(
@@ -38,6 +39,7 @@ impl ToolGenerator {
             &operation.parameters,
             &method,
             &operation.request_body,
+            spec,
         )?;
 
         Ok(ToolMetadata {
@@ -78,11 +80,76 @@ impl ToolGenerator {
         }
     }
 
+    /// Resolve a $ref reference to get the actual schema
+    ///
+    /// # Arguments
+    /// * `ref_path` - The reference path (e.g., "#/components/schemas/Pet")
+    /// * `spec` - The OpenAPI specification
+    /// * `visited` - Set of already visited references to detect circular references
+    ///
+    /// # Returns
+    /// The resolved ObjectSchema or an error if the reference is invalid or circular
+    fn resolve_reference(
+        ref_path: &str,
+        spec: &Spec,
+        visited: &mut HashSet<String>,
+    ) -> Result<ObjectSchema, OpenApiError> {
+        // Check for circular reference
+        if visited.contains(ref_path) {
+            return Err(OpenApiError::ToolGeneration(format!(
+                "Circular reference detected: {ref_path}"
+            )));
+        }
+
+        // Add to visited set
+        visited.insert(ref_path.to_string());
+
+        // Parse the reference path
+        // Currently only supporting local references like "#/components/schemas/Pet"
+        if !ref_path.starts_with("#/components/schemas/") {
+            return Err(OpenApiError::ToolGeneration(format!(
+                "Unsupported reference format: {ref_path}. Only #/components/schemas/ references are supported"
+            )));
+        }
+
+        let schema_name = ref_path.strip_prefix("#/components/schemas/").unwrap();
+
+        // Get the schema from components
+        let components = spec.components.as_ref().ok_or_else(|| {
+            OpenApiError::ToolGeneration(format!(
+                "Reference {ref_path} points to components, but spec has no components section"
+            ))
+        })?;
+
+        let schema_ref = components.schemas.get(schema_name).ok_or_else(|| {
+            OpenApiError::ToolGeneration(format!(
+                "Schema '{schema_name}' not found in components/schemas"
+            ))
+        })?;
+
+        // Resolve the schema reference
+        let resolved_schema = match schema_ref {
+            ObjectOrReference::Object(obj_schema) => obj_schema.clone(),
+            ObjectOrReference::Ref {
+                ref_path: nested_ref,
+            } => {
+                // Recursively resolve nested references
+                Self::resolve_reference(nested_ref, spec, visited)?
+            }
+        };
+
+        // Remove from visited set before returning (for other resolution paths)
+        visited.remove(ref_path);
+
+        Ok(resolved_schema)
+    }
+
     /// Generate JSON Schema for tool parameters
     fn generate_parameter_schema(
         parameters: &[ObjectOrReference<Parameter>],
         _method: &str,
         request_body: &Option<ObjectOrReference<RequestBody>>,
+        spec: &Spec,
     ) -> Result<Value, OpenApiError> {
         let mut properties = serde_json::Map::new();
         let mut required = Vec::new();
@@ -94,30 +161,35 @@ impl ToolGenerator {
         let mut cookie_params = Vec::new();
 
         for param_ref in parameters {
-            match param_ref {
-                ObjectOrReference::Object(param) => match &param.location {
-                    ParameterIn::Query => query_params.push(param),
-                    ParameterIn::Header => header_params.push(param),
-                    ParameterIn::Path => path_params.push(param),
-                    ParameterIn::Cookie => cookie_params.push(param),
-                },
-                ObjectOrReference::Ref { .. } => {
-                    // Skip references for now
+            let param = match param_ref {
+                ObjectOrReference::Object(param) => param,
+                ObjectOrReference::Ref { ref_path } => {
+                    // Try to resolve parameter reference
+                    // Note: Parameter references are rare and not supported yet in this implementation
+                    // For now, we'll continue to skip them but log a warning
+                    eprintln!("Warning: Parameter reference not resolved: {ref_path}");
                     continue;
                 }
+            };
+
+            match &param.location {
+                ParameterIn::Query => query_params.push(param),
+                ParameterIn::Header => header_params.push(param),
+                ParameterIn::Path => path_params.push(param),
+                ParameterIn::Cookie => cookie_params.push(param),
             }
         }
 
         // Process path parameters (always required)
         for param in path_params {
-            let param_schema = Self::convert_parameter_schema(param, "path")?;
+            let param_schema = Self::convert_parameter_schema(param, "path", spec)?;
             properties.insert(param.name.clone(), param_schema);
             required.push(param.name.clone());
         }
 
         // Process query parameters
         for param in &query_params {
-            let param_schema = Self::convert_parameter_schema(param, "query")?;
+            let param_schema = Self::convert_parameter_schema(param, "query", spec)?;
             properties.insert(param.name.clone(), param_schema);
             if param.required.unwrap_or(false) {
                 required.push(param.name.clone());
@@ -126,7 +198,7 @@ impl ToolGenerator {
 
         // Process header parameters (optional by default unless explicitly required)
         for param in &header_params {
-            let mut param_schema = Self::convert_parameter_schema(param, "header")?;
+            let mut param_schema = Self::convert_parameter_schema(param, "header", spec)?;
 
             // Add location metadata for headers
             if let Value::Object(ref mut obj) = param_schema {
@@ -141,7 +213,7 @@ impl ToolGenerator {
 
         // Process cookie parameters (rare, but supported)
         for param in &cookie_params {
-            let mut param_schema = Self::convert_parameter_schema(param, "cookie")?;
+            let mut param_schema = Self::convert_parameter_schema(param, "cookie", spec)?;
 
             // Add location metadata for cookies
             if let Value::Object(ref mut obj) = param_schema {
@@ -157,7 +229,7 @@ impl ToolGenerator {
         // Add request body parameter if defined in the OpenAPI spec
         if let Some(request_body) = request_body {
             if let Some((body_schema, is_required)) =
-                Self::convert_request_body_to_json_schema(request_body)?
+                Self::convert_request_body_to_json_schema(request_body, spec)?
             {
                 properties.insert("request_body".to_string(), body_schema);
                 if is_required {
@@ -190,7 +262,11 @@ impl ToolGenerator {
     }
 
     /// Convert `OpenAPI` parameter schema to JSON Schema for MCP tools
-    fn convert_parameter_schema(param: &Parameter, location: &str) -> Result<Value, OpenApiError> {
+    fn convert_parameter_schema(
+        param: &Parameter,
+        location: &str,
+        spec: &Spec,
+    ) -> Result<Value, OpenApiError> {
         let mut result = serde_json::Map::new();
 
         // Handle the parameter schema
@@ -200,11 +276,27 @@ impl ToolGenerator {
                     Self::convert_schema_to_json_schema(
                         &Schema::Object(Box::new(ObjectOrReference::Object(obj_schema.clone()))),
                         &mut result,
+                        spec,
                     )?;
                 }
-                ObjectOrReference::Ref { .. } => {
-                    // Default to string for references
-                    result.insert("type".to_string(), json!("string"));
+                ObjectOrReference::Ref { ref_path } => {
+                    // Resolve the reference and convert to JSON schema
+                    let mut visited = HashSet::new();
+                    match Self::resolve_reference(ref_path, spec, &mut visited) {
+                        Ok(resolved_schema) => {
+                            Self::convert_schema_to_json_schema(
+                                &Schema::Object(Box::new(ObjectOrReference::Object(
+                                    resolved_schema,
+                                ))),
+                                &mut result,
+                                spec,
+                            )?;
+                        }
+                        Err(_) => {
+                            // Fallback to string for unresolvable references
+                            result.insert("type".to_string(), json!("string"));
+                        }
+                    }
                 }
             }
         } else {
@@ -243,6 +335,7 @@ impl ToolGenerator {
         prefix_items: &[ObjectOrReference<ObjectSchema>],
         items: &Option<Box<Schema>>,
         result: &mut serde_json::Map<String, Value>,
+        spec: &Spec,
     ) -> Result<(), OpenApiError> {
         let prefix_count = prefix_items.len();
 
@@ -269,7 +362,44 @@ impl ToolGenerator {
                         item_types.push("string"); // fallback
                     }
                 }
-                ObjectOrReference::Ref { .. } => item_types.push("string"), // fallback for refs
+                ObjectOrReference::Ref { ref_path } => {
+                    // Try to resolve the reference
+                    let mut visited = HashSet::new();
+                    match Self::resolve_reference(ref_path, spec, &mut visited) {
+                        Ok(resolved_schema) => {
+                            // Extract the type immediately and store it as a string
+                            if let Some(schema_type_set) = &resolved_schema.schema_type {
+                                match schema_type_set {
+                                    SchemaTypeSet::Single(SchemaType::String) => {
+                                        item_types.push("string")
+                                    }
+                                    SchemaTypeSet::Single(SchemaType::Integer) => {
+                                        item_types.push("integer")
+                                    }
+                                    SchemaTypeSet::Single(SchemaType::Number) => {
+                                        item_types.push("number")
+                                    }
+                                    SchemaTypeSet::Single(SchemaType::Boolean) => {
+                                        item_types.push("boolean")
+                                    }
+                                    SchemaTypeSet::Single(SchemaType::Array) => {
+                                        item_types.push("array")
+                                    }
+                                    SchemaTypeSet::Single(SchemaType::Object) => {
+                                        item_types.push("object")
+                                    }
+                                    _ => item_types.push("string"), // fallback
+                                }
+                            } else {
+                                item_types.push("string"); // fallback
+                            }
+                        }
+                        Err(_) => {
+                            // Fallback to string for unresolvable references
+                            item_types.push("string");
+                        }
+                    }
+                }
             }
         }
 
@@ -315,6 +445,7 @@ impl ToolGenerator {
     fn convert_items_schema_to_draft07(
         items_schema: &Schema,
         result: &mut serde_json::Map<String, Value>,
+        spec: &Spec,
     ) -> Result<(), OpenApiError> {
         match items_schema {
             Schema::Boolean(boolean_schema) => {
@@ -334,12 +465,30 @@ impl ToolGenerator {
                     Self::convert_schema_to_json_schema(
                         &Schema::Object(Box::new(ObjectOrReference::Object(item_schema.clone()))),
                         &mut items_result,
+                        spec,
                     )?;
                     result.insert("items".to_string(), Value::Object(items_result));
                 }
-                ObjectOrReference::Ref { .. } => {
-                    // For references, default to string type
-                    result.insert("items".to_string(), json!({"type": "string"}));
+                ObjectOrReference::Ref { ref_path } => {
+                    // Try to resolve reference and convert to JSON schema
+                    let mut visited = HashSet::new();
+                    match Self::resolve_reference(ref_path, spec, &mut visited) {
+                        Ok(resolved_schema) => {
+                            let mut items_result = serde_json::Map::new();
+                            Self::convert_schema_to_json_schema(
+                                &Schema::Object(Box::new(ObjectOrReference::Object(
+                                    resolved_schema,
+                                ))),
+                                &mut items_result,
+                                spec,
+                            )?;
+                            result.insert("items".to_string(), Value::Object(items_result));
+                        }
+                        Err(_) => {
+                            // Fallback to string type for unresolvable references
+                            result.insert("items".to_string(), json!({"type": "string"}));
+                        }
+                    }
                 }
             },
         }
@@ -349,6 +498,7 @@ impl ToolGenerator {
     /// Convert request body from OpenAPI to JSON Schema for MCP tools
     fn convert_request_body_to_json_schema(
         request_body_ref: &ObjectOrReference<RequestBody>,
+        spec: &Spec,
     ) -> Result<Option<(Value, bool)>, OpenApiError> {
         match request_body_ref {
             ObjectOrReference::Object(request_body) => {
@@ -375,12 +525,31 @@ impl ToolGenerator {
                                         obj_schema.clone(),
                                     ))),
                                     &mut result,
+                                    spec,
                                 )?;
                             }
-                            ObjectOrReference::Ref { .. } => {
-                                // Default to object for references
-                                result.insert("type".to_string(), json!("object"));
-                                result.insert("additionalProperties".to_string(), json!(true));
+                            ObjectOrReference::Ref { ref_path } => {
+                                // Resolve the reference and convert to JSON schema
+                                let mut visited = HashSet::new();
+                                match Self::resolve_reference(ref_path, spec, &mut visited) {
+                                    Ok(resolved_schema) => {
+                                        Self::convert_schema_to_json_schema(
+                                            &Schema::Object(Box::new(ObjectOrReference::Object(
+                                                resolved_schema,
+                                            ))),
+                                            &mut result,
+                                            spec,
+                                        )?;
+                                    }
+                                    Err(_) => {
+                                        // Fallback to generic object for unresolvable references
+                                        result.insert("type".to_string(), json!("object"));
+                                        result.insert(
+                                            "additionalProperties".to_string(),
+                                            json!(true),
+                                        );
+                                    }
+                                }
                             }
                         }
 
@@ -428,6 +597,7 @@ impl ToolGenerator {
     fn convert_schema_to_json_schema(
         schema: &Schema,
         result: &mut serde_json::Map<String, Value>,
+        spec: &Spec,
     ) -> Result<(), OpenApiError> {
         match schema {
             Schema::Object(obj_schema_ref) => match obj_schema_ref.as_ref() {
@@ -498,10 +668,11 @@ impl ToolGenerator {
                                         &obj_schema.prefix_items,
                                         &obj_schema.items,
                                         result,
+                                        spec,
                                     )?;
                                 } else if let Some(items) = &obj_schema.items {
                                     // Handle regular items field (now a Schema enum)
-                                    Self::convert_items_schema_to_draft07(items, result)?;
+                                    Self::convert_items_schema_to_draft07(items, result, spec)?;
                                 } else {
                                     // No items specified, default to accepting any items
                                     result.insert("items".to_string(), json!({"type": "string"}));
@@ -524,12 +695,36 @@ impl ToolGenerator {
                                                         ),
                                                     )),
                                                     &mut prop_result,
+                                                    spec,
                                                 )?;
                                             }
-                                            ObjectOrReference::Ref { .. } => {
-                                                // Default to string for references
-                                                prop_result
-                                                    .insert("type".to_string(), json!("string"));
+                                            ObjectOrReference::Ref { ref_path } => {
+                                                // Try to resolve reference and convert to JSON schema
+                                                let mut visited = HashSet::new();
+                                                match Self::resolve_reference(
+                                                    ref_path,
+                                                    spec,
+                                                    &mut visited,
+                                                ) {
+                                                    Ok(resolved_schema) => {
+                                                        Self::convert_schema_to_json_schema(
+                                                            &Schema::Object(Box::new(
+                                                                ObjectOrReference::Object(
+                                                                    resolved_schema,
+                                                                ),
+                                                            )),
+                                                            &mut prop_result,
+                                                            spec,
+                                                        )?;
+                                                    }
+                                                    Err(_) => {
+                                                        // Fallback to string for unresolvable references
+                                                        prop_result.insert(
+                                                            "type".to_string(),
+                                                            json!("string"),
+                                                        );
+                                                    }
+                                                }
                                             }
                                         }
                                         properties_map
@@ -563,9 +758,24 @@ impl ToolGenerator {
                         result.insert("type".to_string(), json!("object"));
                     }
                 }
-                ObjectOrReference::Ref { .. } => {
-                    // For references, default to string
-                    result.insert("type".to_string(), json!("string"));
+                ObjectOrReference::Ref { ref_path } => {
+                    // Try to resolve reference and convert to JSON schema
+                    let mut visited = HashSet::new();
+                    match Self::resolve_reference(ref_path, spec, &mut visited) {
+                        Ok(resolved_schema) => {
+                            Self::convert_schema_to_json_schema(
+                                &Schema::Object(Box::new(ObjectOrReference::Object(
+                                    resolved_schema,
+                                ))),
+                                result,
+                                spec,
+                            )?;
+                        }
+                        Err(_) => {
+                            // Fallback to string for unresolvable references
+                            result.insert("type".to_string(), json!("string"));
+                        }
+                    }
                 }
             },
             Schema::Boolean(_) => {
@@ -793,11 +1003,48 @@ impl Default for RequestConfig {
 mod tests {
     use super::*;
     use oas3::spec::{
-        BooleanSchema, MediaType, ObjectOrReference, ObjectSchema, Operation, Parameter,
-        ParameterIn, RequestBody, SchemaType, SchemaTypeSet,
+        BooleanSchema, Components, MediaType, ObjectOrReference, ObjectSchema, Operation,
+        Parameter, ParameterIn, RequestBody, SchemaType, SchemaTypeSet, Spec,
     };
     use serde_json::{Value, json};
     use std::collections::BTreeMap;
+
+    /// Create a minimal test OpenAPI spec for testing purposes
+    fn create_test_spec() -> Spec {
+        Spec {
+            openapi: "3.0.0".to_string(),
+            info: oas3::spec::Info {
+                title: "Test API".to_string(),
+                version: "1.0.0".to_string(),
+                summary: None,
+                description: Some("Test API for unit tests".to_string()),
+                terms_of_service: None,
+                contact: None,
+                license: None,
+                extensions: Default::default(),
+            },
+            components: Some(Components {
+                schemas: BTreeMap::new(),
+                responses: BTreeMap::new(),
+                parameters: BTreeMap::new(),
+                examples: BTreeMap::new(),
+                request_bodies: BTreeMap::new(),
+                headers: BTreeMap::new(),
+                security_schemes: BTreeMap::new(),
+                links: BTreeMap::new(),
+                callbacks: BTreeMap::new(),
+                path_items: BTreeMap::new(),
+                extensions: Default::default(),
+            }),
+            servers: vec![],
+            paths: None,
+            external_docs: None,
+            tags: vec![],
+            security: vec![],
+            webhooks: BTreeMap::new(),
+            extensions: Default::default(),
+        }
+    }
 
     fn validate_tool_against_mcp_schema(metadata: &ToolMetadata) {
         let schema_content = std::fs::read_to_string("schema/2025-03-26/schema.json")
@@ -876,10 +1123,12 @@ mod tests {
 
         operation.parameters.push(ObjectOrReference::Object(param));
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "get".to_string(),
             "/pet/{petId}".to_string(),
+            &spec,
         )
         .unwrap();
 
@@ -912,7 +1161,9 @@ mod tests {
         let items = Some(Box::new(Schema::Boolean(BooleanSchema(false))));
 
         let mut result = serde_json::Map::new();
-        ToolGenerator::convert_prefix_items_to_draft07(&prefix_items, &items, &mut result).unwrap();
+        let spec = create_test_spec();
+        ToolGenerator::convert_prefix_items_to_draft07(&prefix_items, &items, &mut result, &spec)
+            .unwrap();
 
         // Should set exact array length
         assert_eq!(result.get("minItems"), Some(&json!(2)));
@@ -951,7 +1202,9 @@ mod tests {
         let items = Some(Box::new(Schema::Boolean(BooleanSchema(false))));
 
         let mut result = serde_json::Map::new();
-        ToolGenerator::convert_prefix_items_to_draft07(&prefix_items, &items, &mut result).unwrap();
+        let spec = create_test_spec();
+        ToolGenerator::convert_prefix_items_to_draft07(&prefix_items, &items, &mut result, &spec)
+            .unwrap();
 
         // Should set exact array length
         assert_eq!(result.get("minItems"), Some(&json!(2)));
@@ -968,8 +1221,9 @@ mod tests {
         // Test items: true (allow any additional items)
         let items_schema = Schema::Boolean(BooleanSchema(true));
         let mut result = serde_json::Map::new();
+        let spec = create_test_spec();
 
-        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result).unwrap();
+        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result, &spec).unwrap();
 
         // Should not add any constraints (allows any items)
         assert!(result.get("items").is_none());
@@ -981,8 +1235,9 @@ mod tests {
         // Test items: false (no additional items allowed)
         let items_schema = Schema::Boolean(BooleanSchema(false));
         let mut result = serde_json::Map::new();
+        let spec = create_test_spec();
 
-        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result).unwrap();
+        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result, &spec).unwrap();
 
         // Should set maxItems to 0
         assert_eq!(result.get("maxItems"), Some(&json!(0)));
@@ -999,8 +1254,9 @@ mod tests {
 
         let items_schema = Schema::Object(Box::new(ObjectOrReference::Object(item_schema)));
         let mut result = serde_json::Map::new();
+        let spec = create_test_spec();
 
-        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result).unwrap();
+        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result, &spec).unwrap();
 
         // Should convert to proper items schema
         let items_value = result.get("items").unwrap();
@@ -1044,7 +1300,8 @@ mod tests {
             extensions: Default::default(),
         };
 
-        let result = ToolGenerator::convert_parameter_schema(&param, "query").unwrap();
+        let spec = create_test_spec();
+        let result = ToolGenerator::convert_parameter_schema(&param, "query", &spec).unwrap();
 
         // Verify the result
         assert_eq!(result.get("type"), Some(&json!("array")));
@@ -1091,7 +1348,8 @@ mod tests {
             extensions: Default::default(),
         };
 
-        let result = ToolGenerator::convert_parameter_schema(&param, "query").unwrap();
+        let spec = create_test_spec();
+        let result = ToolGenerator::convert_parameter_schema(&param, "query", &spec).unwrap();
 
         // Verify the result
         assert_eq!(result.get("type"), Some(&json!("array")));
@@ -1138,10 +1396,12 @@ mod tests {
             extensions: Default::default(),
         };
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "post".to_string(),
             "/pets".to_string(),
+            &spec,
         )
         .unwrap();
 
@@ -1221,10 +1481,12 @@ mod tests {
             extensions: Default::default(),
         };
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "post".to_string(),
             "/pets/batch".to_string(),
+            &spec,
         )
         .unwrap();
 
@@ -1297,10 +1559,12 @@ mod tests {
             extensions: Default::default(),
         };
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "put".to_string(),
             "/pets/{petId}/name".to_string(),
+            &spec,
         )
         .unwrap();
 
@@ -1345,10 +1609,12 @@ mod tests {
             extensions: Default::default(),
         };
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "put".to_string(),
             "/pets/{petId}".to_string(),
+            &spec,
         )
         .unwrap();
 
@@ -1389,10 +1655,12 @@ mod tests {
             extensions: Default::default(),
         };
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "get".to_string(),
             "/pets".to_string(),
+            &spec,
         )
         .unwrap();
 
@@ -1469,10 +1737,12 @@ mod tests {
             extensions: Default::default(),
         };
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "patch".to_string(),
             "/pets/{petId}/status".to_string(),
+            &spec,
         )
         .unwrap();
 
@@ -1583,10 +1853,12 @@ mod tests {
             extensions: Default::default(),
         };
 
+        let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
             "post".to_string(),
             "/users".to_string(),
+            &spec,
         )
         .unwrap();
 

@@ -1,0 +1,248 @@
+---
+source: tests/test_with_python.rs
+expression: responses
+---
+[
+  {
+    "data": {
+      "meta": null,
+      "nextCursor": null,
+      "tools": [
+        {
+          "annotations": null,
+          "description": "Add a new pet to the store\n\nAdd a new pet to the store\n\nEndpoint: POST /pet",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "request_body": {
+                "additionalProperties": false,
+                "description": "Pet object that needs to be added to the store",
+                "properties": {
+                  "id": {
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "photoUrls": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "photoUrls"
+                ],
+                "type": "object",
+                "x-content-type": "application/json",
+                "x-location": "body"
+              }
+            },
+            "required": [
+              "request_body"
+            ],
+            "type": "object"
+          },
+          "meta": null,
+          "name": "addPet",
+          "outputSchema": null,
+          "title": null
+        },
+        {
+          "annotations": null,
+          "description": "Finds Pets by status\n\nMultiple status values can be provided with comma separated strings\n\nEndpoint: GET /pet/findByStatus",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "description": "Status values that need to be considered for filter",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "x-parameter-location": "query",
+                "x-parameter-required": true
+              },
+              "timeout_seconds": {
+                "default": 30,
+                "description": "Request timeout in seconds",
+                "maximum": 300,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          "meta": null,
+          "name": "findPetsByStatus",
+          "outputSchema": null,
+          "title": null
+        },
+        {
+          "annotations": null,
+          "description": "Find pet by ID\n\nReturns a single pet\n\nEndpoint: GET /pet/{petId}",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "petId": {
+                "description": "ID of pet to return",
+                "format": "int64",
+                "minimum": 1,
+                "type": "integer",
+                "x-parameter-location": "path",
+                "x-parameter-required": true
+              }
+            },
+            "required": [
+              "petId"
+            ],
+            "type": "object"
+          },
+          "meta": null,
+          "name": "getPetById",
+          "outputSchema": null,
+          "title": null
+        }
+      ]
+    },
+    "type": "tools_list"
+  },
+  {
+    "data": {
+      "meta": null,
+      "nextCursor": null,
+      "resources": []
+    },
+    "type": "resources_list"
+  },
+  {
+    "data": {
+      "meta": null,
+      "nextCursor": null,
+      "prompts": []
+    },
+    "type": "prompts_list"
+  },
+  {
+    "arguments": {
+      "petId": 123
+    },
+    "data": {
+      "content": [
+        {
+          "annotations": null,
+          "meta": null,
+          "text": "HTTP ✅ Success\n\nStatus: 200 OK\n\nRequest: GET http://127.0.0.1:8088/pet/123\n\nResponse Body:\n{\n  \"category\": {\n    \"id\": 1,\n    \"name\": \"Dogs\"\n  },\n  \"id\": 123,\n  \"name\": \"doggie\",\n  \"photoUrls\": [\n    \"https://example.com/photo1.jpg\"\n  ],\n  \"status\": \"available\",\n  \"tags\": [\n    {\n      \"id\": 1,\n      \"name\": \"tag1\"\n    }\n  ]\n}",
+          "type": "text"
+        }
+      ],
+      "isError": false,
+      "meta": null,
+      "structuredContent": null
+    },
+    "success": true,
+    "tool": "getPetById",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "status": [
+        "available",
+        "pending"
+      ]
+    },
+    "data": {
+      "content": [
+        {
+          "annotations": null,
+          "meta": null,
+          "text": "HTTP ✅ Success\n\nStatus: 200 OK\n\nRequest: GET http://127.0.0.1:8088/pet/findByStatus?status=available&status=pending\n\nResponse Body:\n[\n  {\n    \"category\": {\n      \"id\": 1,\n      \"name\": \"Dogs\"\n    },\n    \"id\": 1,\n    \"name\": \"doggie\",\n    \"photoUrls\": [\n      \"https://example.com/photo1.jpg\"\n    ],\n    \"status\": \"available\",\n    \"tags\": [\n      {\n        \"id\": 1,\n        \"name\": \"tag1\"\n      }\n    ]\n  },\n  {\n    \"category\": {\n      \"id\": 2,\n      \"name\": \"Cats\"\n    },\n    \"id\": 2,\n    \"name\": \"kitty\",\n    \"photoUrls\": [\n      \"https://example.com/photo2.jpg\"\n    ],\n    \"status\": \"pending\",\n    \"tags\": [\n      {\n        \"id\": 2,\n        \"name\": \"tag2\"\n      }\n    ]\n  }\n]",
+          "type": "text"
+        }
+      ],
+      "isError": false,
+      "meta": null,
+      "structuredContent": null
+    },
+    "success": true,
+    "tool": "findPetsByStatus",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "request_body": {
+        "name": "MCP Test Dog",
+        "status": "available"
+      }
+    },
+    "data": {
+      "content": [
+        {
+          "annotations": null,
+          "meta": null,
+          "text": "HTTP ✅ Success\n\nStatus: 201 Created\n\nRequest: POST http://127.0.0.1:8088/pet\n\nRequest Body:\n{\n  \"category\": {\n    \"id\": 1,\n    \"name\": \"Dogs\"\n  },\n  \"name\": \"MCP Test Dog\",\n  \"photoUrls\": [\n    \"https://example.com/mcp-test-dog.jpg\"\n  ],\n  \"status\": \"available\",\n  \"tags\": [\n    {\n      \"id\": 1,\n      \"name\": \"mcp-test\"\n    }\n  ]\n}\n\nResponse Body:\n{\n  \"category\": {\n    \"id\": 1,\n    \"name\": \"Dogs\"\n  },\n  \"id\": 123,\n  \"name\": \"new doggie\",\n  \"photoUrls\": [\n    \"https://example.com/photo1.jpg\"\n  ],\n  \"status\": \"available\",\n  \"tags\": [\n    {\n      \"id\": 1,\n      \"name\": \"tag1\"\n    }\n  ]\n}",
+          "type": "text"
+        }
+      ],
+      "isError": false,
+      "meta": null,
+      "structuredContent": null
+    },
+    "success": true,
+    "tool": "addPet",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "petId": 999999
+    },
+    "data": {
+      "content": [
+        {
+          "annotations": null,
+          "meta": null,
+          "text": "HTTP ❌ Error\n\nStatus: 404 Not Found - Not Found: Endpoint or resource does not exist\n\nRequest: GET http://127.0.0.1:8088/pet/999999\n\nResponse Body:\n{\n  \"message\": \"Pet not found\"\n}",
+          "type": "text"
+        }
+      ],
+      "isError": true,
+      "meta": null,
+      "structuredContent": null
+    },
+    "success": true,
+    "tool": "getPetById",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "request_body": {
+        "status": "invalid_status_value"
+      }
+    },
+    "data": {
+      "content": [
+        {
+          "annotations": null,
+          "meta": null,
+          "text": "HTTP ❌ Error\n\nStatus: 400 Bad Request - Bad Request: Check request parameters\n\nRequest: POST http://127.0.0.1:8088/pet\n\nRequest Body:\n{\n  \"status\": \"invalid_status_value\"\n}\n\nResponse Body:\n{\n  \"details\": \"Name is required\",\n  \"message\": \"Invalid input\"\n}",
+          "type": "text"
+        }
+      ],
+      "isError": true,
+      "meta": null,
+      "structuredContent": null
+    },
+    "success": true,
+    "tool": "addPet",
+    "type": "tool_call_result"
+  }
+]

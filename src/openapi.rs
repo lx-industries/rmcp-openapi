@@ -110,6 +110,7 @@ impl OpenApiSpec {
                             operation,
                             method.to_string(),
                             path.clone(),
+                            &self.spec,
                         )?;
                         tools.push(tool_metadata);
                     }
