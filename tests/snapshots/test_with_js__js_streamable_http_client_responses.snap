@@ -12,14 +12,38 @@ expression: responses
             "additionalProperties": false,
             "properties": {
               "request_body": {
-                "additionalProperties": true,
-                "description": "Request body data (JSON)",
+                "additionalProperties": false,
+                "description": "Pet object that needs to be added to the store",
+                "properties": {
+                  "id": {
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "photoUrls": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "photoUrls"
+                ],
                 "type": "object",
                 "x-content-type": "application/json",
                 "x-location": "body"
               }
             },
-            "required": [],
+            "required": [
+              "request_body"
+            ],
             "type": "object"
           },
           "name": "addPet"

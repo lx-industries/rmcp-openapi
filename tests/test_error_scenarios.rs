@@ -509,7 +509,8 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
 
 /// Helper function to create a server with a specific base URL
 async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
-    let spec_content = include_str!("assets/petstore-openapi.json");
+    // Using petstore-openapi-norefs.json until issue #18 is implemented
+    let spec_content = include_str!("assets/petstore-openapi-norefs.json");
     let spec_url = Url::parse("test://petstore")?;
     let mut server =
         OpenApiServer::with_base_url(rmcp_openapi::OpenApiSpecLocation::Url(spec_url), base_url)?;

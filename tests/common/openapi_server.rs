@@ -7,7 +7,8 @@ use url::Url;
 /// Helper to create an OpenAPI server for testing
 #[allow(dead_code)]
 pub async fn create_petstore_server(base_url: Option<Url>) -> anyhow::Result<OpenApiServer> {
-    let spec_content = include_str!("../assets/petstore-openapi.json");
+    // Using petstore-openapi-norefs.json until issue #18 is implemented
+    let spec_content = include_str!("../assets/petstore-openapi-norefs.json");
 
     let spec_url = Url::parse("test://petstore")?;
     let mut server = if let Some(url) = base_url {
@@ -35,7 +36,8 @@ pub async fn start_sse_server_with_petstore(
     let ct = SseServer::serve(bind_addr.parse()?)
         .await?
         .with_service(move || {
-            let spec_content = include_str!("../assets/petstore-openapi.json");
+            // Using petstore-openapi-norefs.json until issue #18 is implemented
+            let spec_content = include_str!("../assets/petstore-openapi-norefs.json");
             let spec_url = Url::parse("test://petstore").unwrap();
             let mut server = if let Some(ref url) = base_url {
                 OpenApiServer::with_base_url(spec_url, url.clone()).unwrap()
