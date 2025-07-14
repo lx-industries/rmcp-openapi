@@ -1,3 +1,21 @@
+## [0.3.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.2.1...v0.3.0) (2025-07-14)
+
+
+### Features
+
+* extract actual object properties from request body schema ([f50931b](https://gitlab.com/lx-industries/rmcp-openapi/commit/f50931b175c99afe78d840323357e03a6fb1df16)), closes [#14](https://gitlab.com/lx-industries/rmcp-openapi/issues/14)
+* implement $ref resolution for request body schemas ([53f7434](https://gitlab.com/lx-industries/rmcp-openapi/commit/53f7434871517e5d6e2442c6880376dbb1f07cc8)), closes [#18](https://gitlab.com/lx-industries/rmcp-openapi/issues/18)
+
+
+### Bug Fixes
+
+* avoid reloading OpenAPI spec for each client connection ([2431b06](https://gitlab.com/lx-industries/rmcp-openapi/commit/2431b0668dcb900d2a9bb176aee4e4ef25d21e2a)), closes [#15](https://gitlab.com/lx-industries/rmcp-openapi/issues/15)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate oas3 to 0.17.0 ([a4a9bf6](https://gitlab.com/lx-industries/rmcp-openapi/commit/a4a9bf6d1487d28d98ad95fea59d68a5c0d7b3f3))
+
 ## [0.2.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.2.0...v0.2.1) (2025-07-11)
 
 
