@@ -1,3 +1,11 @@
+## [0.3.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.3.0...v0.3.1) (2025-07-17)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to v22.17.1 ([d30bdb7](https://gitlab.com/lx-industries/rmcp-openapi/commit/d30bdb71e8019312efb86c860ae1dd850b090e53))
+* **deps:** update rust crate rmcp to 0.3.0 ([9b2ad47](https://gitlab.com/lx-industries/rmcp-openapi/commit/9b2ad47cf6ac79c5005d5fb85ab52896756ac5b9))
+
 ## [0.3.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.2.1...v0.3.0) (2025-07-14)
 
 
