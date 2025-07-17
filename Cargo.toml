@@ -19,7 +19,7 @@ name = "rmcp-openapi-server"
 path = "src/main.rs"
 
 [dependencies]
-rmcp = { version = "0.2.1", features = ["server", "transport-sse-server"] }
+rmcp = { version = "0.3.0", features = ["server", "transport-sse-server"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -35,7 +35,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
-rmcp = { version = "0.2.1", features = [
+rmcp = { version = "0.3.0", features = [
     "server",
     "transport-sse-server",
     "transport-child-process",
