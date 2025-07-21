@@ -34,6 +34,34 @@ pub struct ToolMetadata {
     pub path: String,
 }
 
+impl From<&ToolMetadata> for Tool {
+    fn from(metadata: &ToolMetadata) -> Self {
+        // Convert parameters to the expected Arc<Map> format
+        let input_schema = if let Value::Object(obj) = &metadata.parameters {
+            Arc::new(obj.clone())
+        } else {
+            Arc::new(serde_json::Map::new())
+        };
+
+        // Convert output_schema to the expected Arc<Map> format if present
+        let output_schema = metadata.output_schema.as_ref().and_then(|schema| {
+            if let Value::Object(obj) = schema {
+                Some(Arc::new(obj.clone()))
+            } else {
+                None
+            }
+        });
+
+        Tool {
+            name: metadata.name.clone().into(),
+            description: Some(metadata.description.clone().into()),
+            input_schema,
+            output_schema,
+            annotations: None,
+        }
+    }
+}
+
 impl OpenApiServer {
     #[must_use]
     pub fn new(spec_location: OpenApiSpecLocation) -> Self {
@@ -152,29 +180,7 @@ impl ServerHandler for OpenApiServer {
 
         // Convert all registered tools to MCP Tool format
         for tool_metadata in self.registry.get_all_tools() {
-            // Convert parameters to the expected Arc<Map> format
-            let input_schema = if let Value::Object(obj) = &tool_metadata.parameters {
-                Arc::new(obj.clone())
-            } else {
-                Arc::new(serde_json::Map::new())
-            };
-
-            // Convert output_schema to the expected Arc<Map> format if present
-            let output_schema = tool_metadata.output_schema.as_ref().and_then(|schema| {
-                if let Value::Object(obj) = schema {
-                    Some(Arc::new(obj.clone()))
-                } else {
-                    None
-                }
-            });
-
-            let tool = Tool {
-                name: tool_metadata.name.clone().into(),
-                description: Some(tool_metadata.description.clone().into()),
-                input_schema,
-                output_schema,
-                annotations: None,
-            };
+            let tool = Tool::from(tool_metadata);
             tools.push(tool);
         }
 

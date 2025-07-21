@@ -1284,7 +1284,7 @@ mod tests {
     }
 
     fn validate_tool_against_mcp_schema(metadata: &ToolMetadata) {
-        let schema_content = std::fs::read_to_string("schema/2025-03-26/schema.json")
+        let schema_content = std::fs::read_to_string("schema/2025-06-18/schema.json")
             .expect("Failed to read MCP schema file");
         let full_schema: Value =
             serde_json::from_str(&schema_content).expect("Failed to parse MCP schema JSON");
