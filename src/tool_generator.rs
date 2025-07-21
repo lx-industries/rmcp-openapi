@@ -9,6 +9,13 @@ use oas3::spec::{
     Response, Schema, SchemaType, SchemaTypeSet, Spec,
 };
 
+// Annotation key constants
+const X_LOCATION: &str = "x-location";
+const X_PARAMETER_LOCATION: &str = "x-parameter-location";
+const X_PARAMETER_REQUIRED: &str = "x-parameter-required";
+const X_CONTENT_TYPE: &str = "x-content-type";
+const X_ORIGINAL_NAME: &str = "x-original-name";
+
 /// Location type that extends ParameterIn with Body variant
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Location {
@@ -45,6 +52,8 @@ pub enum Annotation {
     Required(bool),
     /// Content type for request bodies
     ContentType(String),
+    /// Original name before sanitization
+    OriginalName(String),
 }
 
 /// Collection of annotations that can be applied to schema objects
@@ -78,6 +87,13 @@ impl Annotations {
         self.annotations.push(Annotation::ContentType(content_type));
         self
     }
+
+    /// Add an original name annotation
+    pub fn with_original_name(mut self, original_name: String) -> Self {
+        self.annotations
+            .push(Annotation::OriginalName(original_name));
+        self
+    }
 }
 
 impl Serialize for Annotations {
@@ -95,28 +111,58 @@ impl Serialize for Annotations {
                     // Determine the key based on the location type
                     let key = match location {
                         Location::Parameter(param_in) => match param_in {
-                            ParameterIn::Header | ParameterIn::Cookie => "x-location",
-                            _ => "x-parameter-location",
+                            ParameterIn::Header | ParameterIn::Cookie => X_LOCATION,
+                            _ => X_PARAMETER_LOCATION,
                         },
-                        Location::Body => "x-location",
+                        Location::Body => X_LOCATION,
                     };
                     map.serialize_entry(key, &location)?;
 
                     // For parameters, also add x-parameter-location
                     if let Location::Parameter(_) = location {
-                        map.serialize_entry("x-parameter-location", &location)?;
+                        map.serialize_entry(X_PARAMETER_LOCATION, &location)?;
                     }
                 }
                 Annotation::Required(required) => {
-                    map.serialize_entry("x-parameter-required", required)?;
+                    map.serialize_entry(X_PARAMETER_REQUIRED, required)?;
                 }
                 Annotation::ContentType(content_type) => {
-                    map.serialize_entry("x-content-type", content_type)?;
+                    map.serialize_entry(X_CONTENT_TYPE, content_type)?;
+                }
+                Annotation::OriginalName(original_name) => {
+                    map.serialize_entry(X_ORIGINAL_NAME, original_name)?;
                 }
             }
         }
 
         map.end()
+    }
+}
+
+/// Sanitize a property name to match MCP requirements
+///
+/// MCP requires property keys to match the pattern `^[a-zA-Z0-9_.-]{1,64}$`
+/// This function:
+/// - Replaces invalid characters with underscores
+/// - Limits the length to 64 characters
+/// - Ensures the name doesn't start with a number
+/// - Ensures the result is not empty
+fn sanitize_property_name(name: &str) -> String {
+    // Replace invalid characters with underscores
+    let sanitized = name
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '.' | '-' => c,
+            _ => '_',
+        })
+        .take(64)
+        .collect::<String>();
+
+    // Ensure not empty and doesn't start with a number
+    if sanitized.is_empty() || sanitized.chars().next().unwrap_or('0').is_numeric() {
+        format!("param_{sanitized}")
+    } else {
+        sanitized
     }
 }
 
@@ -408,7 +454,18 @@ impl ToolGenerator {
                         Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?
                     }
                 };
-                props_map.insert(prop_name.clone(), prop_schema);
+
+                // Sanitize property name and add original name annotation if needed
+                let sanitized_name = sanitize_property_name(prop_name);
+                if sanitized_name != *prop_name {
+                    // Add original name annotation using Annotations
+                    let annotations = Annotations::new().with_original_name(prop_name.clone());
+                    let prop_with_annotation =
+                        Self::apply_annotations_to_schema(prop_schema, annotations);
+                    props_map.insert(sanitized_name, prop_with_annotation);
+                } else {
+                    props_map.insert(prop_name.clone(), prop_schema);
+                }
             }
             schema_obj.insert("properties".to_string(), Value::Object(props_map));
         }
@@ -635,55 +692,79 @@ impl ToolGenerator {
 
         // Process path parameters (always required)
         for param in path_params {
-            let (param_schema, annotations) =
+            let (param_schema, mut annotations) =
                 Self::convert_parameter_schema(param, ParameterIn::Path, spec)?;
+
+            // Sanitize parameter name and add original name annotation if needed
+            let sanitized_name = sanitize_property_name(&param.name);
+            if sanitized_name != param.name {
+                annotations = annotations.with_original_name(param.name.clone());
+            }
+
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
-            properties.insert(param.name.clone(), param_schema_with_annotations);
-            required.push(param.name.clone());
+            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
+            required.push(sanitized_name);
         }
 
         // Process query parameters
         for param in &query_params {
-            let (param_schema, annotations) =
+            let (param_schema, mut annotations) =
                 Self::convert_parameter_schema(param, ParameterIn::Query, spec)?;
+
+            // Sanitize parameter name and add original name annotation if needed
+            let sanitized_name = sanitize_property_name(&param.name);
+            if sanitized_name != param.name {
+                annotations = annotations.with_original_name(param.name.clone());
+            }
+
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
-            properties.insert(param.name.clone(), param_schema_with_annotations);
+            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
             if param.required.unwrap_or(false) {
-                required.push(param.name.clone());
+                required.push(sanitized_name);
             }
         }
 
         // Process header parameters (optional by default unless explicitly required)
         for param in &header_params {
-            let (param_schema, annotations) =
+            let (param_schema, mut annotations) =
                 Self::convert_parameter_schema(param, ParameterIn::Header, spec)?;
+
+            // Sanitize parameter name after prefixing and add original name annotation if needed
+            let prefixed_name = format!("header_{}", param.name);
+            let sanitized_name = sanitize_property_name(&prefixed_name);
+            if sanitized_name != prefixed_name {
+                annotations = annotations.with_original_name(param.name.clone());
+            }
+
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
 
-            properties.insert(
-                format!("header_{}", param.name),
-                param_schema_with_annotations,
-            );
+            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
             if param.required.unwrap_or(false) {
-                required.push(format!("header_{}", param.name));
+                required.push(sanitized_name);
             }
         }
 
         // Process cookie parameters (rare, but supported)
         for param in &cookie_params {
-            let (param_schema, annotations) =
+            let (param_schema, mut annotations) =
                 Self::convert_parameter_schema(param, ParameterIn::Cookie, spec)?;
+
+            // Sanitize parameter name after prefixing and add original name annotation if needed
+            let prefixed_name = format!("cookie_{}", param.name);
+            let sanitized_name = sanitize_property_name(&prefixed_name);
+            if sanitized_name != prefixed_name {
+                annotations = annotations.with_original_name(param.name.clone());
+            }
+
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
 
-            properties.insert(
-                format!("cookie_{}", param.name),
-                param_schema_with_annotations,
-            );
+            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
             if param.required.unwrap_or(false) {
-                required.push(format!("cookie_{}", param.name));
+                required.push(sanitized_name);
             }
         }
 
@@ -1047,16 +1128,22 @@ impl ToolGenerator {
             // Determine parameter location from the tool metadata
             let location = Self::get_parameter_location(tool_metadata, key)?;
 
+            // Get the original name if it exists
+            let original_name = Self::get_original_parameter_name(tool_metadata, key);
+
             match location.as_str() {
                 "path" => {
-                    path_params.insert(key.clone(), value.clone());
+                    path_params.insert(original_name.unwrap_or_else(|| key.clone()), value.clone());
                 }
                 "query" => {
-                    query_params.insert(key.clone(), value.clone());
+                    query_params
+                        .insert(original_name.unwrap_or_else(|| key.clone()), value.clone());
                 }
                 "header" => {
-                    // Remove "header_" prefix if present
-                    let header_name = if key.starts_with("header_") {
+                    // Use original name if available, otherwise remove "header_" prefix
+                    let header_name = if let Some(orig) = original_name {
+                        orig
+                    } else if key.starts_with("header_") {
                         key.strip_prefix("header_").unwrap_or(key).to_string()
                     } else {
                         key.clone()
@@ -1064,8 +1151,10 @@ impl ToolGenerator {
                     header_params.insert(header_name, value.clone());
                 }
                 "cookie" => {
-                    // Remove "cookie_" prefix if present
-                    let cookie_name = if key.starts_with("cookie_") {
+                    // Use original name if available, otherwise remove "cookie_" prefix
+                    let cookie_name = if let Some(orig) = original_name {
+                        orig
+                    } else if key.starts_with("cookie_") {
                         key.strip_prefix("cookie_").unwrap_or(key).to_string()
                     } else {
                         key.clone()
@@ -1098,10 +1187,25 @@ impl ToolGenerator {
             config,
         };
 
-        // Validate parameters against tool metadata
-        Self::validate_parameters(tool_metadata, &extracted)?;
+        // Validate parameters against tool metadata using the original arguments
+        Self::validate_parameters(tool_metadata, arguments)?;
 
         Ok(extracted)
+    }
+
+    /// Get the original parameter name from x-original-name annotation if it exists
+    fn get_original_parameter_name(
+        tool_metadata: &ToolMetadata,
+        param_name: &str,
+    ) -> Option<String> {
+        tool_metadata
+            .parameters
+            .get("properties")
+            .and_then(|p| p.as_object())
+            .and_then(|props| props.get(param_name))
+            .and_then(|schema| schema.get(X_ORIGINAL_NAME))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
     }
 
     /// Get parameter location from tool metadata
@@ -1119,7 +1223,7 @@ impl ToolGenerator {
 
         if let Some(param_schema) = properties.get(param_name) {
             if let Some(location) = param_schema
-                .get("x-parameter-location")
+                .get(X_PARAMETER_LOCATION)
                 .and_then(|v| v.as_str())
             {
                 return Ok(location.to_string());
@@ -1139,10 +1243,10 @@ impl ToolGenerator {
         }
     }
 
-    /// Validate extracted parameters against tool metadata
+    /// Validate parameters against tool metadata
     fn validate_parameters(
         tool_metadata: &ToolMetadata,
-        extracted: &ExtractedParameters,
+        arguments: &Value,
     ) -> Result<(), OpenApiError> {
         let schema = &tool_metadata.parameters;
 
@@ -1164,23 +1268,13 @@ impl ToolGenerator {
                 OpenApiError::Validation("Tool schema missing properties".to_string())
             })?;
 
-        // Check all required parameters are provided
-        for required_param in &required_params {
-            let param_found = extracted.path.contains_key(*required_param)
-                || extracted.query.contains_key(*required_param)
-                || extracted
-                    .headers
-                    .contains_key(&required_param.replace("header_", ""))
-                || extracted
-                    .cookies
-                    .contains_key(&required_param.replace("cookie_", ""))
-                || extracted
-                    .body
-                    .contains_key(&required_param.replace("body_", ""))
-                || (*required_param == "request_body"
-                    && extracted.body.contains_key("request_body"));
+        let args = arguments
+            .as_object()
+            .ok_or_else(|| OpenApiError::Validation("Arguments must be an object".to_string()))?;
 
-            if !param_found {
+        // Check all required parameters are provided in the arguments
+        for required_param in &required_params {
+            if !args.contains_key(*required_param) {
                 return Err(OpenApiError::InvalidParameter {
                     parameter: (*required_param).to_string(),
                     reason: "Required parameter is missing".to_string(),
@@ -2606,5 +2700,286 @@ mod tests {
 
         // Validate against MCP Tool schema (this also validates output_schema if present)
         validate_tool_against_mcp_schema(&metadata);
+    }
+
+    #[test]
+    fn test_sanitize_property_name() {
+        // Test spaces are replaced with underscores
+        assert_eq!(sanitize_property_name("user name"), "user_name");
+        assert_eq!(
+            sanitize_property_name("first name last name"),
+            "first_name_last_name"
+        );
+
+        // Test special characters are replaced
+        assert_eq!(sanitize_property_name("user(admin)"), "user_admin_");
+        assert_eq!(sanitize_property_name("user[admin]"), "user_admin_");
+        assert_eq!(sanitize_property_name("price($)"), "price___");
+        assert_eq!(sanitize_property_name("email@address"), "email_address");
+        assert_eq!(sanitize_property_name("item#1"), "item_1");
+        assert_eq!(sanitize_property_name("a/b/c"), "a_b_c");
+
+        // Test valid characters are preserved
+        assert_eq!(sanitize_property_name("user_name"), "user_name");
+        assert_eq!(sanitize_property_name("userName123"), "userName123");
+        assert_eq!(sanitize_property_name("user.name"), "user.name");
+        assert_eq!(sanitize_property_name("user-name"), "user-name");
+
+        // Test numeric starting names
+        assert_eq!(sanitize_property_name("123name"), "param_123name");
+        assert_eq!(sanitize_property_name("1st_place"), "param_1st_place");
+
+        // Test empty string
+        assert_eq!(sanitize_property_name(""), "param_");
+
+        // Test length limit (64 characters)
+        let long_name = "a".repeat(100);
+        assert_eq!(sanitize_property_name(&long_name).len(), 64);
+
+        // Test all special characters become underscores
+        // Note: Since the result starts with underscore (which is valid), no prefix is added
+        assert_eq!(sanitize_property_name("!@#$%^&*()"), "__________");
+    }
+
+    #[test]
+    fn test_property_sanitization_with_annotations() {
+        let spec = create_test_spec();
+        let mut visited = HashSet::new();
+
+        // Create an object schema with properties that need sanitization
+        let obj_schema = ObjectSchema {
+            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+            properties: {
+                let mut props = BTreeMap::new();
+                // Property with space
+                props.insert(
+                    "user name".to_string(),
+                    ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                        ..Default::default()
+                    }),
+                );
+                // Property with special characters
+                props.insert(
+                    "price($)".to_string(),
+                    ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::Number)),
+                        ..Default::default()
+                    }),
+                );
+                // Valid property name
+                props.insert(
+                    "validName".to_string(),
+                    ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                        ..Default::default()
+                    }),
+                );
+                props
+            },
+            ..Default::default()
+        };
+
+        let result =
+            ToolGenerator::convert_object_schema_to_json_schema(&obj_schema, &spec, &mut visited)
+                .unwrap();
+
+        let properties = result.get("properties").unwrap().as_object().unwrap();
+
+        // Check sanitized property names
+        assert!(properties.contains_key("user_name"));
+        assert!(properties.contains_key("price___"));
+        assert!(properties.contains_key("validName"));
+
+        // Check original names are preserved in annotations
+        let user_name_schema = properties.get("user_name").unwrap();
+        assert_eq!(
+            user_name_schema.get(X_ORIGINAL_NAME),
+            Some(&json!("user name"))
+        );
+
+        let price_schema = properties.get("price___").unwrap();
+        assert_eq!(price_schema.get(X_ORIGINAL_NAME), Some(&json!("price($)")));
+
+        // Valid name should not have x-original-name annotation
+        let valid_name_schema = properties.get("validName").unwrap();
+        assert_eq!(valid_name_schema.get(X_ORIGINAL_NAME), None);
+    }
+
+    #[test]
+    fn test_parameter_sanitization_and_extraction() {
+        let spec = create_test_spec();
+
+        // Create an operation with parameters that need sanitization
+        let operation = Operation {
+            operation_id: Some("testOp".to_string()),
+            parameters: vec![
+                // Path parameter with special characters
+                ObjectOrReference::Object(Parameter {
+                    name: "user(id)".to_string(),
+                    location: ParameterIn::Path,
+                    description: Some("User ID".to_string()),
+                    required: Some(true),
+                    deprecated: Some(false),
+                    allow_empty_value: Some(false),
+                    style: None,
+                    explode: None,
+                    allow_reserved: Some(false),
+                    schema: Some(ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                        ..Default::default()
+                    })),
+                    example: None,
+                    examples: Default::default(),
+                    content: None,
+                    extensions: Default::default(),
+                }),
+                // Query parameter with spaces
+                ObjectOrReference::Object(Parameter {
+                    name: "page size".to_string(),
+                    location: ParameterIn::Query,
+                    description: Some("Page size".to_string()),
+                    required: Some(false),
+                    deprecated: Some(false),
+                    allow_empty_value: Some(false),
+                    style: None,
+                    explode: None,
+                    allow_reserved: Some(false),
+                    schema: Some(ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::Integer)),
+                        ..Default::default()
+                    })),
+                    example: None,
+                    examples: Default::default(),
+                    content: None,
+                    extensions: Default::default(),
+                }),
+                // Header parameter with special characters
+                ObjectOrReference::Object(Parameter {
+                    name: "auth-token!".to_string(),
+                    location: ParameterIn::Header,
+                    description: Some("Auth token".to_string()),
+                    required: Some(false),
+                    deprecated: Some(false),
+                    allow_empty_value: Some(false),
+                    style: None,
+                    explode: None,
+                    allow_reserved: Some(false),
+                    schema: Some(ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                        ..Default::default()
+                    })),
+                    example: None,
+                    examples: Default::default(),
+                    content: None,
+                    extensions: Default::default(),
+                }),
+            ],
+            ..Default::default()
+        };
+
+        let tool_metadata = ToolGenerator::generate_tool_metadata(
+            &operation,
+            "get".to_string(),
+            "/users/{user(id)}".to_string(),
+            &spec,
+        )
+        .unwrap();
+
+        // Check sanitized parameter names in schema
+        let properties = tool_metadata
+            .parameters
+            .get("properties")
+            .unwrap()
+            .as_object()
+            .unwrap();
+
+        assert!(properties.contains_key("user_id_"));
+        assert!(properties.contains_key("page_size"));
+        assert!(properties.contains_key("header_auth-token_"));
+
+        // Check that required array contains the sanitized name
+        let required = tool_metadata
+            .parameters
+            .get("required")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert!(required.contains(&json!("user_id_")));
+
+        // Test parameter extraction with original names
+        let arguments = json!({
+            "user_id_": "123",
+            "page_size": 10,
+            "header_auth-token_": "secret"
+        });
+
+        let extracted = ToolGenerator::extract_parameters(&tool_metadata, &arguments).unwrap();
+
+        // Path parameter should use original name
+        assert_eq!(extracted.path.get("user(id)"), Some(&json!("123")));
+
+        // Query parameter should use original name
+        assert_eq!(extracted.query.get("page size"), Some(&json!(10)));
+
+        // Header parameter should use original name (without prefix)
+        assert_eq!(extracted.headers.get("auth-token!"), Some(&json!("secret")));
+    }
+
+    #[test]
+    fn test_cookie_parameter_sanitization() {
+        let spec = create_test_spec();
+
+        let operation = Operation {
+            operation_id: Some("testCookie".to_string()),
+            parameters: vec![ObjectOrReference::Object(Parameter {
+                name: "session[id]".to_string(),
+                location: ParameterIn::Cookie,
+                description: Some("Session ID".to_string()),
+                required: Some(false),
+                deprecated: Some(false),
+                allow_empty_value: Some(false),
+                style: None,
+                explode: None,
+                allow_reserved: Some(false),
+                schema: Some(ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                    ..Default::default()
+                })),
+                example: None,
+                examples: Default::default(),
+                content: None,
+                extensions: Default::default(),
+            })],
+            ..Default::default()
+        };
+
+        let tool_metadata = ToolGenerator::generate_tool_metadata(
+            &operation,
+            "get".to_string(),
+            "/data".to_string(),
+            &spec,
+        )
+        .unwrap();
+
+        let properties = tool_metadata
+            .parameters
+            .get("properties")
+            .unwrap()
+            .as_object()
+            .unwrap();
+
+        // Check sanitized cookie parameter name
+        assert!(properties.contains_key("cookie_session_id_"));
+
+        // Test extraction
+        let arguments = json!({
+            "cookie_session_id_": "abc123"
+        });
+
+        let extracted = ToolGenerator::extract_parameters(&tool_metadata, &arguments).unwrap();
+
+        // Cookie should use original name
+        assert_eq!(extracted.cookies.get("session[id]"), Some(&json!("abc123")));
     }
 }
