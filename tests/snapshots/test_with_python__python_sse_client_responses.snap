@@ -15,7 +15,7 @@ expression: responses
             "additionalProperties": false,
             "properties": {
               "request_body": {
-                "additionalProperties": false,
+                "additionalProperties": true,
                 "description": "Pet object that needs to be added to the store",
                 "properties": {
                   "id": {
@@ -23,6 +23,7 @@ expression: responses
                     "type": "integer"
                   },
                   "name": {
+                    "example": "doggie",
                     "type": "string"
                   },
                   "photoUrls": {
@@ -32,6 +33,11 @@ expression: responses
                     "type": "array"
                   },
                   "status": {
+                    "enum": [
+                      "available",
+                      "pending",
+                      "sold"
+                    ],
                     "type": "string"
                   }
                 },
@@ -51,7 +57,52 @@ expression: responses
           },
           "meta": null,
           "name": "addPet",
-          "outputSchema": null,
+          "outputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "additionalProperties": true,
+                "properties": {
+                  "id": {
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "name": {
+                    "example": "doggie",
+                    "type": "string"
+                  },
+                  "photoUrls": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "status": {
+                    "enum": [
+                      "available",
+                      "pending",
+                      "sold"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "photoUrls"
+                ],
+                "type": "object"
+              },
+              "status": {
+                "description": "HTTP status code",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "status",
+              "body"
+            ],
+            "type": "object"
+          },
           "title": null
         },
         {
@@ -63,6 +114,11 @@ expression: responses
               "status": {
                 "description": "Status values that need to be considered for filter",
                 "items": {
+                  "enum": [
+                    "available",
+                    "pending",
+                    "sold"
+                  ],
                   "type": "string"
                 },
                 "type": "array",
@@ -84,7 +140,55 @@ expression: responses
           },
           "meta": null,
           "name": "findPetsByStatus",
-          "outputSchema": null,
+          "outputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "items": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "id": {
+                      "format": "int64",
+                      "type": "integer"
+                    },
+                    "name": {
+                      "example": "doggie",
+                      "type": "string"
+                    },
+                    "photoUrls": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "status": {
+                      "enum": [
+                        "available",
+                        "pending",
+                        "sold"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "photoUrls"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "status": {
+                "description": "HTTP status code",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "status",
+              "body"
+            ],
+            "type": "object"
+          },
           "title": null
         },
         {
@@ -109,7 +213,52 @@ expression: responses
           },
           "meta": null,
           "name": "getPetById",
-          "outputSchema": null,
+          "outputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "additionalProperties": true,
+                "properties": {
+                  "id": {
+                    "format": "int64",
+                    "type": "integer"
+                  },
+                  "name": {
+                    "example": "doggie",
+                    "type": "string"
+                  },
+                  "photoUrls": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "status": {
+                    "enum": [
+                      "available",
+                      "pending",
+                      "sold"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "photoUrls"
+                ],
+                "type": "object"
+              },
+              "status": {
+                "description": "HTTP status code",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "status",
+              "body"
+            ],
+            "type": "object"
+          },
           "title": null
         }
       ]
@@ -147,7 +296,27 @@ expression: responses
       ],
       "isError": false,
       "meta": null,
-      "structuredContent": null
+      "structuredContent": {
+        "body": {
+          "category": {
+            "id": 1,
+            "name": "Dogs"
+          },
+          "id": 123,
+          "name": "doggie",
+          "photoUrls": [
+            "https://example.com/photo1.jpg"
+          ],
+          "status": "available",
+          "tags": [
+            {
+              "id": 1,
+              "name": "tag1"
+            }
+          ]
+        },
+        "status": 200
+      }
     },
     "success": true,
     "tool": "getPetById",
@@ -171,7 +340,47 @@ expression: responses
       ],
       "isError": false,
       "meta": null,
-      "structuredContent": null
+      "structuredContent": {
+        "body": [
+          {
+            "category": {
+              "id": 1,
+              "name": "Dogs"
+            },
+            "id": 1,
+            "name": "doggie",
+            "photoUrls": [
+              "https://example.com/photo1.jpg"
+            ],
+            "status": "available",
+            "tags": [
+              {
+                "id": 1,
+                "name": "tag1"
+              }
+            ]
+          },
+          {
+            "category": {
+              "id": 2,
+              "name": "Cats"
+            },
+            "id": 2,
+            "name": "kitty",
+            "photoUrls": [
+              "https://example.com/photo2.jpg"
+            ],
+            "status": "pending",
+            "tags": [
+              {
+                "id": 2,
+                "name": "tag2"
+              }
+            ]
+          }
+        ],
+        "status": 200
+      }
     },
     "success": true,
     "tool": "findPetsByStatus",
@@ -195,7 +404,27 @@ expression: responses
       ],
       "isError": false,
       "meta": null,
-      "structuredContent": null
+      "structuredContent": {
+        "body": {
+          "category": {
+            "id": 1,
+            "name": "Dogs"
+          },
+          "id": 123,
+          "name": "new doggie",
+          "photoUrls": [
+            "https://example.com/photo1.jpg"
+          ],
+          "status": "available",
+          "tags": [
+            {
+              "id": 1,
+              "name": "tag1"
+            }
+          ]
+        },
+        "status": 201
+      }
     },
     "success": true,
     "tool": "addPet",
@@ -216,7 +445,12 @@ expression: responses
       ],
       "isError": true,
       "meta": null,
-      "structuredContent": null
+      "structuredContent": {
+        "body": {
+          "message": "Pet not found"
+        },
+        "status": 404
+      }
     },
     "success": true,
     "tool": "getPetById",
@@ -239,7 +473,13 @@ expression: responses
       ],
       "isError": true,
       "meta": null,
-      "structuredContent": null
+      "structuredContent": {
+        "body": {
+          "details": "Name is required",
+          "message": "Invalid input"
+        },
+        "status": 400
+      }
     },
     "success": true,
     "tool": "addPet",

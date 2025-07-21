@@ -626,6 +626,7 @@ mod tests {
             name: "test".to_string(),
             description: "test".to_string(),
             parameters: json!({}),
+            output_schema: None,
             method: "GET".to_string(),
             path: "/pets/{id}".to_string(),
         };
@@ -654,6 +655,7 @@ mod tests {
             name: "test".to_string(),
             description: "test".to_string(),
             parameters: json!({}),
+            output_schema: None,
             method: "GET".to_string(),
             path: "https://api.example.com/pets/123".to_string(),
         };
@@ -675,6 +677,7 @@ mod tests {
             name: "test".to_string(),
             description: "test".to_string(),
             parameters: json!({}),
+            output_schema: None,
             method: "GET".to_string(),
             path: "/pets/123".to_string(),
         };
@@ -698,6 +701,7 @@ mod tests {
             name: "test".to_string(),
             description: "test".to_string(),
             parameters: json!({}),
+            output_schema: None,
             method: "GET".to_string(),
             path: "/search".to_string(),
         };
@@ -742,6 +746,7 @@ mod tests {
             name: "test".to_string(),
             description: "test".to_string(),
             parameters: json!({}),
+            output_schema: None,
             method: "GET".to_string(),
             path: "/search".to_string(),
         };
@@ -780,6 +785,7 @@ mod tests {
             name: "test".to_string(),
             description: "test".to_string(),
             parameters: json!({}),
+            output_schema: None,
             method: "GET".to_string(),
             path: "/users/{userId}/pets/{petId}".to_string(),
         };
@@ -817,6 +823,7 @@ mod tests {
             name: "test".to_string(),
             description: "test".to_string(),
             parameters: json!({}),
+            output_schema: None,
             method: "GET".to_string(),
             path: "/pets".to_string(),
         };

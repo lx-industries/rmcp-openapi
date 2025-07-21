@@ -1,11 +1,11 @@
 use serde_json::{Value, json};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::error::OpenApiError;
 use crate::server::ToolMetadata;
 use oas3::spec::{
-    ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody, Schema,
-    SchemaType, SchemaTypeSet, Spec,
+    BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody,
+    Response, Schema, SchemaType, SchemaTypeSet, Spec,
 };
 
 /// Tool generator for creating MCP tools from `OpenAPI` operations
@@ -42,10 +42,14 @@ impl ToolGenerator {
             spec,
         )?;
 
+        // Extract output schema from responses
+        let output_schema = Self::extract_output_schema(&operation.responses, spec)?;
+
         Ok(ToolMetadata {
             name,
             description,
             parameters,
+            output_schema,
             method,
             path,
         })
@@ -78,6 +82,343 @@ impl ToolGenerator {
                 format!("API endpoint: {} {}", method.to_uppercase(), path)
             }
         }
+    }
+
+    /// Extract output schema from OpenAPI responses
+    ///
+    /// Prioritizes successful response codes (2XX) and returns the first found schema
+    fn extract_output_schema(
+        responses: &Option<BTreeMap<String, ObjectOrReference<Response>>>,
+        spec: &Spec,
+    ) -> Result<Option<Value>, OpenApiError> {
+        let responses = match responses {
+            Some(r) => r,
+            None => return Ok(None),
+        };
+        // Priority order for response codes to check
+        let priority_codes = vec![
+            "200",     // OK
+            "201",     // Created
+            "202",     // Accepted
+            "203",     // Non-Authoritative Information
+            "204",     // No Content (will have no schema)
+            "2XX",     // Any 2XX response
+            "default", // Default response
+        ];
+
+        for status_code in priority_codes {
+            if let Some(response_or_ref) = responses.get(status_code) {
+                // Resolve reference if needed
+                let response = match response_or_ref {
+                    ObjectOrReference::Object(response) => response,
+                    ObjectOrReference::Ref { ref_path: _ } => {
+                        // For now, we'll skip response references
+                        // This could be enhanced to resolve response references
+                        continue;
+                    }
+                };
+
+                // Skip 204 No Content responses as they shouldn't have a body
+                if status_code == "204" {
+                    continue;
+                }
+
+                // Check if response has content
+                if !response.content.is_empty() {
+                    let content = &response.content;
+                    // Look for JSON content type
+                    let json_media_types = vec![
+                        "application/json",
+                        "application/ld+json",
+                        "application/vnd.api+json",
+                    ];
+
+                    for media_type_str in json_media_types {
+                        if let Some(media_type) = content.get(media_type_str) {
+                            if let Some(schema_or_ref) = &media_type.schema {
+                                // Convert OpenAPI schema to JSON Schema
+                                let mut visited = HashSet::new();
+                                // MediaType schema is ObjectOrReference<ObjectSchema>
+                                let json_schema = match schema_or_ref {
+                                    ObjectOrReference::Object(obj_schema) => {
+                                        Self::convert_object_schema_to_json_schema(
+                                            obj_schema,
+                                            spec,
+                                            &mut visited,
+                                        )?
+                                    }
+                                    ObjectOrReference::Ref { ref_path } => {
+                                        // Resolve schema reference
+                                        let resolved =
+                                            Self::resolve_reference(ref_path, spec, &mut visited)?;
+                                        Self::convert_object_schema_to_json_schema(
+                                            &resolved,
+                                            spec,
+                                            &mut visited,
+                                        )?
+                                    }
+                                };
+
+                                // Always wrap output schema in a consistent HTTP response structure
+                                let final_schema = Self::wrap_output_schema(json_schema);
+                                return Ok(Some(final_schema));
+                            }
+                        }
+                    }
+
+                    // If no JSON media type found, try any media type with a schema
+                    for media_type in content.values() {
+                        if let Some(schema_or_ref) = &media_type.schema {
+                            let mut visited = HashSet::new();
+                            // MediaType schema is ObjectOrReference<ObjectSchema>
+                            let json_schema = match schema_or_ref {
+                                ObjectOrReference::Object(obj_schema) => {
+                                    Self::convert_object_schema_to_json_schema(
+                                        obj_schema,
+                                        spec,
+                                        &mut visited,
+                                    )?
+                                }
+                                ObjectOrReference::Ref { ref_path } => {
+                                    // Resolve schema reference
+                                    let resolved =
+                                        Self::resolve_reference(ref_path, spec, &mut visited)?;
+                                    Self::convert_object_schema_to_json_schema(
+                                        &resolved,
+                                        spec,
+                                        &mut visited,
+                                    )?
+                                }
+                            };
+
+                            // Always wrap output schema in a consistent HTTP response structure
+                            let final_schema = Self::wrap_output_schema(json_schema);
+                            return Ok(Some(final_schema));
+                        }
+                    }
+                }
+            }
+        }
+
+        // No response schema found
+        Ok(None)
+    }
+
+    /// Convert an OpenAPI Schema to JSON Schema format
+    ///
+    /// This is the unified converter for both input and output schemas.
+    /// It handles all OpenAPI schema types and converts them to JSON Schema draft-07 format.
+    ///
+    /// # Arguments
+    /// * `schema` - The OpenAPI Schema to convert
+    /// * `spec` - The full OpenAPI specification for resolving references
+    /// * `visited` - Set of visited references to prevent infinite recursion
+    fn convert_schema_to_json_schema(
+        schema: &Schema,
+        spec: &Spec,
+        visited: &mut HashSet<String>,
+    ) -> Result<Value, OpenApiError> {
+        match schema {
+            Schema::Object(obj_schema_or_ref) => match obj_schema_or_ref.as_ref() {
+                ObjectOrReference::Object(obj_schema) => {
+                    Self::convert_object_schema_to_json_schema(obj_schema, spec, visited)
+                }
+                ObjectOrReference::Ref { ref_path } => {
+                    let resolved = Self::resolve_reference(ref_path, spec, visited)?;
+                    Self::convert_object_schema_to_json_schema(&resolved, spec, visited)
+                }
+            },
+            Schema::Boolean(bool_schema) => {
+                // Boolean schemas in OpenAPI: true allows any value, false allows no value
+                if bool_schema.0 {
+                    Ok(json!({})) // Empty schema allows anything
+                } else {
+                    Ok(json!({"not": {}})) // Schema that matches nothing
+                }
+            }
+        }
+    }
+
+    /// Convert ObjectSchema to JSON Schema format
+    ///
+    /// This is the core converter that handles all schema types and properties.
+    /// It processes object properties, arrays, primitives, and all OpenAPI schema attributes.
+    ///
+    /// # Arguments
+    /// * `obj_schema` - The OpenAPI ObjectSchema to convert
+    /// * `spec` - The full OpenAPI specification for resolving references
+    /// * `visited` - Set of visited references to prevent infinite recursion
+    fn convert_object_schema_to_json_schema(
+        obj_schema: &ObjectSchema,
+        spec: &Spec,
+        visited: &mut HashSet<String>,
+    ) -> Result<Value, OpenApiError> {
+        let mut schema_obj = serde_json::Map::new();
+
+        // Add type if specified
+        if let Some(schema_type) = &obj_schema.schema_type {
+            match schema_type {
+                SchemaTypeSet::Single(single_type) => {
+                    schema_obj.insert(
+                        "type".to_string(),
+                        json!(Self::schema_type_to_string(single_type)),
+                    );
+                }
+                SchemaTypeSet::Multiple(type_set) => {
+                    let types: Vec<String> =
+                        type_set.iter().map(Self::schema_type_to_string).collect();
+                    schema_obj.insert("type".to_string(), json!(types));
+                }
+            }
+        }
+
+        // Add description if present
+        if let Some(desc) = &obj_schema.description {
+            schema_obj.insert("description".to_string(), json!(desc));
+        }
+
+        // Handle object properties
+        if !obj_schema.properties.is_empty() {
+            let properties = &obj_schema.properties;
+            let mut props_map = serde_json::Map::new();
+            for (prop_name, prop_schema_or_ref) in properties {
+                let prop_schema = match prop_schema_or_ref {
+                    ObjectOrReference::Object(schema) => {
+                        // Convert ObjectSchema to Schema for processing
+                        Self::convert_schema_to_json_schema(
+                            &Schema::Object(Box::new(ObjectOrReference::Object(schema.clone()))),
+                            spec,
+                            visited,
+                        )?
+                    }
+                    ObjectOrReference::Ref { ref_path } => {
+                        let resolved = Self::resolve_reference(ref_path, spec, visited)?;
+                        Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?
+                    }
+                };
+                props_map.insert(prop_name.clone(), prop_schema);
+            }
+            schema_obj.insert("properties".to_string(), Value::Object(props_map));
+        }
+
+        // Add required fields
+        if !obj_schema.required.is_empty() {
+            schema_obj.insert("required".to_string(), json!(&obj_schema.required));
+        }
+
+        // Handle additionalProperties for object schemas
+        if let Some(schema_type) = &obj_schema.schema_type {
+            if matches!(schema_type, SchemaTypeSet::Single(SchemaType::Object)) {
+                // Handle additional_properties based on the OpenAPI schema
+                match &obj_schema.additional_properties {
+                    None => {
+                        // In OpenAPI 3.0, the default for additionalProperties is true
+                        schema_obj.insert("additionalProperties".to_string(), json!(true));
+                    }
+                    Some(Schema::Boolean(BooleanSchema(value))) => {
+                        // Explicit boolean value
+                        schema_obj.insert("additionalProperties".to_string(), json!(value));
+                    }
+                    Some(Schema::Object(schema_ref)) => {
+                        // Additional properties must match this schema
+                        let mut visited = HashSet::new();
+                        let additional_props_schema = Self::convert_schema_to_json_schema(
+                            &Schema::Object(schema_ref.clone()),
+                            spec,
+                            &mut visited,
+                        )?;
+                        schema_obj
+                            .insert("additionalProperties".to_string(), additional_props_schema);
+                    }
+                }
+            }
+        }
+
+        // Handle array-specific properties
+        if let Some(schema_type) = &obj_schema.schema_type {
+            if matches!(schema_type, SchemaTypeSet::Single(SchemaType::Array)) {
+                // Handle prefix_items (OpenAPI 3.1 tuple-like arrays)
+                if !obj_schema.prefix_items.is_empty() {
+                    // Convert prefix_items to draft-07 compatible format
+                    Self::convert_prefix_items_to_draft07(
+                        &obj_schema.prefix_items,
+                        &obj_schema.items,
+                        &mut schema_obj,
+                        spec,
+                    )?;
+                } else if let Some(items_schema) = &obj_schema.items {
+                    // Handle regular items
+                    let items_json =
+                        Self::convert_schema_to_json_schema(items_schema, spec, visited)?;
+                    schema_obj.insert("items".to_string(), items_json);
+                }
+
+                // Add array constraints
+                if let Some(min_items) = obj_schema.min_items {
+                    schema_obj.insert("minItems".to_string(), json!(min_items));
+                }
+                if let Some(max_items) = obj_schema.max_items {
+                    schema_obj.insert("maxItems".to_string(), json!(max_items));
+                }
+            } else if let Some(items_schema) = &obj_schema.items {
+                // Non-array types shouldn't have items, but handle it anyway
+                let items_json = Self::convert_schema_to_json_schema(items_schema, spec, visited)?;
+                schema_obj.insert("items".to_string(), items_json);
+            }
+        }
+
+        // Handle other common properties
+        if let Some(format) = &obj_schema.format {
+            schema_obj.insert("format".to_string(), json!(format));
+        }
+
+        if let Some(example) = &obj_schema.example {
+            schema_obj.insert("example".to_string(), example.clone());
+        }
+
+        if let Some(default) = &obj_schema.default {
+            schema_obj.insert("default".to_string(), default.clone());
+        }
+
+        if !obj_schema.enum_values.is_empty() {
+            schema_obj.insert("enum".to_string(), json!(&obj_schema.enum_values));
+        }
+
+        if let Some(min) = &obj_schema.minimum {
+            schema_obj.insert("minimum".to_string(), json!(min));
+        }
+
+        if let Some(max) = &obj_schema.maximum {
+            schema_obj.insert("maximum".to_string(), json!(max));
+        }
+
+        if let Some(min_length) = &obj_schema.min_length {
+            schema_obj.insert("minLength".to_string(), json!(min_length));
+        }
+
+        if let Some(max_length) = &obj_schema.max_length {
+            schema_obj.insert("maxLength".to_string(), json!(max_length));
+        }
+
+        if let Some(pattern) = &obj_schema.pattern {
+            schema_obj.insert("pattern".to_string(), json!(pattern));
+        }
+
+        Ok(Value::Object(schema_obj))
+    }
+
+    /// Convert SchemaType to string representation
+    fn schema_type_to_string(schema_type: &SchemaType) -> String {
+        match schema_type {
+            SchemaType::Boolean => "boolean",
+            SchemaType::Integer => "integer",
+            SchemaType::Number => "number",
+            SchemaType::String => "string",
+            SchemaType::Array => "array",
+            SchemaType::Object => "object",
+            SchemaType::Null => "null",
+        }
+        .to_string()
     }
 
     /// Resolve a $ref reference to get the actual schema
@@ -267,47 +608,54 @@ impl ToolGenerator {
         location: &str,
         spec: &Spec,
     ) -> Result<Value, OpenApiError> {
-        let mut result = serde_json::Map::new();
-
-        // Handle the parameter schema
-        if let Some(schema_ref) = &param.schema {
+        // Convert the parameter schema using the unified converter
+        let base_schema = if let Some(schema_ref) = &param.schema {
             match schema_ref {
                 ObjectOrReference::Object(obj_schema) => {
+                    let mut visited = HashSet::new();
                     Self::convert_schema_to_json_schema(
                         &Schema::Object(Box::new(ObjectOrReference::Object(obj_schema.clone()))),
-                        &mut result,
                         spec,
-                    )?;
+                        &mut visited,
+                    )?
                 }
                 ObjectOrReference::Ref { ref_path } => {
                     // Resolve the reference and convert to JSON schema
                     let mut visited = HashSet::new();
                     match Self::resolve_reference(ref_path, spec, &mut visited) {
-                        Ok(resolved_schema) => {
-                            Self::convert_schema_to_json_schema(
-                                &Schema::Object(Box::new(ObjectOrReference::Object(
-                                    resolved_schema,
-                                ))),
-                                &mut result,
-                                spec,
-                            )?;
-                        }
+                        Ok(resolved_schema) => Self::convert_schema_to_json_schema(
+                            &Schema::Object(Box::new(ObjectOrReference::Object(resolved_schema))),
+                            spec,
+                            &mut visited,
+                        )?,
                         Err(_) => {
                             // Fallback to string for unresolvable references
-                            result.insert("type".to_string(), json!("string"));
+                            json!({"type": "string"})
                         }
                     }
                 }
             }
         } else {
             // Default to string if no schema
-            result.insert("type".to_string(), json!("string"));
-        }
+            json!({"type": "string"})
+        };
 
-        // Add description
+        // Merge the base schema properties with parameter metadata
+        let mut result = match base_schema {
+            Value::Object(obj) => obj,
+            _ => {
+                // This should never happen as our converter always returns objects
+                return Err(OpenApiError::ToolGeneration(format!(
+                    "Internal error: schema converter returned non-object for parameter '{}'",
+                    param.name
+                )));
+            }
+        };
+
+        // Add or override description
         if let Some(desc) = &param.description {
             result.insert("description".to_string(), json!(desc));
-        } else {
+        } else if !result.contains_key("description") {
             result.insert(
                 "description".to_string(),
                 json!(format!("{} parameter", param.name)),
@@ -441,60 +789,7 @@ impl ToolGenerator {
     /// For MCP compatibility (draft-07), we convert:
     /// - Boolean true -> allow any items (no items constraint)
     /// - Boolean false -> not handled here (should be handled by caller with array constraints)
-    /// - Object schemas -> recursively convert to JSON Schema
-    fn convert_items_schema_to_draft07(
-        items_schema: &Schema,
-        result: &mut serde_json::Map<String, Value>,
-        spec: &Spec,
-    ) -> Result<(), OpenApiError> {
-        match items_schema {
-            Schema::Boolean(boolean_schema) => {
-                if boolean_schema.0 {
-                    // items: true - allow any additional items (draft-07 default behavior)
-                    // Don't set items constraint, which allows any items
-                } else {
-                    // items: false - no additional items allowed
-                    // This should typically be handled in combination with prefixItems
-                    // but if we see it alone, we set a restrictive constraint
-                    result.insert("maxItems".to_string(), json!(0));
-                }
-            }
-            Schema::Object(obj_ref) => match obj_ref.as_ref() {
-                ObjectOrReference::Object(item_schema) => {
-                    let mut items_result = serde_json::Map::new();
-                    Self::convert_schema_to_json_schema(
-                        &Schema::Object(Box::new(ObjectOrReference::Object(item_schema.clone()))),
-                        &mut items_result,
-                        spec,
-                    )?;
-                    result.insert("items".to_string(), Value::Object(items_result));
-                }
-                ObjectOrReference::Ref { ref_path } => {
-                    // Try to resolve reference and convert to JSON schema
-                    let mut visited = HashSet::new();
-                    match Self::resolve_reference(ref_path, spec, &mut visited) {
-                        Ok(resolved_schema) => {
-                            let mut items_result = serde_json::Map::new();
-                            Self::convert_schema_to_json_schema(
-                                &Schema::Object(Box::new(ObjectOrReference::Object(
-                                    resolved_schema,
-                                ))),
-                                &mut items_result,
-                                spec,
-                            )?;
-                            result.insert("items".to_string(), Value::Object(items_result));
-                        }
-                        Err(_) => {
-                            // Fallback to string type for unresolvable references
-                            result.insert("items".to_string(), json!({"type": "string"}));
-                        }
-                    }
-                }
-            },
-        }
-        Ok(())
-    }
-
+    ///
     /// Convert request body from OpenAPI to JSON Schema for MCP tools
     fn convert_request_body_to_json_schema(
         request_body_ref: &ObjectOrReference<RequestBody>,
@@ -515,60 +810,42 @@ impl ToolGenerator {
 
                 if let Some(media_type) = schema_info {
                     if let Some(schema_ref) = &media_type.schema {
-                        let mut result = serde_json::Map::new();
+                        // Convert ObjectOrReference<ObjectSchema> to Schema
+                        let schema = Schema::Object(Box::new(schema_ref.clone()));
 
-                        // Convert the schema to JSON Schema
-                        match schema_ref {
-                            ObjectOrReference::Object(obj_schema) => {
-                                Self::convert_schema_to_json_schema(
-                                    &Schema::Object(Box::new(ObjectOrReference::Object(
-                                        obj_schema.clone(),
-                                    ))),
-                                    &mut result,
-                                    spec,
-                                )?;
+                        // Use the unified converter
+                        let mut visited = HashSet::new();
+                        let converted_schema =
+                            Self::convert_schema_to_json_schema(&schema, spec, &mut visited)?;
+
+                        // Ensure we have an object schema
+                        let mut schema_obj = match converted_schema {
+                            Value::Object(obj) => obj,
+                            _ => {
+                                // If not an object, wrap it in an object
+                                let mut obj = serde_json::Map::new();
+                                obj.insert("type".to_string(), json!("object"));
+                                obj.insert("additionalProperties".to_string(), json!(true));
+                                obj
                             }
-                            ObjectOrReference::Ref { ref_path } => {
-                                // Resolve the reference and convert to JSON schema
-                                let mut visited = HashSet::new();
-                                match Self::resolve_reference(ref_path, spec, &mut visited) {
-                                    Ok(resolved_schema) => {
-                                        Self::convert_schema_to_json_schema(
-                                            &Schema::Object(Box::new(ObjectOrReference::Object(
-                                                resolved_schema,
-                                            ))),
-                                            &mut result,
-                                            spec,
-                                        )?;
-                                    }
-                                    Err(_) => {
-                                        // Fallback to generic object for unresolvable references
-                                        result.insert("type".to_string(), json!("object"));
-                                        result.insert(
-                                            "additionalProperties".to_string(),
-                                            json!(true),
-                                        );
-                                    }
-                                }
-                            }
-                        }
+                        };
 
                         // Add description if available
-                        if let Some(desc) = &request_body.description {
-                            result.insert("description".to_string(), json!(desc));
-                        } else {
-                            result.insert("description".to_string(), json!("Request body data"));
-                        }
+                        let description = request_body
+                            .description
+                            .clone()
+                            .unwrap_or_else(|| "Request body data".to_string());
+                        schema_obj.insert("description".to_string(), json!(description));
 
                         // Add metadata
-                        result.insert("x-location".to_string(), json!("body"));
-                        result.insert(
+                        schema_obj.insert("x-location".to_string(), json!("body"));
+                        schema_obj.insert(
                             "x-content-type".to_string(),
                             json!(mime::APPLICATION_JSON.as_ref()),
                         );
 
                         let required = request_body.required.unwrap_or(false);
-                        Ok(Some((Value::Object(result), required)))
+                        Ok(Some((Value::Object(schema_obj), required)))
                     } else {
                         Ok(None)
                     }
@@ -591,200 +868,6 @@ impl ToolGenerator {
                 Ok(Some((Value::Object(result), false)))
             }
         }
-    }
-
-    /// Convert `oas3::Schema` to JSON Schema properties
-    fn convert_schema_to_json_schema(
-        schema: &Schema,
-        result: &mut serde_json::Map<String, Value>,
-        spec: &Spec,
-    ) -> Result<(), OpenApiError> {
-        match schema {
-            Schema::Object(obj_schema_ref) => match obj_schema_ref.as_ref() {
-                ObjectOrReference::Object(obj_schema) => {
-                    // Handle object schema type
-                    if let Some(schema_type) = &obj_schema.schema_type {
-                        match schema_type {
-                            SchemaTypeSet::Single(SchemaType::String) => {
-                                result.insert("type".to_string(), json!("string"));
-                                if let Some(min_length) = obj_schema.min_length {
-                                    result.insert("minLength".to_string(), json!(min_length));
-                                }
-                                if let Some(max_length) = obj_schema.max_length {
-                                    result.insert("maxLength".to_string(), json!(max_length));
-                                }
-                                if let Some(pattern) = &obj_schema.pattern {
-                                    result.insert("pattern".to_string(), json!(pattern));
-                                }
-                                if let Some(format) = &obj_schema.format {
-                                    result.insert("format".to_string(), json!(format));
-                                }
-                            }
-                            SchemaTypeSet::Single(SchemaType::Number) => {
-                                result.insert("type".to_string(), json!("number"));
-                                if let Some(minimum) = &obj_schema.minimum {
-                                    result.insert("minimum".to_string(), json!(minimum));
-                                }
-                                if let Some(maximum) = &obj_schema.maximum {
-                                    result.insert("maximum".to_string(), json!(maximum));
-                                }
-                                if let Some(format) = &obj_schema.format {
-                                    result.insert("format".to_string(), json!(format));
-                                }
-                            }
-                            SchemaTypeSet::Single(SchemaType::Integer) => {
-                                result.insert("type".to_string(), json!("integer"));
-                                if let Some(minimum) = &obj_schema.minimum {
-                                    result.insert("minimum".to_string(), json!(minimum));
-                                }
-                                if let Some(maximum) = &obj_schema.maximum {
-                                    result.insert("maximum".to_string(), json!(maximum));
-                                }
-                                if let Some(format) = &obj_schema.format {
-                                    result.insert("format".to_string(), json!(format));
-                                }
-                            }
-                            SchemaTypeSet::Single(SchemaType::Boolean) => {
-                                result.insert("type".to_string(), json!("boolean"));
-                            }
-                            SchemaTypeSet::Single(SchemaType::Array) => {
-                                result.insert("type".to_string(), json!("array"));
-
-                                // Handle modern JSON Schema features (prefixItems + items:false)
-                                // and convert them to JSON Schema draft-07 compatible format for MCP tools.
-                                //
-                                // MCP uses JSON Schema draft-07 which doesn't support:
-                                // - prefixItems (introduced in draft 2020-12)
-                                // - items: false (boolean schemas introduced in draft 2019-09)
-                                //
-                                // We convert these to draft-07 equivalents:
-                                // - Use minItems/maxItems for exact array length constraints
-                                // - Convert prefixItems to regular items schema with oneOf if needed
-                                // - Document tuple nature in description
-
-                                if !obj_schema.prefix_items.is_empty() {
-                                    // Handle prefixItems (tuple-like arrays)
-                                    Self::convert_prefix_items_to_draft07(
-                                        &obj_schema.prefix_items,
-                                        &obj_schema.items,
-                                        result,
-                                        spec,
-                                    )?;
-                                } else if let Some(items) = &obj_schema.items {
-                                    // Handle regular items field (now a Schema enum)
-                                    Self::convert_items_schema_to_draft07(items, result, spec)?;
-                                } else {
-                                    // No items specified, default to accepting any items
-                                    result.insert("items".to_string(), json!({"type": "string"}));
-                                }
-                            }
-                            SchemaTypeSet::Single(SchemaType::Object) => {
-                                result.insert("type".to_string(), json!("object"));
-
-                                // Convert properties if present
-                                if !obj_schema.properties.is_empty() {
-                                    let mut properties_map = serde_json::Map::new();
-                                    for (prop_name, prop_schema) in &obj_schema.properties {
-                                        let mut prop_result = serde_json::Map::new();
-                                        match prop_schema {
-                                            ObjectOrReference::Object(prop_obj_schema) => {
-                                                Self::convert_schema_to_json_schema(
-                                                    &Schema::Object(Box::new(
-                                                        ObjectOrReference::Object(
-                                                            prop_obj_schema.clone(),
-                                                        ),
-                                                    )),
-                                                    &mut prop_result,
-                                                    spec,
-                                                )?;
-                                            }
-                                            ObjectOrReference::Ref { ref_path } => {
-                                                // Try to resolve reference and convert to JSON schema
-                                                let mut visited = HashSet::new();
-                                                match Self::resolve_reference(
-                                                    ref_path,
-                                                    spec,
-                                                    &mut visited,
-                                                ) {
-                                                    Ok(resolved_schema) => {
-                                                        Self::convert_schema_to_json_schema(
-                                                            &Schema::Object(Box::new(
-                                                                ObjectOrReference::Object(
-                                                                    resolved_schema,
-                                                                ),
-                                                            )),
-                                                            &mut prop_result,
-                                                            spec,
-                                                        )?;
-                                                    }
-                                                    Err(_) => {
-                                                        // Fallback to string for unresolvable references
-                                                        prop_result.insert(
-                                                            "type".to_string(),
-                                                            json!("string"),
-                                                        );
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        properties_map
-                                            .insert(prop_name.clone(), Value::Object(prop_result));
-                                    }
-                                    result.insert(
-                                        "properties".to_string(),
-                                        Value::Object(properties_map),
-                                    );
-
-                                    // Only set additionalProperties to false if we have explicit properties
-                                    result.insert("additionalProperties".to_string(), json!(false));
-                                } else {
-                                    // No properties defined, allow additional properties
-                                    result.insert("additionalProperties".to_string(), json!(true));
-                                }
-
-                                // Add required array if present
-                                if !obj_schema.required.is_empty() {
-                                    result
-                                        .insert("required".to_string(), json!(obj_schema.required));
-                                }
-                            }
-                            _ => {
-                                // Default for other types
-                                result.insert("type".to_string(), json!("string"));
-                            }
-                        }
-                    } else {
-                        // Default to object if no type specified
-                        result.insert("type".to_string(), json!("object"));
-                    }
-                }
-                ObjectOrReference::Ref { ref_path } => {
-                    // Try to resolve reference and convert to JSON schema
-                    let mut visited = HashSet::new();
-                    match Self::resolve_reference(ref_path, spec, &mut visited) {
-                        Ok(resolved_schema) => {
-                            Self::convert_schema_to_json_schema(
-                                &Schema::Object(Box::new(ObjectOrReference::Object(
-                                    resolved_schema,
-                                ))),
-                                result,
-                                spec,
-                            )?;
-                        }
-                        Err(_) => {
-                            // Fallback to string for unresolvable references
-                            result.insert("type".to_string(), json!("string"));
-                        }
-                    }
-                }
-            },
-            Schema::Boolean(_) => {
-                // Boolean schema - allow any type
-                result.insert("type".to_string(), json!("object"));
-            }
-        }
-
-        Ok(())
     }
 
     /// Extract parameter values from MCP tool call arguments
@@ -970,6 +1053,23 @@ impl ToolGenerator {
 
         Ok(())
     }
+
+    /// Wrap an output schema in a consistent HTTP response structure
+    /// All output schemas are wrapped to include status code and body
+    fn wrap_output_schema(body_schema: Value) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "integer",
+                    "description": "HTTP status code"
+                },
+                "body": body_schema
+            },
+            "required": ["status", "body"],
+            "additionalProperties": false
+        })
+    }
 }
 
 /// Extracted parameters from MCP tool call
@@ -1004,7 +1104,7 @@ mod tests {
     use super::*;
     use oas3::spec::{
         BooleanSchema, Components, MediaType, ObjectOrReference, ObjectSchema, Operation,
-        Parameter, ParameterIn, RequestBody, SchemaType, SchemaTypeSet, Spec,
+        Parameter, ParameterIn, RequestBody, Schema, SchemaType, SchemaTypeSet, Spec,
     };
     use serde_json::{Value, json};
     use std::collections::BTreeMap;
@@ -1082,6 +1182,8 @@ mod tests {
 
     #[test]
     fn test_petstore_get_pet_by_id() {
+        use oas3::spec::Response;
+
         let mut operation = Operation {
             operation_id: Some("getPetById".to_string()),
             summary: Some("Find pet by ID".to_string()),
@@ -1123,6 +1225,60 @@ mod tests {
 
         operation.parameters.push(ObjectOrReference::Object(param));
 
+        // Add a 200 response with Pet schema
+        let mut responses = BTreeMap::new();
+        let mut content = BTreeMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType {
+                schema: Some(ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                    properties: {
+                        let mut props = BTreeMap::new();
+                        props.insert(
+                            "id".to_string(),
+                            ObjectOrReference::Object(ObjectSchema {
+                                schema_type: Some(SchemaTypeSet::Single(SchemaType::Integer)),
+                                format: Some("int64".to_string()),
+                                ..Default::default()
+                            }),
+                        );
+                        props.insert(
+                            "name".to_string(),
+                            ObjectOrReference::Object(ObjectSchema {
+                                schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                                ..Default::default()
+                            }),
+                        );
+                        props.insert(
+                            "status".to_string(),
+                            ObjectOrReference::Object(ObjectSchema {
+                                schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                                ..Default::default()
+                            }),
+                        );
+                        props
+                    },
+                    required: vec!["id".to_string(), "name".to_string()],
+                    ..Default::default()
+                })),
+                examples: None,
+                encoding: Default::default(),
+            },
+        );
+
+        responses.insert(
+            "200".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("successful operation".to_string()),
+                headers: Default::default(),
+                content,
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+        operation.responses = Some(responses);
+
         let spec = create_test_spec();
         let metadata = ToolGenerator::generate_tool_metadata(
             &operation,
@@ -1136,6 +1292,33 @@ mod tests {
         assert_eq!(metadata.method, "get");
         assert_eq!(metadata.path, "/pet/{petId}");
         assert!(metadata.description.contains("Find pet by ID"));
+
+        // Check output_schema is included and correct
+        assert!(metadata.output_schema.is_some());
+        let output_schema = metadata.output_schema.as_ref().unwrap();
+
+        // All output schemas are wrapped in HTTP response structure
+        assert_eq!(output_schema.get("type"), Some(&json!("object")));
+        assert_eq!(
+            output_schema.get("required"),
+            Some(&json!(["status", "body"]))
+        );
+
+        let properties = output_schema
+            .get("properties")
+            .unwrap()
+            .as_object()
+            .unwrap();
+
+        // Check body field contains the original schema
+        let body_schema = properties.get("body").unwrap();
+        assert_eq!(body_schema.get("type"), Some(&json!("object")));
+        assert_eq!(body_schema.get("required"), Some(&json!(["id", "name"])));
+
+        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
+        assert!(body_properties.contains_key("id"));
+        assert!(body_properties.contains_key("name"));
+        assert!(body_properties.contains_key("status"));
 
         // Validate against MCP Tool schema
         validate_tool_against_mcp_schema(&metadata);
@@ -1214,54 +1397,6 @@ mod tests {
         let items_schema = result.get("items").unwrap();
         assert_eq!(items_schema.get("type"), Some(&json!("string")));
         assert!(items_schema.get("oneOf").is_none());
-    }
-
-    #[test]
-    fn test_convert_items_schema_to_draft07_boolean_true() {
-        // Test items: true (allow any additional items)
-        let items_schema = Schema::Boolean(BooleanSchema(true));
-        let mut result = serde_json::Map::new();
-        let spec = create_test_spec();
-
-        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result, &spec).unwrap();
-
-        // Should not add any constraints (allows any items)
-        assert!(result.get("items").is_none());
-        assert!(result.get("maxItems").is_none());
-    }
-
-    #[test]
-    fn test_convert_items_schema_to_draft07_boolean_false() {
-        // Test items: false (no additional items allowed)
-        let items_schema = Schema::Boolean(BooleanSchema(false));
-        let mut result = serde_json::Map::new();
-        let spec = create_test_spec();
-
-        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result, &spec).unwrap();
-
-        // Should set maxItems to 0
-        assert_eq!(result.get("maxItems"), Some(&json!(0)));
-    }
-
-    #[test]
-    fn test_convert_items_schema_to_draft07_object_schema() {
-        // Test items with object schema
-        let item_schema = ObjectSchema {
-            schema_type: Some(SchemaTypeSet::Single(SchemaType::Number)),
-            minimum: Some(serde_json::Number::from(0)),
-            ..Default::default()
-        };
-
-        let items_schema = Schema::Object(Box::new(ObjectOrReference::Object(item_schema)));
-        let mut result = serde_json::Map::new();
-        let spec = create_test_spec();
-
-        ToolGenerator::convert_items_schema_to_draft07(&items_schema, &mut result, &spec).unwrap();
-
-        // Should convert to proper items schema
-        let items_value = result.get("items").unwrap();
-        assert_eq!(items_value.get("type"), Some(&json!("number")));
-        assert_eq!(items_value.get("minimum"), Some(&json!(0)));
     }
 
     #[test]
@@ -1895,13 +2030,442 @@ mod tests {
         // Check required array
         assert_eq!(request_body_schema.get("required"), Some(&json!(["name"])));
 
-        // With properties defined, additionalProperties should be false
+        // With properties defined but no explicit additionalProperties in OpenAPI,
+        // it should default to true (OpenAPI 3.0 default)
         assert_eq!(
             request_body_schema.get("additionalProperties"),
-            Some(&json!(false))
+            Some(&json!(true))
         );
 
         // Validate against MCP Tool schema
+        validate_tool_against_mcp_schema(&metadata);
+    }
+
+    #[test]
+    fn test_operation_without_responses_has_no_output_schema() {
+        let operation = Operation {
+            operation_id: Some("testOperation".to_string()),
+            summary: Some("Test operation".to_string()),
+            description: None,
+            tags: vec![],
+            external_docs: None,
+            parameters: vec![],
+            request_body: None,
+            responses: None,
+            callbacks: Default::default(),
+            deprecated: Some(false),
+            security: vec![],
+            servers: vec![],
+            extensions: Default::default(),
+        };
+
+        let spec = create_test_spec();
+        let metadata = ToolGenerator::generate_tool_metadata(
+            &operation,
+            "get".to_string(),
+            "/test".to_string(),
+            &spec,
+        )
+        .unwrap();
+
+        // When no responses are defined, output_schema should be None
+        assert!(metadata.output_schema.is_none());
+
+        // Validate against MCP Tool schema
+        validate_tool_against_mcp_schema(&metadata);
+    }
+
+    #[test]
+    fn test_extract_output_schema_with_200_response() {
+        use oas3::spec::Response;
+
+        // Create a 200 response with schema
+        let mut responses = BTreeMap::new();
+        let mut content = BTreeMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType {
+                schema: Some(ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                    properties: {
+                        let mut props = BTreeMap::new();
+                        props.insert(
+                            "id".to_string(),
+                            ObjectOrReference::Object(ObjectSchema {
+                                schema_type: Some(SchemaTypeSet::Single(SchemaType::Integer)),
+                                ..Default::default()
+                            }),
+                        );
+                        props.insert(
+                            "name".to_string(),
+                            ObjectOrReference::Object(ObjectSchema {
+                                schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                                ..Default::default()
+                            }),
+                        );
+                        props
+                    },
+                    required: vec!["id".to_string(), "name".to_string()],
+                    ..Default::default()
+                })),
+                examples: None,
+                encoding: Default::default(),
+            },
+        );
+
+        responses.insert(
+            "200".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("Successful response".to_string()),
+                headers: Default::default(),
+                content,
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
+
+        assert!(result.is_some());
+        let schema = result.unwrap();
+
+        // All output schemas are wrapped in HTTP response structure
+        assert_eq!(schema.get("type"), Some(&json!("object")));
+        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
+
+        let properties = schema.get("properties").unwrap().as_object().unwrap();
+
+        // Check status field
+        assert_eq!(
+            properties.get("status").unwrap().get("type"),
+            Some(&json!("integer"))
+        );
+
+        // Check body field contains the original object schema
+        let body_schema = properties.get("body").unwrap();
+        assert_eq!(body_schema.get("type"), Some(&json!("object")));
+        assert_eq!(body_schema.get("required"), Some(&json!(["id", "name"])));
+
+        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
+        assert_eq!(
+            body_properties.get("id").unwrap().get("type"),
+            Some(&json!("integer"))
+        );
+        assert_eq!(
+            body_properties.get("name").unwrap().get("type"),
+            Some(&json!("string"))
+        );
+    }
+
+    #[test]
+    fn test_extract_output_schema_with_201_response() {
+        use oas3::spec::Response;
+
+        // Create only a 201 response (no 200)
+        let mut responses = BTreeMap::new();
+        let mut content = BTreeMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType {
+                schema: Some(ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                    properties: {
+                        let mut props = BTreeMap::new();
+                        props.insert(
+                            "created".to_string(),
+                            ObjectOrReference::Object(ObjectSchema {
+                                schema_type: Some(SchemaTypeSet::Single(SchemaType::Boolean)),
+                                ..Default::default()
+                            }),
+                        );
+                        props
+                    },
+                    ..Default::default()
+                })),
+                examples: None,
+                encoding: Default::default(),
+            },
+        );
+
+        responses.insert(
+            "201".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("Created".to_string()),
+                headers: Default::default(),
+                content,
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
+
+        assert!(result.is_some());
+        let schema = result.unwrap();
+
+        // All output schemas are wrapped in HTTP response structure
+        assert_eq!(schema.get("type"), Some(&json!("object")));
+        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
+
+        let properties = schema.get("properties").unwrap().as_object().unwrap();
+
+        // Check body field contains the original schema
+        let body_schema = properties.get("body").unwrap();
+        assert_eq!(body_schema.get("type"), Some(&json!("object")));
+        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
+        assert_eq!(
+            body_properties.get("created").unwrap().get("type"),
+            Some(&json!("boolean"))
+        );
+    }
+
+    #[test]
+    fn test_extract_output_schema_with_2xx_response() {
+        use oas3::spec::Response;
+
+        // Create only a 2XX response
+        let mut responses = BTreeMap::new();
+        let mut content = BTreeMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType {
+                schema: Some(ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::Array)),
+                    items: Some(Box::new(Schema::Object(Box::new(
+                        ObjectOrReference::Object(ObjectSchema {
+                            schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                            ..Default::default()
+                        }),
+                    )))),
+                    ..Default::default()
+                })),
+                examples: None,
+                encoding: Default::default(),
+            },
+        );
+
+        responses.insert(
+            "2XX".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("Success".to_string()),
+                headers: Default::default(),
+                content,
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
+
+        assert!(result.is_some());
+        let schema = result.unwrap();
+
+        // All output schemas are wrapped in HTTP response structure
+        assert_eq!(schema.get("type"), Some(&json!("object")));
+        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
+        let properties = schema.get("properties").unwrap();
+
+        // Check status field
+        let status_schema = properties.get("status").unwrap();
+        assert_eq!(status_schema.get("type"), Some(&json!("integer")));
+
+        // Check body field contains the array schema
+        let body_schema = properties.get("body").unwrap();
+        assert_eq!(body_schema.get("type"), Some(&json!("array")));
+        assert_eq!(
+            body_schema.get("items").unwrap().get("type"),
+            Some(&json!("string"))
+        );
+    }
+
+    #[test]
+    fn test_extract_output_schema_no_responses() {
+        let spec = create_test_spec();
+        let result = ToolGenerator::extract_output_schema(&None, &spec).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_extract_output_schema_only_error_responses() {
+        use oas3::spec::Response;
+
+        // Create only error responses
+        let mut responses = BTreeMap::new();
+        responses.insert(
+            "404".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("Not found".to_string()),
+                headers: Default::default(),
+                content: Default::default(),
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+        responses.insert(
+            "500".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("Server error".to_string()),
+                headers: Default::default(),
+                content: Default::default(),
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_extract_output_schema_with_ref() {
+        use oas3::spec::Response;
+
+        // Create a spec with schema reference
+        let mut spec = create_test_spec();
+        let mut schemas = BTreeMap::new();
+        schemas.insert(
+            "Pet".to_string(),
+            ObjectOrReference::Object(ObjectSchema {
+                schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                properties: {
+                    let mut props = BTreeMap::new();
+                    props.insert(
+                        "name".to_string(),
+                        ObjectOrReference::Object(ObjectSchema {
+                            schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                            ..Default::default()
+                        }),
+                    );
+                    props
+                },
+                ..Default::default()
+            }),
+        );
+        spec.components.as_mut().unwrap().schemas = schemas;
+
+        // Create response with $ref
+        let mut responses = BTreeMap::new();
+        let mut content = BTreeMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType {
+                schema: Some(ObjectOrReference::Ref {
+                    ref_path: "#/components/schemas/Pet".to_string(),
+                }),
+                examples: None,
+                encoding: Default::default(),
+            },
+        );
+
+        responses.insert(
+            "200".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("Success".to_string()),
+                headers: Default::default(),
+                content,
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+
+        let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
+
+        assert!(result.is_some());
+        let schema = result.unwrap();
+
+        // All output schemas are wrapped in HTTP response structure
+        assert_eq!(schema.get("type"), Some(&json!("object")));
+        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
+
+        let properties = schema.get("properties").unwrap().as_object().unwrap();
+
+        // Check body field contains the referenced schema
+        let body_schema = properties.get("body").unwrap();
+        assert_eq!(body_schema.get("type"), Some(&json!("object")));
+        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
+        assert_eq!(
+            body_properties.get("name").unwrap().get("type"),
+            Some(&json!("string"))
+        );
+    }
+
+    #[test]
+    fn test_generate_tool_metadata_includes_output_schema() {
+        use oas3::spec::Response;
+
+        let mut operation = Operation {
+            operation_id: Some("getPet".to_string()),
+            summary: Some("Get a pet".to_string()),
+            description: None,
+            tags: vec![],
+            external_docs: None,
+            parameters: vec![],
+            request_body: None,
+            responses: Default::default(),
+            callbacks: Default::default(),
+            deprecated: Some(false),
+            security: vec![],
+            servers: vec![],
+            extensions: Default::default(),
+        };
+
+        // Add a response
+        let mut responses = BTreeMap::new();
+        let mut content = BTreeMap::new();
+        content.insert(
+            "application/json".to_string(),
+            MediaType {
+                schema: Some(ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                    properties: {
+                        let mut props = BTreeMap::new();
+                        props.insert(
+                            "id".to_string(),
+                            ObjectOrReference::Object(ObjectSchema {
+                                schema_type: Some(SchemaTypeSet::Single(SchemaType::Integer)),
+                                ..Default::default()
+                            }),
+                        );
+                        props
+                    },
+                    ..Default::default()
+                })),
+                examples: None,
+                encoding: Default::default(),
+            },
+        );
+
+        responses.insert(
+            "200".to_string(),
+            ObjectOrReference::Object(Response {
+                description: Some("Success".to_string()),
+                headers: Default::default(),
+                content,
+                links: Default::default(),
+                extensions: Default::default(),
+            }),
+        );
+        operation.responses = Some(responses);
+
+        let spec = create_test_spec();
+        let metadata = ToolGenerator::generate_tool_metadata(
+            &operation,
+            "get".to_string(),
+            "/pets/{id}".to_string(),
+            &spec,
+        )
+        .unwrap();
+
+        // Check that output_schema is included
+        assert!(metadata.output_schema.is_some());
+        let output_schema = metadata.output_schema.as_ref().unwrap();
+        assert_eq!(output_schema.get("type"), Some(&json!("object")));
+
+        // Validate against MCP Tool schema (this also validates output_schema if present)
         validate_tool_against_mcp_schema(&metadata);
     }
 }

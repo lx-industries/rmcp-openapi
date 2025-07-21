@@ -12,6 +12,8 @@ This project provides a bridge between OpenAPI specifications and the Model Cont
 - **Flexible Spec Loading**: Support for both URL-based and local file OpenAPI specifications
 - **HTTP Client Integration**: Built-in HTTP client with configurable base URLs and request handling
 - **Parameter Mapping**: Intelligent mapping of OpenAPI parameters (path, query, body) to MCP tool parameters
+- **Output Schema Support**: Automatic generation of output schemas from OpenAPI response definitions
+- **Structured Content**: Returns parsed JSON responses as structured content when output schemas are defined
 - **Dual Usage Modes**: Use as a standalone MCP server or integrate as a Rust library
 - **Transport Support**: SSE (Server-Sent Events) transport for MCP communication
 - **Comprehensive Testing**: Includes integration tests with JavaScript and Python MCP clients
@@ -80,6 +82,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get tool metadata
     if let Some(tool) = server.registry.get_tool("getUserById") {
         println!("Tool: {} - {}", tool.name, tool.description);
+        
+        // Check if tool has output schema
+        if let Some(output_schema) = &tool.output_schema {
+            println!("Output schema: {}", serde_json::to_string_pretty(output_schema)?);
+        }
     }
     
     Ok(())
@@ -162,6 +169,7 @@ The server automatically generates MCP tools for each OpenAPI operation:
 - **Parameters**: Maps OpenAPI parameters (path, query, body) to tool parameters
 - **Descriptions**: Combines OpenAPI `summary` and `description` fields
 - **Validation**: Includes parameter schemas for validation
+- **Output Schemas**: Automatically generated from OpenAPI response definitions
 
 Example generated tools for Petstore API:
 - `addPet`: Add a new pet to the store
@@ -169,6 +177,53 @@ Example generated tools for Petstore API:
 - `getPetById`: Find pet by ID
 - `updatePet`: Update an existing pet
 - `deletePet`: Delete a pet
+
+### Output Schema Support
+
+The server now generates output schemas for all tools based on OpenAPI response definitions. This enables:
+
+1. **Type-Safe Responses**: MCP clients can validate response data against the schema
+2. **Structured Content**: When an output schema is defined, the server returns parsed JSON as `structured_content`
+3. **Consistent Format**: All responses are wrapped in a standard structure:
+
+```json
+{
+  "status": 200,           // HTTP status code
+  "body": {                // Actual response data
+    "id": 123,
+    "name": "Fluffy",
+    "status": "available"
+  }
+}
+```
+
+This wrapper ensures:
+- All output schemas are objects (required by MCP)
+- HTTP status codes are preserved
+- Both success and error responses follow the same structure
+- Clients can uniformly handle all responses
+
+Example output schema for `getPetById`:
+```json
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "integer",
+      "description": "HTTP status code"
+    },
+    "body": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer", "format": "int64" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "pending", "sold"] }
+      }
+    }
+  },
+  "required": ["status", "body"]
+}
+```
 
 ## Examples
 

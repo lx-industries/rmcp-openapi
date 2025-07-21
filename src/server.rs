@@ -7,7 +7,7 @@ use rmcp::{
     },
     service::RequestContext,
 };
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::sync::Arc;
 use url::Url;
 
@@ -29,6 +29,7 @@ pub struct ToolMetadata {
     pub name: String,
     pub description: String,
     pub parameters: Value,
+    pub output_schema: Option<Value>,
     pub method: String,
     pub path: String,
 }
@@ -158,10 +159,20 @@ impl ServerHandler for OpenApiServer {
                 Arc::new(serde_json::Map::new())
             };
 
+            // Convert output_schema to the expected Arc<Map> format if present
+            let output_schema = tool_metadata.output_schema.as_ref().and_then(|schema| {
+                if let Value::Object(obj) = schema {
+                    Some(Arc::new(obj.clone()))
+                } else {
+                    None
+                }
+            });
+
             let tool = Tool {
                 name: tool_metadata.name.clone().into(),
                 description: Some(tool_metadata.description.clone().into()),
                 input_schema,
+                output_schema,
                 annotations: None,
             };
             tools.push(tool);
@@ -190,16 +201,34 @@ impl ServerHandler for OpenApiServer {
                 .await
             {
                 Ok(response) => {
+                    // Check if the tool has an output schema
+                    let structured_content = if tool_metadata.output_schema.is_some() {
+                        // Try to parse the response body as JSON
+                        match response.json() {
+                            Ok(json_value) => {
+                                // Wrap the response in our standard HTTP response structure
+                                Some(json!({
+                                    "status": response.status_code,
+                                    "body": json_value
+                                }))
+                            }
+                            Err(_) => None, // If parsing fails, fall back to text content
+                        }
+                    } else {
+                        None
+                    };
+
                     // Return successful response
                     Ok(CallToolResult {
-                        content: vec![Content::text(response.to_mcp_content())],
+                        content: Some(vec![Content::text(response.to_mcp_content())]),
+                        structured_content,
                         is_error: Some(!response.is_success),
                     })
                 }
                 Err(e) => {
                     // Return error response with details
                     Ok(CallToolResult {
-                        content: vec![Content::text(format!(
+                        content: Some(vec![Content::text(format!(
                             "❌ Error executing tool '{}'\n\nError: {}\n\nTool details:\n- Method: {}\n- Path: {}\n- Arguments: {}",
                             request.name,
                             e,
@@ -207,7 +236,8 @@ impl ServerHandler for OpenApiServer {
                             tool_metadata.path,
                             serde_json::to_string_pretty(&arguments_value)
                                 .unwrap_or_else(|_| "Invalid JSON".to_string())
-                        ))],
+                        ))]),
+                        structured_content: None,
                         is_error: Some(true),
                     })
                 }
