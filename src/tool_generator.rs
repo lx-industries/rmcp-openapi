@@ -158,11 +158,30 @@ fn sanitize_property_name(name: &str) -> String {
         .take(64)
         .collect::<String>();
 
+    // Collapse consecutive underscores into a single underscore
+    let mut collapsed = String::with_capacity(sanitized.len());
+    let mut prev_was_underscore = false;
+
+    for ch in sanitized.chars() {
+        if ch == '_' {
+            if !prev_was_underscore {
+                collapsed.push(ch);
+            }
+            prev_was_underscore = true;
+        } else {
+            collapsed.push(ch);
+            prev_was_underscore = false;
+        }
+    }
+
+    // Trim trailing underscores
+    let trimmed = collapsed.trim_end_matches('_');
+
     // Ensure not empty and doesn't start with a number
-    if sanitized.is_empty() || sanitized.chars().next().unwrap_or('0').is_numeric() {
-        format!("param_{sanitized}")
+    if trimmed.is_empty() || trimmed.chars().next().unwrap_or('0').is_numeric() {
+        format!("param_{trimmed}")
     } else {
-        sanitized
+        trimmed.to_string()
     }
 }
 
@@ -2712,9 +2731,9 @@ mod tests {
         );
 
         // Test special characters are replaced
-        assert_eq!(sanitize_property_name("user(admin)"), "user_admin_");
-        assert_eq!(sanitize_property_name("user[admin]"), "user_admin_");
-        assert_eq!(sanitize_property_name("price($)"), "price___");
+        assert_eq!(sanitize_property_name("user(admin)"), "user_admin");
+        assert_eq!(sanitize_property_name("user[admin]"), "user_admin");
+        assert_eq!(sanitize_property_name("price($)"), "price");
         assert_eq!(sanitize_property_name("email@address"), "email_address");
         assert_eq!(sanitize_property_name("item#1"), "item_1");
         assert_eq!(sanitize_property_name("a/b/c"), "a_b_c");
@@ -2737,8 +2756,70 @@ mod tests {
         assert_eq!(sanitize_property_name(&long_name).len(), 64);
 
         // Test all special characters become underscores
-        // Note: Since the result starts with underscore (which is valid), no prefix is added
-        assert_eq!(sanitize_property_name("!@#$%^&*()"), "__________");
+        // Note: After collapsing and trimming, this becomes empty and gets "param_" prefix
+        assert_eq!(sanitize_property_name("!@#$%^&*()"), "param_");
+    }
+
+    #[test]
+    fn test_sanitize_property_name_trailing_underscores() {
+        // Basic trailing underscore removal
+        assert_eq!(sanitize_property_name("page[size]"), "page_size");
+        assert_eq!(sanitize_property_name("user[id]"), "user_id");
+        assert_eq!(sanitize_property_name("field[]"), "field");
+
+        // Multiple trailing underscores
+        assert_eq!(sanitize_property_name("field___"), "field");
+        assert_eq!(sanitize_property_name("test[[["), "test");
+    }
+
+    #[test]
+    fn test_sanitize_property_name_consecutive_underscores() {
+        // Consecutive underscores in the middle
+        assert_eq!(sanitize_property_name("user__name"), "user_name");
+        assert_eq!(sanitize_property_name("first___last"), "first_last");
+        assert_eq!(sanitize_property_name("a____b____c"), "a_b_c");
+
+        // Mix of special characters creating consecutive underscores
+        assert_eq!(sanitize_property_name("user[[name]]"), "user_name");
+        assert_eq!(sanitize_property_name("field@#$value"), "field_value");
+    }
+
+    #[test]
+    fn test_sanitize_property_name_edge_cases() {
+        // Leading underscores (preserved)
+        assert_eq!(sanitize_property_name("_private"), "_private");
+        assert_eq!(sanitize_property_name("__dunder"), "_dunder");
+
+        // Only special characters
+        assert_eq!(sanitize_property_name("[[["), "param_");
+        assert_eq!(sanitize_property_name("@@@"), "param_");
+
+        // Empty after sanitization
+        assert_eq!(sanitize_property_name(""), "param_");
+
+        // Mix of leading and trailing
+        assert_eq!(sanitize_property_name("_field[size]"), "_field_size");
+        assert_eq!(sanitize_property_name("__test__"), "_test");
+    }
+
+    #[test]
+    fn test_sanitize_property_name_complex_cases() {
+        // Real-world examples
+        assert_eq!(sanitize_property_name("page[size]"), "page_size");
+        assert_eq!(sanitize_property_name("filter[status]"), "filter_status");
+        assert_eq!(
+            sanitize_property_name("sort[-created_at]"),
+            "sort_-created_at"
+        );
+        assert_eq!(
+            sanitize_property_name("include[author.posts]"),
+            "include_author.posts"
+        );
+
+        // Very long names with special characters
+        let long_name = "very_long_field_name_with_special[characters]_that_needs_truncation_____";
+        let expected = "very_long_field_name_with_special_characters_that_needs_truncat";
+        assert_eq!(sanitize_property_name(long_name), expected);
     }
 
     #[test]
@@ -2788,7 +2869,7 @@ mod tests {
 
         // Check sanitized property names
         assert!(properties.contains_key("user_name"));
-        assert!(properties.contains_key("price___"));
+        assert!(properties.contains_key("price"));
         assert!(properties.contains_key("validName"));
 
         // Check original names are preserved in annotations
@@ -2798,7 +2879,7 @@ mod tests {
             Some(&json!("user name"))
         );
 
-        let price_schema = properties.get("price___").unwrap();
+        let price_schema = properties.get("price").unwrap();
         assert_eq!(price_schema.get(X_ORIGINAL_NAME), Some(&json!("price($)")));
 
         // Valid name should not have x-original-name annotation
@@ -2894,9 +2975,9 @@ mod tests {
             .as_object()
             .unwrap();
 
-        assert!(properties.contains_key("user_id_"));
+        assert!(properties.contains_key("user_id"));
         assert!(properties.contains_key("page_size"));
-        assert!(properties.contains_key("header_auth-token_"));
+        assert!(properties.contains_key("header_auth-token"));
 
         // Check that required array contains the sanitized name
         let required = tool_metadata
@@ -2905,13 +2986,13 @@ mod tests {
             .unwrap()
             .as_array()
             .unwrap();
-        assert!(required.contains(&json!("user_id_")));
+        assert!(required.contains(&json!("user_id")));
 
         // Test parameter extraction with original names
         let arguments = json!({
-            "user_id_": "123",
+            "user_id": "123",
             "page_size": 10,
-            "header_auth-token_": "secret"
+            "header_auth-token": "secret"
         });
 
         let extracted = ToolGenerator::extract_parameters(&tool_metadata, &arguments).unwrap();
@@ -2970,11 +3051,11 @@ mod tests {
             .unwrap();
 
         // Check sanitized cookie parameter name
-        assert!(properties.contains_key("cookie_session_id_"));
+        assert!(properties.contains_key("cookie_session_id"));
 
         // Test extraction
         let arguments = json!({
-            "cookie_session_id_": "abc123"
+            "cookie_session_id": "abc123"
         });
 
         let extracted = ToolGenerator::extract_parameters(&tool_metadata, &arguments).unwrap();
