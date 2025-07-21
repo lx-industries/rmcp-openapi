@@ -24,16 +24,34 @@ pub struct OpenApiServer {
     pub base_url: Option<Url>,
 }
 
+/// Internal metadata for tools generated from OpenAPI operations.
+///
+/// This struct contains all the information needed to execute HTTP requests
+/// and is used internally by the OpenAPI server. It includes fields that are
+/// not part of the MCP specification but are necessary for HTTP execution.
+///
+/// For MCP compliance, this struct is converted to `rmcp::model::Tool` using
+/// the `From` trait implementation, which only includes MCP-compliant fields.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ToolMetadata {
+    /// Tool name - exposed to MCP clients
     pub name: String,
+    /// Tool description - exposed to MCP clients  
     pub description: String,
+    /// Input parameters schema - exposed to MCP clients as `inputSchema`
     pub parameters: Value,
+    /// Output schema - exposed to MCP clients as `outputSchema`
     pub output_schema: Option<Value>,
+    /// HTTP method (GET, POST, etc.) - internal only, not exposed to MCP
     pub method: String,
+    /// URL path for the API endpoint - internal only, not exposed to MCP
     pub path: String,
 }
 
+/// Converts internal `ToolMetadata` to MCP-compliant `Tool`.
+///
+/// This implementation ensures that only MCP-compliant fields are exposed to clients.
+/// Internal fields like `method` and `path` are not included in the conversion.
 impl From<&ToolMetadata> for Tool {
     fn from(metadata: &ToolMetadata) -> Self {
         // Convert parameters to the expected Arc<Map> format
