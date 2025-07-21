@@ -1,3 +1,4 @@
+use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -7,6 +8,117 @@ use oas3::spec::{
     BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody,
     Response, Schema, SchemaType, SchemaTypeSet, Spec,
 };
+
+/// Location type that extends ParameterIn with Body variant
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Location {
+    /// Standard OpenAPI parameter locations
+    Parameter(ParameterIn),
+    /// Request body location
+    Body,
+}
+
+impl Serialize for Location {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let str_value = match self {
+            Location::Parameter(param_in) => match param_in {
+                ParameterIn::Query => "query",
+                ParameterIn::Header => "header",
+                ParameterIn::Path => "path",
+                ParameterIn::Cookie => "cookie",
+            },
+            Location::Body => "body",
+        };
+        serializer.serialize_str(str_value)
+    }
+}
+
+/// Annotation types that can be applied to parameters and request bodies
+#[derive(Debug, Clone, PartialEq)]
+pub enum Annotation {
+    /// Location of the parameter or request body
+    Location(Location),
+    /// Whether a parameter is required
+    Required(bool),
+    /// Content type for request bodies
+    ContentType(String),
+}
+
+/// Collection of annotations that can be applied to schema objects
+#[derive(Debug, Clone, Default)]
+pub struct Annotations {
+    annotations: Vec<Annotation>,
+}
+
+impl Annotations {
+    /// Create a new empty Annotations collection
+    pub fn new() -> Self {
+        Self {
+            annotations: Vec::new(),
+        }
+    }
+
+    /// Add a location annotation
+    pub fn with_location(mut self, location: Location) -> Self {
+        self.annotations.push(Annotation::Location(location));
+        self
+    }
+
+    /// Add a required annotation
+    pub fn with_required(mut self, required: bool) -> Self {
+        self.annotations.push(Annotation::Required(required));
+        self
+    }
+
+    /// Add a content type annotation
+    pub fn with_content_type(mut self, content_type: String) -> Self {
+        self.annotations.push(Annotation::ContentType(content_type));
+        self
+    }
+}
+
+impl Serialize for Annotations {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use serde::ser::SerializeMap;
+
+        let mut map = serializer.serialize_map(Some(self.annotations.len()))?;
+
+        for annotation in &self.annotations {
+            match annotation {
+                Annotation::Location(location) => {
+                    // Determine the key based on the location type
+                    let key = match location {
+                        Location::Parameter(param_in) => match param_in {
+                            ParameterIn::Header | ParameterIn::Cookie => "x-location",
+                            _ => "x-parameter-location",
+                        },
+                        Location::Body => "x-location",
+                    };
+                    map.serialize_entry(key, &location)?;
+
+                    // For parameters, also add x-parameter-location
+                    if let Location::Parameter(_) = location {
+                        map.serialize_entry("x-parameter-location", &location)?;
+                    }
+                }
+                Annotation::Required(required) => {
+                    map.serialize_entry("x-parameter-required", required)?;
+                }
+                Annotation::ContentType(content_type) => {
+                    map.serialize_entry("x-content-type", content_type)?;
+                }
+            }
+        }
+
+        map.end()
+    }
+}
 
 /// Tool generator for creating MCP tools from `OpenAPI` operations
 pub struct ToolGenerator;
@@ -523,15 +635,21 @@ impl ToolGenerator {
 
         // Process path parameters (always required)
         for param in path_params {
-            let param_schema = Self::convert_parameter_schema(param, "path", spec)?;
-            properties.insert(param.name.clone(), param_schema);
+            let (param_schema, annotations) =
+                Self::convert_parameter_schema(param, ParameterIn::Path, spec)?;
+            let param_schema_with_annotations =
+                Self::apply_annotations_to_schema(param_schema, annotations);
+            properties.insert(param.name.clone(), param_schema_with_annotations);
             required.push(param.name.clone());
         }
 
         // Process query parameters
         for param in &query_params {
-            let param_schema = Self::convert_parameter_schema(param, "query", spec)?;
-            properties.insert(param.name.clone(), param_schema);
+            let (param_schema, annotations) =
+                Self::convert_parameter_schema(param, ParameterIn::Query, spec)?;
+            let param_schema_with_annotations =
+                Self::apply_annotations_to_schema(param_schema, annotations);
+            properties.insert(param.name.clone(), param_schema_with_annotations);
             if param.required.unwrap_or(false) {
                 required.push(param.name.clone());
             }
@@ -539,14 +657,15 @@ impl ToolGenerator {
 
         // Process header parameters (optional by default unless explicitly required)
         for param in &header_params {
-            let mut param_schema = Self::convert_parameter_schema(param, "header", spec)?;
+            let (param_schema, annotations) =
+                Self::convert_parameter_schema(param, ParameterIn::Header, spec)?;
+            let param_schema_with_annotations =
+                Self::apply_annotations_to_schema(param_schema, annotations);
 
-            // Add location metadata for headers
-            if let Value::Object(ref mut obj) = param_schema {
-                obj.insert("x-location".to_string(), json!("header"));
-            }
-
-            properties.insert(format!("header_{}", param.name), param_schema);
+            properties.insert(
+                format!("header_{}", param.name),
+                param_schema_with_annotations,
+            );
             if param.required.unwrap_or(false) {
                 required.push(format!("header_{}", param.name));
             }
@@ -554,14 +673,15 @@ impl ToolGenerator {
 
         // Process cookie parameters (rare, but supported)
         for param in &cookie_params {
-            let mut param_schema = Self::convert_parameter_schema(param, "cookie", spec)?;
+            let (param_schema, annotations) =
+                Self::convert_parameter_schema(param, ParameterIn::Cookie, spec)?;
+            let param_schema_with_annotations =
+                Self::apply_annotations_to_schema(param_schema, annotations);
 
-            // Add location metadata for cookies
-            if let Value::Object(ref mut obj) = param_schema {
-                obj.insert("x-location".to_string(), json!("cookie"));
-            }
-
-            properties.insert(format!("cookie_{}", param.name), param_schema);
+            properties.insert(
+                format!("cookie_{}", param.name),
+                param_schema_with_annotations,
+            );
             if param.required.unwrap_or(false) {
                 required.push(format!("cookie_{}", param.name));
             }
@@ -569,10 +689,12 @@ impl ToolGenerator {
 
         // Add request body parameter if defined in the OpenAPI spec
         if let Some(request_body) = request_body {
-            if let Some((body_schema, is_required)) =
+            if let Some((body_schema, annotations, is_required)) =
                 Self::convert_request_body_to_json_schema(request_body, spec)?
             {
-                properties.insert("request_body".to_string(), body_schema);
+                let body_schema_with_annotations =
+                    Self::apply_annotations_to_schema(body_schema, annotations);
+                properties.insert("request_body".to_string(), body_schema_with_annotations);
                 if is_required {
                     required.push("request_body".to_string());
                 }
@@ -605,9 +727,9 @@ impl ToolGenerator {
     /// Convert `OpenAPI` parameter schema to JSON Schema for MCP tools
     fn convert_parameter_schema(
         param: &Parameter,
-        location: &str,
+        location: ParameterIn,
         spec: &Spec,
-    ) -> Result<Value, OpenApiError> {
+    ) -> Result<(Value, Annotations), OpenApiError> {
         // Convert the parameter schema using the unified converter
         let base_schema = if let Some(schema_ref) = &param.schema {
             match schema_ref {
@@ -662,11 +784,28 @@ impl ToolGenerator {
             );
         }
 
-        // Add parameter location metadata
-        result.insert("x-parameter-location".to_string(), json!(location));
-        result.insert("x-parameter-required".to_string(), json!(param.required));
+        // Create annotations instead of adding them to the JSON
+        let annotations = Annotations::new()
+            .with_location(Location::Parameter(location))
+            .with_required(param.required.unwrap_or(false));
 
-        Ok(Value::Object(result))
+        Ok((Value::Object(result), annotations))
+    }
+
+    /// Apply annotations to a JSON schema value
+    fn apply_annotations_to_schema(schema: Value, annotations: Annotations) -> Value {
+        match schema {
+            Value::Object(mut obj) => {
+                // Serialize annotations and merge them into the schema object
+                if let Ok(Value::Object(ann_map)) = serde_json::to_value(&annotations) {
+                    for (key, value) in ann_map {
+                        obj.insert(key, value);
+                    }
+                }
+                Value::Object(obj)
+            }
+            _ => schema,
+        }
     }
 
     /// Converts prefixItems (tuple-like arrays) to JSON Schema draft-07 compatible format.
@@ -794,7 +933,7 @@ impl ToolGenerator {
     fn convert_request_body_to_json_schema(
         request_body_ref: &ObjectOrReference<RequestBody>,
         spec: &Spec,
-    ) -> Result<Option<(Value, bool)>, OpenApiError> {
+    ) -> Result<Option<(Value, Annotations, bool)>, OpenApiError> {
         match request_body_ref {
             ObjectOrReference::Object(request_body) => {
                 // Extract schema from request body content
@@ -837,15 +976,13 @@ impl ToolGenerator {
                             .unwrap_or_else(|| "Request body data".to_string());
                         schema_obj.insert("description".to_string(), json!(description));
 
-                        // Add metadata
-                        schema_obj.insert("x-location".to_string(), json!("body"));
-                        schema_obj.insert(
-                            "x-content-type".to_string(),
-                            json!(mime::APPLICATION_JSON.as_ref()),
-                        );
+                        // Create annotations instead of adding them to the JSON
+                        let annotations = Annotations::new()
+                            .with_location(Location::Body)
+                            .with_content_type(mime::APPLICATION_JSON.as_ref().to_string());
 
                         let required = request_body.required.unwrap_or(false);
-                        Ok(Some((Value::Object(schema_obj), required)))
+                        Ok(Some((Value::Object(schema_obj), annotations, required)))
                     } else {
                         Ok(None)
                     }
@@ -859,13 +996,13 @@ impl ToolGenerator {
                 result.insert("type".to_string(), json!("object"));
                 result.insert("additionalProperties".to_string(), json!(true));
                 result.insert("description".to_string(), json!("Request body data"));
-                result.insert("x-location".to_string(), json!("body"));
-                result.insert(
-                    "x-content-type".to_string(),
-                    json!(mime::APPLICATION_JSON.as_ref()),
-                );
 
-                Ok(Some((Value::Object(result), false)))
+                // Create annotations instead of adding them to the JSON
+                let annotations = Annotations::new()
+                    .with_location(Location::Body)
+                    .with_content_type(mime::APPLICATION_JSON.as_ref().to_string());
+
+                Ok(Some((Value::Object(result), annotations, false)))
             }
         }
     }
@@ -1436,7 +1573,8 @@ mod tests {
         };
 
         let spec = create_test_spec();
-        let result = ToolGenerator::convert_parameter_schema(&param, "query", &spec).unwrap();
+        let (result, _annotations) =
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec).unwrap();
 
         // Verify the result
         assert_eq!(result.get("type"), Some(&json!("array")));
@@ -1484,7 +1622,8 @@ mod tests {
         };
 
         let spec = create_test_spec();
-        let result = ToolGenerator::convert_parameter_schema(&param, "query", &spec).unwrap();
+        let (result, _annotations) =
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec).unwrap();
 
         // Verify the result
         assert_eq!(result.get("type"), Some(&json!("array")));
