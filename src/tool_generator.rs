@@ -1243,6 +1243,7 @@ mod tests {
         BooleanSchema, Components, MediaType, ObjectOrReference, ObjectSchema, Operation,
         Parameter, ParameterIn, RequestBody, Schema, SchemaType, SchemaTypeSet, Spec,
     };
+    use rmcp::model::Tool;
     use serde_json::{Value, json};
     use std::collections::BTreeMap;
 
@@ -1299,16 +1300,15 @@ mod tests {
         let validator =
             jsonschema::validator_for(&tool_schema).expect("Failed to compile MCP Tool schema");
 
-        // Convert ToolMetadata to MCP Tool format
-        let mcp_tool = json!({
-            "name": metadata.name,
-            "description": metadata.description,
-            "inputSchema": metadata.parameters
-        });
+        // Convert ToolMetadata to MCP Tool format using the From trait
+        let tool = Tool::from(metadata);
+
+        // Serialize the Tool to JSON for validation
+        let mcp_tool_json = serde_json::to_value(&tool).expect("Failed to serialize Tool to JSON");
 
         // Validate the generated tool against MCP schema
         let errors: Vec<String> = validator
-            .iter_errors(&mcp_tool)
+            .iter_errors(&mcp_tool_json)
             .map(|e| e.to_string())
             .collect();
 
