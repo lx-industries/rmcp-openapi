@@ -481,7 +481,13 @@ expression: responses
           "type": "text"
         }
       ],
-      "isError": true
+      "isError": true,
+      "structuredContent": {
+        "body": {
+          "error": "Invalid parameter: pet_id - Unknown parameter. Did you mean 'petId'?"
+        },
+        "status": 400
+      }
     },
     "success": true,
     "tool": "getPetById",
@@ -501,7 +507,13 @@ expression: responses
           "type": "text"
         }
       ],
-      "isError": true
+      "isError": true,
+      "structuredContent": {
+        "body": {
+          "error": "Invalid parameter: limit - Unknown parameter. Valid parameters are: status, timeout_seconds"
+        },
+        "status": 400
+      }
     },
     "success": true,
     "tool": "findPetsByStatus",

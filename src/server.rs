@@ -180,6 +180,55 @@ impl OpenApiServer {
     }
 }
 
+/// Helper function to create structured error content for tools with output schema.
+///
+/// When a tool has an `outputSchema` defined, ALL responses (including errors) must provide
+/// `structuredContent` that conforms to the schema. This ensures consistent, predictable output
+/// that LLMs can reliably parse.
+///
+/// # Arguments
+///
+/// * `error` - The OpenApiError to convert to structured content
+/// * `has_output_schema` - Whether the tool has an output schema defined
+///
+/// # Returns
+///
+/// * `Some(Value)` - A JSON value with the structure `{ status: <HTTP code>, body: { error: <message> } }`
+/// * `None` - If the tool has no output schema
+///
+/// # Error Mapping
+///
+/// - `InvalidParameter`, `Validation`, `InvalidParameterLocation` → 400 (Bad Request)
+/// - `ToolNotFound`, `FileNotFound` → 404 (Not Found)
+/// - `HttpRequest`, `Http` → 502 (Bad Gateway)
+/// - All other errors → 500 (Internal Server Error)
+fn create_structured_error_content(error: &OpenApiError, has_output_schema: bool) -> Option<Value> {
+    if !has_output_schema {
+        return None;
+    }
+
+    // Map error types to appropriate HTTP status codes
+    let status_code = match error {
+        OpenApiError::InvalidParameter { .. } => 400,
+        OpenApiError::Validation(_) => 400,
+        OpenApiError::InvalidParameterLocation(_) => 400,
+        OpenApiError::ToolNotFound(_) => 404,
+        OpenApiError::FileNotFound(_) => 404,
+        OpenApiError::HttpRequest(_) => 502,
+        OpenApiError::Http(_) => 502,
+        _ => 500, // Other errors are server errors
+    };
+
+    // Create structured error response matching the expected schema
+    // Our OpenAPI tools expect { status: number, body: any }
+    Some(json!({
+        "status": status_code,
+        "body": {
+            "error": error.to_string()
+        }
+    }))
+}
+
 impl ServerHandler for OpenApiServer {
     fn get_info(&self) -> InitializeResult {
         InitializeResult {
@@ -259,6 +308,11 @@ impl ServerHandler for OpenApiServer {
                     })
                 }
                 Err(e) => {
+                    // For tools with output schema, return structured error that conforms to the schema
+                    // This ensures MCP compliance - ALL responses must match the declared outputSchema
+                    let structured_content =
+                        create_structured_error_content(&e, tool_metadata.output_schema.is_some());
+
                     // Return error response with details
                     Ok(CallToolResult {
                         content: Some(vec![Content::text(format!(
@@ -270,13 +324,129 @@ impl ServerHandler for OpenApiServer {
                             serde_json::to_string_pretty(&arguments_value)
                                 .unwrap_or_else(|_| "Invalid JSON".to_string())
                         ))]),
-                        structured_content: None,
+                        structured_content,
                         is_error: Some(true),
                     })
                 }
             }
         } else {
             Err(OpenApiError::ToolNotFound(request.name.to_string()).into())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_structured_error_content_invalid_parameter() {
+        let error = OpenApiError::InvalidParameter {
+            parameter: "pet_id".to_string(),
+            reason: "Unknown parameter. Did you mean 'petId'?".to_string(),
+        };
+
+        // With output schema
+        let result = create_structured_error_content(&error, true);
+        assert!(result.is_some());
+
+        let json_result = result.unwrap();
+        assert_eq!(json_result["status"], 400);
+        assert_eq!(
+            json_result["body"]["error"],
+            "Invalid parameter: pet_id - Unknown parameter. Did you mean 'petId'?"
+        );
+
+        // Without output schema
+        let result = create_structured_error_content(&error, false);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_create_structured_error_content_tool_not_found() {
+        let error = OpenApiError::ToolNotFound("unknownTool".to_string());
+
+        let result = create_structured_error_content(&error, true);
+        assert!(result.is_some());
+
+        let json_result = result.unwrap();
+        assert_eq!(json_result["status"], 404);
+        assert_eq!(json_result["body"]["error"], "Tool not found: unknownTool");
+    }
+
+    #[test]
+    fn test_create_structured_error_content_validation() {
+        let error = OpenApiError::Validation("Missing required field".to_string());
+
+        let result = create_structured_error_content(&error, true);
+        assert!(result.is_some());
+
+        let json_result = result.unwrap();
+        assert_eq!(json_result["status"], 400);
+        assert_eq!(
+            json_result["body"]["error"],
+            "Parameter validation error: Missing required field"
+        );
+    }
+
+    #[test]
+    fn test_create_structured_error_content_http_errors() {
+        // HTTP request error
+        let error = OpenApiError::Http("Server returned 503".to_string());
+        let result = create_structured_error_content(&error, true);
+        assert!(result.is_some());
+
+        let json_result = result.unwrap();
+        assert_eq!(json_result["status"], 502);
+        assert_eq!(
+            json_result["body"]["error"],
+            "HTTP error: Server returned 503"
+        );
+
+        // File not found
+        let error = OpenApiError::FileNotFound("/path/to/file".to_string());
+        let result = create_structured_error_content(&error, true);
+        assert!(result.is_some());
+
+        let json_result = result.unwrap();
+        assert_eq!(json_result["status"], 404);
+        assert_eq!(
+            json_result["body"]["error"],
+            "File not found: /path/to/file"
+        );
+    }
+
+    #[test]
+    fn test_create_structured_error_content_generic_error() {
+        let error = OpenApiError::McpError("Internal server error".to_string());
+
+        let result = create_structured_error_content(&error, true);
+        assert!(result.is_some());
+
+        let json_result = result.unwrap();
+        assert_eq!(json_result["status"], 500);
+        assert_eq!(
+            json_result["body"]["error"],
+            "MCP error: Internal server error"
+        );
+    }
+
+    #[test]
+    fn test_create_structured_error_content_no_output_schema() {
+        // When has_output_schema is false, should always return None
+        let errors = vec![
+            OpenApiError::InvalidParameter {
+                parameter: "test".to_string(),
+                reason: "test reason".to_string(),
+            },
+            OpenApiError::ToolNotFound("test".to_string()),
+            OpenApiError::Validation("test".to_string()),
+            OpenApiError::Http("test".to_string()),
+        ];
+
+        for error in errors {
+            let result = create_structured_error_content(&error, false);
+            assert!(result.is_none());
         }
     }
 }
