@@ -224,6 +224,66 @@ async def run():
                         }
                     }))
 
+                # Step 8: Test Invalid Parameter Validation
+                # Test with typo in parameter name (pet_id instead of petId)
+                try:
+                    invalid_param_result = await session.call_tool(
+                        name="getPetById",
+                        arguments={
+                            "pet_id": 123  # Typo: should be petId
+                        }
+                    )
+                    result_data = invalid_param_result.model_dump() if hasattr(invalid_param_result, 'model_dump') else str(invalid_param_result)
+                    cleaned_data = clean_tool_response_text(result_data)
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "getPetById",
+                        "arguments": {"pet_id": 123},
+                        "success": True,
+                        "data": cleaned_data
+                    }))
+                except Exception as error:
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "getPetById",
+                        "arguments": {"pet_id": 123},
+                        "success": False,
+                        "error": {
+                            "message": str(error),
+                            "code": getattr(error, 'code', 'unknown')
+                        }
+                    }))
+
+                # Test with completely unknown parameter
+                try:
+                    unknown_param_result = await session.call_tool(
+                        name="findPetsByStatus",
+                        arguments={
+                            "statuses": ["available"],  # Wrong parameter name
+                            "limit": 10  # Extra unknown parameter
+                        }
+                    )
+                    result_data = unknown_param_result.model_dump() if hasattr(unknown_param_result, 'model_dump') else str(unknown_param_result)
+                    cleaned_data = clean_tool_response_text(result_data)
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "findPetsByStatus",
+                        "arguments": {"statuses": ["available"], "limit": 10},
+                        "success": True,
+                        "data": cleaned_data
+                    }))
+                except Exception as error:
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "findPetsByStatus",
+                        "arguments": {"statuses": ["available"], "limit": 10},
+                        "success": False,
+                        "error": {
+                            "message": str(error),
+                            "code": getattr(error, 'code', 'unknown')
+                        }
+                    }))
+
     except Exception as connection_error:
         print(json.dumps({
             "type": "connection_error",

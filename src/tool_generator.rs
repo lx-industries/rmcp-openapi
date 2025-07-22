@@ -1281,7 +1281,7 @@ impl ToolGenerator {
             })
             .unwrap_or_default();
 
-        let _properties = schema
+        let properties = schema
             .get("properties")
             .and_then(|p| p.as_object())
             .ok_or_else(|| {
@@ -1291,6 +1291,9 @@ impl ToolGenerator {
         let args = arguments
             .as_object()
             .ok_or_else(|| OpenApiError::Validation("Arguments must be an object".to_string()))?;
+
+        // Check for unknown parameters
+        Self::check_unknown_parameters(args, properties)?;
 
         // Check all required parameters are provided in the arguments
         for required_param in &required_params {
@@ -1303,6 +1306,72 @@ impl ToolGenerator {
         }
 
         Ok(())
+    }
+
+    /// Check for unknown parameters in the provided arguments
+    fn check_unknown_parameters(
+        args: &serde_json::Map<String, Value>,
+        properties: &serde_json::Map<String, Value>,
+    ) -> Result<(), OpenApiError> {
+        // Early return if no parameters are defined but arguments are provided
+        if properties.is_empty() && !args.is_empty() {
+            let (arg_name, _) = args.iter().next().unwrap(); // Safe because args is not empty
+            return Err(OpenApiError::InvalidParameter {
+                parameter: arg_name.clone(),
+                reason: "Unknown parameter. No parameters are defined for this tool".to_string(),
+            });
+        }
+
+        // Get list of valid parameter names
+        let valid_params: Vec<&str> = properties.keys().map(|s| s.as_str()).collect();
+
+        // Check each provided argument
+        for (arg_name, _) in args.iter() {
+            if !properties.contains_key(arg_name) {
+                // Find similar parameter names
+                let suggestions = Self::find_similar_parameters(arg_name, &valid_params);
+
+                let reason = if suggestions.is_empty() {
+                    format!(
+                        "Unknown parameter. Valid parameters are: {}",
+                        valid_params.join(", ")
+                    )
+                } else if suggestions.len() == 1 {
+                    format!("Unknown parameter. Did you mean '{}'?", suggestions[0])
+                } else {
+                    format!(
+                        "Unknown parameter. Did you mean one of these? {}",
+                        suggestions.join(", ")
+                    )
+                };
+
+                return Err(OpenApiError::InvalidParameter {
+                    parameter: arg_name.clone(),
+                    reason,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Find similar parameter names using Jaro distance
+    fn find_similar_parameters(unknown: &str, known_params: &[&str]) -> Vec<String> {
+        use strsim::jaro;
+
+        let mut candidates = Vec::new();
+
+        for param in known_params {
+            let confidence = jaro(unknown, param);
+            if confidence > 0.7 {
+                candidates.push((confidence, param.to_string()));
+            }
+        }
+
+        // Sort by confidence (highest first)
+        candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+
+        candidates.into_iter().map(|(_, name)| name).collect()
     }
 
     /// Wrap an output schema in a consistent HTTP response structure
@@ -3006,6 +3075,137 @@ mod tests {
 
         // Header parameter should use original name (without prefix)
         assert_eq!(extracted.headers.get("auth-token!"), Some(&json!("secret")));
+    }
+
+    #[test]
+    fn test_check_unknown_parameters() {
+        // Test with unknown parameter that has a suggestion
+        let mut properties = serde_json::Map::new();
+        properties.insert("page_size".to_string(), json!({"type": "integer"}));
+        properties.insert("user_id".to_string(), json!({"type": "string"}));
+
+        let mut args = serde_json::Map::new();
+        args.insert("page_sixe".to_string(), json!(10)); // typo
+
+        let result = ToolGenerator::check_unknown_parameters(&args, &properties);
+        assert!(result.is_err());
+
+        match result {
+            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
+                assert_eq!(parameter, "page_sixe");
+                assert!(reason.contains("Did you mean 'page_size'?"));
+            }
+            _ => panic!("Expected InvalidParameter error"),
+        }
+    }
+
+    #[test]
+    fn test_check_unknown_parameters_no_suggestions() {
+        // Test with unknown parameter that has no suggestions
+        let mut properties = serde_json::Map::new();
+        properties.insert("limit".to_string(), json!({"type": "integer"}));
+        properties.insert("offset".to_string(), json!({"type": "integer"}));
+
+        let mut args = serde_json::Map::new();
+        args.insert("xyz123".to_string(), json!("value"));
+
+        let result = ToolGenerator::check_unknown_parameters(&args, &properties);
+        assert!(result.is_err());
+
+        match result {
+            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
+                assert_eq!(parameter, "xyz123");
+                assert!(reason.contains("Valid parameters are: limit, offset"));
+                assert!(!reason.contains("Did you mean"));
+            }
+            _ => panic!("Expected InvalidParameter error"),
+        }
+    }
+
+    #[test]
+    fn test_check_unknown_parameters_multiple_suggestions() {
+        // Test with unknown parameter that has multiple suggestions
+        let mut properties = serde_json::Map::new();
+        properties.insert("user_id".to_string(), json!({"type": "string"}));
+        properties.insert("user_iid".to_string(), json!({"type": "string"}));
+        properties.insert("user_name".to_string(), json!({"type": "string"}));
+
+        let mut args = serde_json::Map::new();
+        args.insert("usr_id".to_string(), json!("123"));
+
+        let result = ToolGenerator::check_unknown_parameters(&args, &properties);
+        assert!(result.is_err());
+
+        match result {
+            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
+                assert_eq!(parameter, "usr_id");
+                assert!(reason.contains("Did you mean one of these?"));
+                assert!(reason.contains("user_id"));
+            }
+            _ => panic!("Expected InvalidParameter error"),
+        }
+    }
+
+    #[test]
+    fn test_check_unknown_parameters_valid() {
+        // Test with all valid parameters
+        let mut properties = serde_json::Map::new();
+        properties.insert("name".to_string(), json!({"type": "string"}));
+        properties.insert("email".to_string(), json!({"type": "string"}));
+
+        let mut args = serde_json::Map::new();
+        args.insert("name".to_string(), json!("John"));
+        args.insert("email".to_string(), json!("john@example.com"));
+
+        let result = ToolGenerator::check_unknown_parameters(&args, &properties);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_unknown_parameters_empty() {
+        // Test with no parameters defined
+        let properties = serde_json::Map::new();
+
+        let mut args = serde_json::Map::new();
+        args.insert("any_param".to_string(), json!("value"));
+
+        let result = ToolGenerator::check_unknown_parameters(&args, &properties);
+        assert!(result.is_err());
+
+        match result {
+            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
+                assert_eq!(parameter, "any_param");
+                assert!(reason.contains("No parameters are defined for this tool"));
+            }
+            _ => panic!("Expected InvalidParameter error"),
+        }
+    }
+
+    #[test]
+    fn test_find_similar_parameters() {
+        // Test basic similarity
+        let known = vec!["page_size", "user_id", "status"];
+        let suggestions = ToolGenerator::find_similar_parameters("page_sixe", &known);
+        assert_eq!(suggestions, vec!["page_size"]);
+
+        // Test no suggestions for very different string
+        let suggestions = ToolGenerator::find_similar_parameters("xyz123", &known);
+        assert!(suggestions.is_empty());
+
+        // Test transposed characters
+        let known = vec!["limit", "offset"];
+        let suggestions = ToolGenerator::find_similar_parameters("lmiit", &known);
+        assert_eq!(suggestions, vec!["limit"]);
+
+        // Test missing character
+        let known = vec!["project_id", "merge_request_id"];
+        let suggestions = ToolGenerator::find_similar_parameters("projct_id", &known);
+        assert_eq!(suggestions, vec!["project_id"]);
+
+        // Test extra character
+        let known = vec!["name", "email"];
+        let suggestions = ToolGenerator::find_similar_parameters("namee", &known);
+        assert_eq!(suggestions, vec!["name"]);
     }
 
     #[test]

@@ -1797,6 +1797,7 @@ dependencies = [
  "rmcp",
  "serde",
  "serde_json",
+ "strsim",
  "thiserror",
  "tokio",
  "tokio-util",

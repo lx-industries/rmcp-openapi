@@ -36,6 +36,7 @@ url = "2.5.4"
 clap = { version = "4.5.41", features = ["derive"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+strsim = "0.11.1"
 
 [dev-dependencies]
 rmcp = { git = "https://github.com/lx-industries/rust-sdk.git", rev = "f752f66a4b815fd04254f3b119e45711032c3555", features = [

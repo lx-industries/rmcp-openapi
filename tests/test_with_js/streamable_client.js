@@ -230,6 +230,64 @@ try {
     }));
   }
 
+  // Step 8: Test Invalid Parameter Validation
+  // Test with typo in parameter name (pet_id instead of petId)
+  try {
+    const invalidParamResult = await client.callTool({
+      name: "getPetById",
+      arguments: {
+        pet_id: 123  // Typo: should be petId
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetById",
+      arguments: { pet_id: 123 },
+      success: true,
+      data: cleanToolResponseText(invalidParamResult)
+    }));
+  } catch (error) {
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetById",
+      arguments: { pet_id: 123 },
+      success: false,
+      error: {
+        message: error.message,
+        code: error.code || "unknown"
+      }
+    }));
+  }
+
+  // Test with completely unknown parameter
+  try {
+    const unknownParamResult = await client.callTool({
+      name: "findPetsByStatus",
+      arguments: {
+        statuses: ["available"],  // Wrong parameter name
+        limit: 10  // Extra unknown parameter
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "findPetsByStatus",
+      arguments: { statuses: ["available"], limit: 10 },
+      success: true,
+      data: cleanToolResponseText(unknownParamResult)
+    }));
+  } catch (error) {
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "findPetsByStatus",
+      arguments: { statuses: ["available"], limit: 10 },
+      success: false,
+      error: {
+        message: error.message,
+        code: error.code || "unknown"
+      }
+    }));
+  }
+
 } catch (connectionError) {
   console.log(JSON.stringify({
     type: "connection_error",

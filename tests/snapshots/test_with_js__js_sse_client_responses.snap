@@ -469,5 +469,42 @@ expression: responses
     "success": true,
     "tool": "addPet",
     "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "pet_id": 123
+    },
+    "data": {
+      "content": [
+        {
+          "text": "❌ Error executing tool 'getPetById'\n\nError: Invalid parameter: pet_id - Unknown parameter. Did you mean 'petId'?\n\nTool details:\n- Method: GET\n- Path: /pet/{petId}\n- Arguments: {\n  \"pet_id\": 123\n}",
+          "type": "text"
+        }
+      ],
+      "isError": true
+    },
+    "success": true,
+    "tool": "getPetById",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "limit": 10,
+      "statuses": [
+        "available"
+      ]
+    },
+    "data": {
+      "content": [
+        {
+          "text": "❌ Error executing tool 'findPetsByStatus'\n\nError: Invalid parameter: limit - Unknown parameter. Valid parameters are: status, timeout_seconds\n\nTool details:\n- Method: GET\n- Path: /pet/findByStatus\n- Arguments: {\n  \"limit\": 10,\n  \"statuses\": [\n    \"available\"\n  ]\n}",
+          "type": "text"
+        }
+      ],
+      "isError": true
+    },
+    "success": true,
+    "tool": "findPetsByStatus",
+    "type": "tool_call_result"
   }
 ]
