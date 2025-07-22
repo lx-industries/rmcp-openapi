@@ -224,6 +224,7 @@ impl ToolGenerator {
 
         Ok(ToolMetadata {
             name,
+            title: operation.summary.clone(),
             description,
             parameters,
             output_schema,

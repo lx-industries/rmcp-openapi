@@ -624,6 +624,7 @@ mod tests {
 
         let tool_metadata = crate::server::ToolMetadata {
             name: "test".to_string(),
+            title: None,
             description: "test".to_string(),
             parameters: json!({}),
             output_schema: None,
@@ -653,6 +654,7 @@ mod tests {
 
         let tool_metadata = crate::server::ToolMetadata {
             name: "test".to_string(),
+            title: None,
             description: "test".to_string(),
             parameters: json!({}),
             output_schema: None,
@@ -675,6 +677,7 @@ mod tests {
         // Test error case: relative path without base URL
         let tool_metadata_relative = crate::server::ToolMetadata {
             name: "test".to_string(),
+            title: None,
             description: "test".to_string(),
             parameters: json!({}),
             output_schema: None,
@@ -699,6 +702,7 @@ mod tests {
 
         let tool_metadata = crate::server::ToolMetadata {
             name: "test".to_string(),
+            title: None,
             description: "test".to_string(),
             parameters: json!({}),
             output_schema: None,
@@ -744,6 +748,7 @@ mod tests {
 
         let tool_metadata = crate::server::ToolMetadata {
             name: "test".to_string(),
+            title: None,
             description: "test".to_string(),
             parameters: json!({}),
             output_schema: None,
@@ -783,6 +788,7 @@ mod tests {
 
         let tool_metadata = crate::server::ToolMetadata {
             name: "test".to_string(),
+            title: None,
             description: "test".to_string(),
             parameters: json!({}),
             output_schema: None,
@@ -821,6 +827,7 @@ mod tests {
 
         let tool_metadata = crate::server::ToolMetadata {
             name: "test".to_string(),
+            title: None,
             description: "test".to_string(),
             parameters: json!({}),
             output_schema: None,

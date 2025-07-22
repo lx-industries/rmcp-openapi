@@ -7,6 +7,9 @@ expression: responses
     "data": {
       "tools": [
         {
+          "annotations": {
+            "title": "Add a new pet to the store"
+          },
           "description": "Add a new pet to the store\n\nAdd a new pet to the store\n\nEndpoint: POST /pet",
           "inputSchema": {
             "additionalProperties": false,
@@ -101,6 +104,9 @@ expression: responses
           }
         },
         {
+          "annotations": {
+            "title": "Finds Pets by status"
+          },
           "description": "Finds Pets by status\n\nMultiple status values can be provided with comma separated strings\n\nEndpoint: GET /pet/findByStatus",
           "inputSchema": {
             "additionalProperties": false,
@@ -184,6 +190,9 @@ expression: responses
           }
         },
         {
+          "annotations": {
+            "title": "Find pet by ID"
+          },
           "description": "Find pet by ID\n\nReturns a single pet\n\nEndpoint: GET /pet/{petId}",
           "inputSchema": {
             "additionalProperties": false,

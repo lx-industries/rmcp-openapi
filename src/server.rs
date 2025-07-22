@@ -3,7 +3,7 @@ use rmcp::{
     model::{
         CallToolRequestParam, CallToolResult, Content, ErrorData, Implementation, InitializeResult,
         ListToolsResult, PaginatedRequestParam, ProtocolVersion, ServerCapabilities, Tool,
-        ToolsCapability,
+        ToolAnnotations, ToolsCapability,
     },
     service::RequestContext,
 };
@@ -36,6 +36,8 @@ pub struct OpenApiServer {
 pub struct ToolMetadata {
     /// Tool name - exposed to MCP clients
     pub name: String,
+    /// Tool title - human-readable display name exposed to MCP clients
+    pub title: Option<String>,
     /// Tool description - exposed to MCP clients  
     pub description: String,
     /// Input parameters schema - exposed to MCP clients as `inputSchema`
@@ -70,12 +72,19 @@ impl From<&ToolMetadata> for Tool {
             }
         });
 
+        // Create annotations with title if present
+        let annotations = metadata.title.as_ref().map(|title| ToolAnnotations {
+            title: Some(title.clone()),
+            ..Default::default()
+        });
+
         Tool {
             name: metadata.name.clone().into(),
             description: Some(metadata.description.clone().into()),
             input_schema,
             output_schema,
-            annotations: None,
+            annotations,
+            // TODO: Consider migration to Tool.title when rmcp supports MCP 2025-06-18 (see issue #26)
         }
     }
 }

@@ -9,7 +9,13 @@ expression: responses
       "nextCursor": null,
       "tools": [
         {
-          "annotations": null,
+          "annotations": {
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null,
+            "readOnlyHint": null,
+            "title": "Add a new pet to the store"
+          },
           "description": "Add a new pet to the store\n\nAdd a new pet to the store\n\nEndpoint: POST /pet",
           "inputSchema": {
             "additionalProperties": false,
@@ -106,7 +112,13 @@ expression: responses
           "title": null
         },
         {
-          "annotations": null,
+          "annotations": {
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null,
+            "readOnlyHint": null,
+            "title": "Finds Pets by status"
+          },
           "description": "Finds Pets by status\n\nMultiple status values can be provided with comma separated strings\n\nEndpoint: GET /pet/findByStatus",
           "inputSchema": {
             "additionalProperties": false,
@@ -192,7 +204,13 @@ expression: responses
           "title": null
         },
         {
-          "annotations": null,
+          "annotations": {
+            "destructiveHint": null,
+            "idempotentHint": null,
+            "openWorldHint": null,
+            "readOnlyHint": null,
+            "title": "Find pet by ID"
+          },
           "description": "Find pet by ID\n\nReturns a single pet\n\nEndpoint: GET /pet/{petId}",
           "inputSchema": {
             "additionalProperties": false,
