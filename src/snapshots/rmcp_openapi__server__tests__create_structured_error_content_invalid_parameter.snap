@@ -5,7 +5,6 @@ expression: json_result
 {
   "body": {
     "error": {
-      "message": "Unknown parameter 'pet_id'. Did you mean 'petId'?",
       "parameter": "pet_id",
       "suggestions": [
         "petId"

@@ -3,5 +3,6 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "message": "JSON parsing error: Invalid JSON"
+  "message": "Invalid JSON",
+  "type": "json-error"
 }

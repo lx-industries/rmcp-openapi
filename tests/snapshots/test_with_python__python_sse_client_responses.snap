@@ -106,7 +106,7 @@ expression: responses
                     "description": "Error response structure for tool execution failures",
                     "properties": {
                       "error": {
-                        "description": "Error information",
+                        "description": "Error that can occur during tool execution",
                         "oneOf": [
                           {
                             "description": "Invalid parameter error with suggestions",
@@ -141,18 +141,136 @@ expression: responses
                               "valid_parameters"
                             ],
                             "type": "object"
+                          },
+                          {
+                            "description": "Tool not found error",
+                            "properties": {
+                              "tool_name": {
+                                "description": "Name of the tool that was not found",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "tool-not-found",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "tool_name"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "Validation error (e.g., type mismatches, constraint violations)",
+                            "properties": {
+                              "message": {
+                                "description": "Description of what validation failed",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "validation-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "Missing required parameter",
+                            "properties": {
+                              "description": {
+                                "description": "Description of the parameter from OpenAPI",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "expected_type": {
+                                "description": "Expected type of the parameter",
+                                "type": "string"
+                              },
+                              "parameter": {
+                                "description": "Name of the missing parameter",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "missing-required-parameter",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "parameter",
+                              "expected_type"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "HTTP error response from the API",
+                            "properties": {
+                              "message": {
+                                "description": "Error message or response body",
+                                "type": "string"
+                              },
+                              "status": {
+                                "description": "HTTP status code",
+                                "format": "uint16",
+                                "maximum": 65535,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "type": {
+                                "const": "http-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "status",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "HTTP request failed (network, connection, timeout)",
+                            "properties": {
+                              "message": {
+                                "description": "Description of the request failure",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "http-request-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "JSON parsing/serialization error",
+                            "properties": {
+                              "message": {
+                                "description": "Description of the JSON error",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "json-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
                           }
-                        ],
-                        "properties": {
-                          "message": {
-                            "description": "Human-readable error message",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "message"
-                        ],
-                        "type": "object"
+                        ]
                       }
                     },
                     "required": [
@@ -264,7 +382,7 @@ expression: responses
                     "description": "Error response structure for tool execution failures",
                     "properties": {
                       "error": {
-                        "description": "Error information",
+                        "description": "Error that can occur during tool execution",
                         "oneOf": [
                           {
                             "description": "Invalid parameter error with suggestions",
@@ -299,18 +417,136 @@ expression: responses
                               "valid_parameters"
                             ],
                             "type": "object"
+                          },
+                          {
+                            "description": "Tool not found error",
+                            "properties": {
+                              "tool_name": {
+                                "description": "Name of the tool that was not found",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "tool-not-found",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "tool_name"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "Validation error (e.g., type mismatches, constraint violations)",
+                            "properties": {
+                              "message": {
+                                "description": "Description of what validation failed",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "validation-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "Missing required parameter",
+                            "properties": {
+                              "description": {
+                                "description": "Description of the parameter from OpenAPI",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "expected_type": {
+                                "description": "Expected type of the parameter",
+                                "type": "string"
+                              },
+                              "parameter": {
+                                "description": "Name of the missing parameter",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "missing-required-parameter",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "parameter",
+                              "expected_type"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "HTTP error response from the API",
+                            "properties": {
+                              "message": {
+                                "description": "Error message or response body",
+                                "type": "string"
+                              },
+                              "status": {
+                                "description": "HTTP status code",
+                                "format": "uint16",
+                                "maximum": 65535,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "type": {
+                                "const": "http-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "status",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "HTTP request failed (network, connection, timeout)",
+                            "properties": {
+                              "message": {
+                                "description": "Description of the request failure",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "http-request-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "JSON parsing/serialization error",
+                            "properties": {
+                              "message": {
+                                "description": "Description of the JSON error",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "json-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
                           }
-                        ],
-                        "properties": {
-                          "message": {
-                            "description": "Human-readable error message",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "message"
-                        ],
-                        "type": "object"
+                        ]
                       }
                     },
                     "required": [
@@ -406,7 +642,7 @@ expression: responses
                     "description": "Error response structure for tool execution failures",
                     "properties": {
                       "error": {
-                        "description": "Error information",
+                        "description": "Error that can occur during tool execution",
                         "oneOf": [
                           {
                             "description": "Invalid parameter error with suggestions",
@@ -441,18 +677,136 @@ expression: responses
                               "valid_parameters"
                             ],
                             "type": "object"
+                          },
+                          {
+                            "description": "Tool not found error",
+                            "properties": {
+                              "tool_name": {
+                                "description": "Name of the tool that was not found",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "tool-not-found",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "tool_name"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "Validation error (e.g., type mismatches, constraint violations)",
+                            "properties": {
+                              "message": {
+                                "description": "Description of what validation failed",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "validation-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "Missing required parameter",
+                            "properties": {
+                              "description": {
+                                "description": "Description of the parameter from OpenAPI",
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "expected_type": {
+                                "description": "Expected type of the parameter",
+                                "type": "string"
+                              },
+                              "parameter": {
+                                "description": "Name of the missing parameter",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "missing-required-parameter",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "parameter",
+                              "expected_type"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "HTTP error response from the API",
+                            "properties": {
+                              "message": {
+                                "description": "Error message or response body",
+                                "type": "string"
+                              },
+                              "status": {
+                                "description": "HTTP status code",
+                                "format": "uint16",
+                                "maximum": 65535,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "type": {
+                                "const": "http-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "status",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "HTTP request failed (network, connection, timeout)",
+                            "properties": {
+                              "message": {
+                                "description": "Description of the request failure",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "http-request-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "description": "JSON parsing/serialization error",
+                            "properties": {
+                              "message": {
+                                "description": "Description of the JSON error",
+                                "type": "string"
+                              },
+                              "type": {
+                                "const": "json-error",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "message"
+                            ],
+                            "type": "object"
                           }
-                        ],
-                        "properties": {
-                          "message": {
-                            "description": "Human-readable error message",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "message"
-                        ],
-                        "type": "object"
+                        ]
                       }
                     },
                     "required": [
@@ -677,7 +1031,6 @@ expression: responses
       "structuredContent": {
         "body": {
           "error": {
-            "message": "Unknown parameter 'pet_id'. Did you mean 'petId'?",
             "parameter": "pet_id",
             "suggestions": [
               "petId"
@@ -709,7 +1062,6 @@ expression: responses
       "structuredContent": {
         "body": {
           "error": {
-            "message": "Unknown parameter 'limit'. Valid parameters are: status, timeout_seconds",
             "parameter": "limit",
             "suggestions": [],
             "type": "invalid-parameter",

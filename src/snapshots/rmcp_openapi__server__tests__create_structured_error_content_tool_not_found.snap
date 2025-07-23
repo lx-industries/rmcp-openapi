@@ -1,0 +1,13 @@
+---
+source: src/server.rs
+expression: json_result
+---
+{
+  "body": {
+    "error": {
+      "tool_name": "unknownTool",
+      "type": "tool-not-found"
+    }
+  },
+  "status": 404
+}

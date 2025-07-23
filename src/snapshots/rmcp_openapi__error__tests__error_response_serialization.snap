@@ -4,7 +4,6 @@ expression: serialized
 ---
 {
   "error": {
-    "message": "Unknown parameter 'test_param'. Did you mean 'testParam'?",
     "parameter": "test_param",
     "suggestions": [
       "testParam"

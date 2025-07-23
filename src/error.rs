@@ -70,45 +70,48 @@ impl From<OpenApiError> for ErrorData {
                 ErrorData::new(ErrorCode(-32700), format!("JSON parsing error: {e}"), None)
             }
             OpenApiError::ToolCall(e) => {
-                // Map ToolCallError based on its content
-                let code = if e.message.contains("not found") {
-                    ErrorCode(-32601)
-                } else if e.message.contains("parameter") || e.message.contains("Validation") {
-                    ErrorCode(-32602)
-                } else if e.message.contains("HTTP") {
-                    ErrorCode(-32000)
-                } else if e.message.contains("JSON") {
-                    ErrorCode(-32700)
-                } else {
-                    ErrorCode(-32000)
+                // Map ToolCallError based on its variant
+                let (code, message) = match &e {
+                    ToolCallError::ToolNotFound { .. } => (ErrorCode(-32601), e.to_string()),
+                    ToolCallError::InvalidParameter { .. }
+                    | ToolCallError::ValidationError { .. }
+                    | ToolCallError::MissingRequiredParameter { .. } => {
+                        (ErrorCode(-32602), e.to_string())
+                    }
+                    ToolCallError::HttpError { .. } | ToolCallError::HttpRequestError { .. } => {
+                        (ErrorCode(-32000), e.to_string())
+                    }
+                    ToolCallError::JsonError { .. } => (ErrorCode(-32700), e.to_string()),
                 };
-                ErrorData::new(code, e.message.clone(), None)
+                ErrorData::new(code, message, None)
             }
             _ => ErrorData::new(ErrorCode(-32000), err.to_string(), None),
         }
     }
 }
 
-/// Error type specifically for tool execution that provides structured error information
-#[derive(Debug, Serialize, JsonSchema, Error)]
-#[error("{message}")]
-#[schemars(inline)]
-pub struct ToolCallError {
-    /// Human-readable error message
-    pub message: String,
-    /// Machine-readable error details
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(flatten)]
-    #[schemars(skip_serializing_if = "Option::is_none")]
-    pub details: Option<ErrorDetails>,
+/// Helper function to format parameter suggestions
+fn format_suggestions(suggestions: &[String], valid_parameters: &[String]) -> String {
+    if suggestions.is_empty() {
+        format!("Valid parameters are: {}", valid_parameters.join(", "))
+    } else if suggestions.len() == 1 {
+        format!("Did you mean '{}'?", suggestions[0])
+    } else {
+        format!("Did you mean one of these? {}", suggestions.join(", "))
+    }
 }
 
-/// Structured error details for different error scenarios
-#[derive(Debug, Serialize, JsonSchema)]
+/// Error that can occur during tool execution
+#[derive(Debug, Serialize, JsonSchema, Error)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 #[schemars(tag = "type", rename_all = "kebab-case")]
-pub enum ErrorDetails {
+pub enum ToolCallError {
     /// Invalid parameter error with suggestions
+    #[error(
+        "Unknown parameter '{parameter}'. {}",
+        format_suggestions(suggestions, valid_parameters)
+    )]
+    #[serde(rename = "invalid-parameter")]
     InvalidParameter {
         /// The parameter name that was invalid
         parameter: String,
@@ -117,7 +120,63 @@ pub enum ErrorDetails {
         /// All valid parameter names for this tool
         valid_parameters: Vec<String>,
     },
-    // Future: Add more error detail variants as needed
+
+    /// Tool not found error
+    #[error("Tool '{tool_name}' not found")]
+    #[serde(rename = "tool-not-found")]
+    ToolNotFound {
+        /// Name of the tool that was not found
+        tool_name: String,
+        // TODO: Future enhancement - add available_tools and suggestions
+    },
+
+    /// Validation error (e.g., type mismatches, constraint violations)
+    #[error("Validation error: {message}")]
+    #[serde(rename = "validation-error")]
+    ValidationError {
+        /// Description of what validation failed
+        message: String,
+        // TODO: Future enhancement - add field_path, expected_type, constraints
+    },
+
+    /// Missing required parameter
+    #[error("Missing required parameter '{parameter}' of type {expected_type}")]
+    #[serde(rename = "missing-required-parameter")]
+    MissingRequiredParameter {
+        /// Name of the missing parameter
+        parameter: String,
+        /// Description of the parameter from OpenAPI
+        description: Option<String>,
+        /// Expected type of the parameter
+        expected_type: String,
+    },
+
+    /// HTTP error response from the API
+    #[error("HTTP {status} error: {message}")]
+    #[serde(rename = "http-error")]
+    HttpError {
+        /// HTTP status code
+        status: u16,
+        /// Error message or response body
+        message: String,
+        // TODO: Future enhancement - add structured error details for actionable errors
+    },
+
+    /// HTTP request failed (network, connection, timeout)
+    #[error("HTTP request failed: {message}")]
+    #[serde(rename = "http-request-error")]
+    HttpRequestError {
+        /// Description of the request failure
+        message: String,
+    },
+
+    /// JSON parsing/serialization error
+    #[error("JSON parsing error: {message}")]
+    #[serde(rename = "json-error")]
+    JsonError {
+        /// Description of the JSON error
+        message: String,
+    },
 }
 
 impl ToolCallError {
@@ -127,81 +186,51 @@ impl ToolCallError {
         suggestions: Vec<String>,
         valid_parameters: Vec<String>,
     ) -> Self {
-        let message = if suggestions.is_empty() {
-            format!(
-                "Unknown parameter '{}'. Valid parameters are: {}",
-                parameter,
-                valid_parameters.join(", ")
-            )
-        } else if suggestions.len() == 1 {
-            format!(
-                "Unknown parameter '{}'. Did you mean '{}'?",
-                parameter, suggestions[0]
-            )
-        } else {
-            format!(
-                "Unknown parameter '{}'. Did you mean one of these? {}",
-                parameter,
-                suggestions.join(", ")
-            )
-        };
-
-        Self {
-            message,
-            details: Some(ErrorDetails::InvalidParameter {
-                parameter,
-                suggestions,
-                valid_parameters,
-            }),
+        Self::InvalidParameter {
+            parameter,
+            suggestions,
+            valid_parameters,
         }
     }
 
     /// Create a tool not found error
     pub fn tool_not_found(tool_name: String) -> Self {
-        Self {
-            message: format!("Tool '{tool_name}' not found"),
-            details: None,
-        }
+        Self::ToolNotFound { tool_name }
     }
 
     /// Create a validation error
     pub fn validation_error(msg: String) -> Self {
-        Self {
-            message: format!("Validation error: {msg}"),
-            details: None,
-        }
+        Self::ValidationError { message: msg }
     }
 
     /// Create an HTTP error
     pub fn http_error(status: u16, msg: String) -> Self {
-        Self {
-            message: format!("HTTP {status} error: {msg}"),
-            details: None,
+        Self::HttpError {
+            status,
+            message: msg,
         }
     }
 
     /// Create an HTTP request error
     pub fn http_request_error(msg: String) -> Self {
-        Self {
-            message: format!("HTTP request failed: {msg}"),
-            details: None,
-        }
+        Self::HttpRequestError { message: msg }
     }
 
     /// Create a JSON parsing error
     pub fn json_error(msg: String) -> Self {
-        Self {
-            message: format!("JSON parsing error: {msg}"),
-            details: None,
-        }
+        Self::JsonError { message: msg }
     }
 
     /// Create an invalid parameter location error
     pub fn invalid_parameter_location(msg: String) -> Self {
-        Self {
+        Self::ValidationError {
             message: format!("Invalid parameter location: {msg}"),
-            details: None,
         }
+    }
+
+    /// Get a human-readable message for this error
+    pub fn message(&self) -> String {
+        self.to_string()
     }
 }
 

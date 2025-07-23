@@ -3,5 +3,6 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "message": "Tool 'unknownTool' not found"
+  "tool_name": "unknownTool",
+  "type": "tool-not-found"
 }

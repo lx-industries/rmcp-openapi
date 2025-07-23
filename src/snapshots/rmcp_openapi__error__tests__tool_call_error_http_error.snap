@@ -3,5 +3,7 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "message": "HTTP 404 error: Not found"
+  "message": "Not found",
+  "status": 404,
+  "type": "http-error"
 }

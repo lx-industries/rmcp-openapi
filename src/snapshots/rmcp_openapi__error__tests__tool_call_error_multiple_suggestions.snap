@@ -3,7 +3,6 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "message": "Unknown parameter 'pet_i'. Did you mean one of these? petId, petInfo",
   "parameter": "pet_i",
   "suggestions": [
     "petId",

@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use url::Url;
 
-use crate::error::{ErrorDetails, OpenApiError, ToolCallError};
+use crate::error::{OpenApiError, ToolCallError};
 use crate::http_client::HttpClient;
 use crate::openapi::OpenApiSpecLocation;
 use crate::tool_registry::ToolRegistry;
@@ -211,15 +211,20 @@ fn create_structured_error_content(
     }
 
     // Map error types to appropriate HTTP status codes
-    let status_code = match &error.details {
-        Some(ErrorDetails::InvalidParameter { .. }) => 400,
-        None if error.message.contains("not found") => 404,
-        None if error.message.contains("HTTP 4") => 400,
-        None if error.message.contains("HTTP 5") => 502,
-        None if error.message.contains("HTTP request failed") => 502,
-        None if error.message.contains("Connection failed") => 502,
-        None if error.message.contains("timeout") => 502,
-        _ => 500, // Other errors are server errors
+    let status_code = match error {
+        ToolCallError::InvalidParameter { .. } => 400,
+        ToolCallError::ToolNotFound { .. } => 404,
+        ToolCallError::ValidationError { .. } => 400,
+        ToolCallError::MissingRequiredParameter { .. } => 400,
+        ToolCallError::HttpError { status, .. } => {
+            if *status >= 400 && *status < 500 {
+                400
+            } else {
+                502
+            }
+        }
+        ToolCallError::HttpRequestError { .. } => 502,
+        ToolCallError::JsonError { .. } => 500,
     };
 
     // Create structured error response with ToolCallError serialization
@@ -378,12 +383,7 @@ mod tests {
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 404);
-        assert_eq!(
-            json_result["body"]["error"]["message"],
-            "Tool 'unknownTool' not found"
-        );
-        assert!(json_result["body"]["error"]["details"].is_null());
+        insta::assert_json_snapshot!(json_result);
     }
 
     #[test]
@@ -394,12 +394,7 @@ mod tests {
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 500); // Validation errors without details default to 500
-        assert_eq!(
-            json_result["body"]["error"]["message"],
-            "Validation error: Missing required field"
-        );
-        assert!(json_result["body"]["error"]["details"].is_null());
+        insta::assert_json_snapshot!(json_result);
     }
 
     #[test]
@@ -410,12 +405,18 @@ mod tests {
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 502);
-        assert_eq!(
-            json_result["body"]["error"]["message"],
-            "HTTP 503 error: Server unavailable"
-        );
-        assert!(json_result["body"]["error"]["details"].is_null());
+        insta::assert_json_snapshot!(json_result, @r###"
+        {
+          "body": {
+            "error": {
+              "message": "Server unavailable",
+              "status": 503,
+              "type": "http-error"
+            }
+          },
+          "status": 502
+        }
+        "###);
 
         // HTTP request failed (non-actionable error)
         let error = ToolCallError::http_request_error("Connection timeout".to_string());
@@ -423,12 +424,17 @@ mod tests {
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 502);
-        assert_eq!(
-            json_result["body"]["error"]["message"],
-            "HTTP request failed: Connection timeout"
-        );
-        assert!(json_result["body"]["error"]["details"].is_null());
+        insta::assert_json_snapshot!(json_result, @r###"
+        {
+          "body": {
+            "error": {
+              "message": "Connection timeout",
+              "type": "http-request-error"
+            }
+          },
+          "status": 502
+        }
+        "###);
     }
 
     #[test]
@@ -439,12 +445,7 @@ mod tests {
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 500);
-        assert_eq!(
-            json_result["body"]["error"]["message"],
-            "Validation error: Internal server error"
-        );
-        assert!(json_result["body"]["error"]["details"].is_null());
+        insta::assert_json_snapshot!(json_result);
     }
 
     #[test]

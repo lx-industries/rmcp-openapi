@@ -1505,7 +1505,7 @@ impl Default for RequestConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::ErrorDetails;
+
     use insta::assert_json_snapshot;
     use oas3::spec::{
         BooleanSchema, Components, MediaType, ObjectOrReference, ObjectSchema, Operation,
@@ -2986,19 +2986,19 @@ mod tests {
 
         match result {
             Err(err) => {
-                assert!(err.message.contains("page_sixe"));
-                assert!(err.message.contains("Did you mean 'page_size'?"));
+                assert!(err.message().contains("page_sixe"));
+                assert!(err.message().contains("Did you mean 'page_size'?"));
                 // Check structured details
-                if let Some(ErrorDetails::InvalidParameter {
+                if let ToolCallError::InvalidParameter {
                     parameter,
                     suggestions,
                     ..
-                }) = &err.details
+                } = &err
                 {
                     assert_eq!(parameter, "page_sixe");
                     assert_eq!(suggestions, &vec!["page_size".to_string()]);
                 } else {
-                    panic!("Expected InvalidParameter details");
+                    panic!("Expected InvalidParameter variant");
                 }
             }
             _ => panic!("Expected ToolCallError"),
@@ -3020,22 +3020,22 @@ mod tests {
 
         match result {
             Err(err) => {
-                assert!(err.message.contains("xyz123"));
-                assert!(err.message.contains("Valid parameters are:"));
-                assert!(!err.message.contains("Did you mean"));
+                assert!(err.message().contains("xyz123"));
+                assert!(err.message().contains("Valid parameters are:"));
+                assert!(!err.message().contains("Did you mean"));
                 // Check structured details
-                if let Some(ErrorDetails::InvalidParameter {
+                if let ToolCallError::InvalidParameter {
                     parameter,
                     suggestions,
                     valid_parameters,
-                }) = &err.details
+                } = &err
                 {
                     assert_eq!(parameter, "xyz123");
                     assert!(suggestions.is_empty());
                     assert!(valid_parameters.contains(&"limit".to_string()));
                     assert!(valid_parameters.contains(&"offset".to_string()));
                 } else {
-                    panic!("Expected InvalidParameter details");
+                    panic!("Expected InvalidParameter variant");
                 }
             }
             _ => panic!("Expected ToolCallError"),
@@ -3058,22 +3058,22 @@ mod tests {
 
         match result {
             Err(err) => {
-                assert!(err.message.contains("usr_id"));
-                assert!(err.message.contains("Did you mean one of these?"));
-                assert!(err.message.contains("user_id"));
+                assert!(err.message().contains("usr_id"));
+                assert!(err.message().contains("Did you mean one of these?"));
+                assert!(err.message().contains("user_id"));
                 // Check structured details
-                if let Some(ErrorDetails::InvalidParameter {
+                if let ToolCallError::InvalidParameter {
                     parameter,
                     suggestions,
                     valid_parameters,
-                }) = &err.details
+                } = &err
                 {
                     assert_eq!(parameter, "usr_id");
                     assert!(!suggestions.is_empty());
                     assert!(suggestions.contains(&"user_id".to_string()));
                     assert_eq!(valid_parameters.len(), 3);
                 } else {
-                    panic!("Expected InvalidParameter details");
+                    panic!("Expected InvalidParameter variant");
                 }
             }
             _ => panic!("Expected ToolCallError"),
@@ -3108,20 +3108,20 @@ mod tests {
 
         match result {
             Err(err) => {
-                assert!(err.message.contains("any_param"));
-                assert!(err.message.contains("Valid parameters are:"));
+                assert!(err.message().contains("any_param"));
+                assert!(err.message().contains("Valid parameters are:"));
                 // Check structured details - should have empty valid_parameters and suggestions
-                if let Some(ErrorDetails::InvalidParameter {
+                if let ToolCallError::InvalidParameter {
                     parameter,
                     suggestions,
                     valid_parameters,
-                }) = &err.details
+                } = &err
                 {
                     assert_eq!(parameter, "any_param");
                     assert!(suggestions.is_empty());
                     assert!(valid_parameters.is_empty());
                 } else {
-                    panic!("Expected InvalidParameter details");
+                    panic!("Expected InvalidParameter variant");
                 }
             }
             _ => panic!("Expected ToolCallError"),
