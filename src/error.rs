@@ -1,3 +1,114 @@
+//! Error handling for the OpenAPI MCP server.
+//!
+//! This module provides structured error types to help clients understand and potentially fix issues.
+//! Errors are returned as a typed enum with specific fields for each error type.
+//!
+//! # Error Types
+//!
+//! ## InvalidParameter
+//! Unknown or misspelled parameter names. Includes parameter name, suggestions for typos, and list of valid parameters.
+//!
+//! Example:
+//! ```json
+//! {
+//!   "type": "invalid-parameter",
+//!   "parameter": "pet_id",
+//!   "suggestions": ["petId"],
+//!   "valid_parameters": ["petId", "status"]
+//! }
+//! ```
+//!
+//! ## ValidationError
+//! Parameter value validation failures. Includes descriptive message about what validation failed.
+//!
+//! Example:
+//! ```json
+//! {
+//!   "type": "validation-error",
+//!   "message": "Parameter 'age' must be a positive integer"
+//! }
+//! ```
+//!
+//! ## MissingRequiredParameter
+//! Required parameter not provided. Includes parameter name, description, and expected type.
+//!
+//! Example:
+//! ```json
+//! {
+//!   "type": "missing-required-parameter",
+//!   "parameter": "petId",
+//!   "expected_type": "integer"
+//! }
+//! ```
+//!
+//! ## ToolNotFound
+//! Requested tool doesn't exist. Includes the tool name that was not found.
+//!
+//! Example:
+//! ```json
+//! {
+//!   "type": "tool-not-found",
+//!   "tool_name": "unknownTool"
+//! }
+//! ```
+//!
+//! ## HttpError
+//! HTTP error responses from the API. Includes status code and error message.
+//!
+//! Example:
+//! ```json
+//! {
+//!   "type": "http-error",
+//!   "status": 404,
+//!   "message": "Pet not found"
+//! }
+//! ```
+//!
+//! ## HttpRequestError
+//! Network/connection failures. Includes description of the request failure.
+//!
+//! Example:
+//! ```json
+//! {
+//!   "type": "http-request-error",
+//!   "message": "Connection timeout"
+//! }
+//! ```
+//!
+//! ## JsonError
+//! JSON parsing failures. Includes description of what failed to parse.
+//!
+//! Example:
+//! ```json
+//! {
+//!   "type": "json-error",
+//!   "message": "Invalid JSON in response body"
+//! }
+//! ```
+//!
+//! # Structured Error Responses
+//!
+//! For tools with output schemas, errors are wrapped in the same structure as successful responses:
+//! ```json
+//! {
+//!   "status": 400,
+//!   "body": {
+//!     "error": {
+//!       "type": "invalid-parameter",
+//!       "parameter": "pet_id",
+//!       "suggestions": ["petId"],
+//!       "valid_parameters": ["petId", "status"]
+//!     }
+//!   }
+//! }
+//! ```
+//!
+//! This consistent structure allows clients to:
+//! - Programmatically handle different error types
+//! - Provide helpful feedback to users
+//! - Automatically fix certain errors (e.g., typos in parameter names)
+//! - Retry requests with corrected parameters
+
 use rmcp::model::{ErrorCode, ErrorData};
 use schemars::JsonSchema;
 use serde::Serialize;
