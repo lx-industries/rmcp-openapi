@@ -808,9 +808,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f66d5bd4c6f02bf0542fad85d626775bab9258cf795a4256dcaf3161114d1df"
+checksum = "8d9b05277c7e8da2c93a568989bb6207bef0112e8d17df7a6eda4a3cf143bc5e"
 dependencies = [
  "base64",
  "bytes",
@@ -824,7 +824,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2",
+ "socket2 0.6.0",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -993,9 +993,9 @@ dependencies = [
 
 [[package]]
 name = "io-uring"
-version = "0.7.8"
+version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b86e202f00093dcba4275d4636b93ef9dd75d025ae560d2521b45ea28ab49013"
+checksum = "d93587f37623a1a17d94ef2bc9ada592f5465fe7732084ab7beefabe5c77c0c4"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -1503,7 +1503,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2",
+ "socket2 0.5.10",
  "thiserror",
  "tokio",
  "tracing",
@@ -1540,7 +1540,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -1591,9 +1591,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.14"
+version = "0.5.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3a5d9f0aba1dbcec1cc47f0ff94a4b778fe55bca98a6dfa92e4e094e57b1c4"
+checksum = "7e8af0dde094006011e6a740d4879319439489813bd0bcdc7d821beaeeff48ec"
 dependencies = [
  "bitflags",
 ]
@@ -1739,7 +1739,7 @@ dependencies = [
 [[package]]
 name = "rmcp"
 version = "0.3.0"
-source = "git+https://github.com/lx-industries/rust-sdk.git?rev=f752f66a4b815fd04254f3b119e45711032c3555#f752f66a4b815fd04254f3b119e45711032c3555"
+source = "git+https://github.com/lx-industries/rust-sdk.git?rev=5109fcbb390f5a1f6f0b6105583476b759b0cdc2#5109fcbb390f5a1f6f0b6105583476b759b0cdc2"
 dependencies = [
  "axum",
  "base64",
@@ -1770,7 +1770,7 @@ dependencies = [
 [[package]]
 name = "rmcp-macros"
 version = "0.3.0"
-source = "git+https://github.com/lx-industries/rust-sdk.git?rev=f752f66a4b815fd04254f3b119e45711032c3555#f752f66a4b815fd04254f3b119e45711032c3555"
+source = "git+https://github.com/lx-industries/rust-sdk.git?rev=5109fcbb390f5a1f6f0b6105583476b759b0cdc2#5109fcbb390f5a1f6f0b6105583476b759b0cdc2"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -1795,6 +1795,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rmcp",
+ "schemars",
  "serde",
  "serde_json",
  "strsim",
@@ -2066,6 +2067,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "socket2"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "233504af464074f9d066d7b5416c5f9b894a5862a6506e306f7b816cdd6f1807"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "sse-stream"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2230,7 +2241,7 @@ dependencies = [
  "pin-project-lite",
  "signal-hook-registry",
  "slab",
- "socket2",
+ "socket2 0.5.10",
  "tokio-macros",
  "windows-sys 0.52.0",
 ]

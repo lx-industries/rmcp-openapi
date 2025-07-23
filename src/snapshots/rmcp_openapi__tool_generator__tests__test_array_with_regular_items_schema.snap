@@ -1,0 +1,13 @@
+---
+source: src/tool_generator.rs
+expression: result
+---
+{
+  "description": "List of tags",
+  "items": {
+    "maxLength": 50,
+    "minLength": 1,
+    "type": "string"
+  },
+  "type": "array"
+}

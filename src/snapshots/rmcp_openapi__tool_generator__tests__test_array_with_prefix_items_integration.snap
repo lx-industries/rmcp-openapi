@@ -1,0 +1,13 @@
+---
+source: src/tool_generator.rs
+expression: result
+---
+{
+  "description": "X,Y coordinates as tuple",
+  "items": {
+    "type": "number"
+  },
+  "maxItems": 2,
+  "minItems": 2,
+  "type": "array"
+}

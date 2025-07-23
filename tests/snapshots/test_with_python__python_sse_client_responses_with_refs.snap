@@ -65,41 +65,107 @@ expression: responses
           "name": "addPet",
           "outputSchema": {
             "additionalProperties": false,
+            "description": "Unified response structure with success and error variants",
             "properties": {
               "body": {
-                "additionalProperties": true,
-                "properties": {
-                  "id": {
-                    "format": "int64",
-                    "type": "integer"
-                  },
-                  "name": {
-                    "example": "doggie",
-                    "type": "string"
-                  },
-                  "photoUrls": {
-                    "items": {
-                      "type": "string"
+                "description": "Response body - either success data or error information",
+                "oneOf": [
+                  {
+                    "additionalProperties": true,
+                    "properties": {
+                      "id": {
+                        "format": "int64",
+                        "type": "integer"
+                      },
+                      "name": {
+                        "example": "doggie",
+                        "type": "string"
+                      },
+                      "photoUrls": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "enum": [
+                          "available",
+                          "pending",
+                          "sold"
+                        ],
+                        "type": "string"
+                      }
                     },
-                    "type": "array"
-                  },
-                  "status": {
-                    "enum": [
-                      "available",
-                      "pending",
-                      "sold"
+                    "required": [
+                      "name",
+                      "photoUrls"
                     ],
-                    "type": "string"
+                    "type": "object"
+                  },
+                  {
+                    "description": "Error response structure for tool execution failures",
+                    "properties": {
+                      "error": {
+                        "description": "Error information",
+                        "oneOf": [
+                          {
+                            "description": "Invalid parameter error with suggestions",
+                            "properties": {
+                              "parameter": {
+                                "description": "The parameter name that was invalid",
+                                "type": "string"
+                              },
+                              "suggestions": {
+                                "description": "Suggested correct parameter names",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "type": {
+                                "const": "invalid-parameter",
+                                "type": "string"
+                              },
+                              "valid_parameters": {
+                                "description": "All valid parameter names for this tool",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "parameter",
+                              "suggestions",
+                              "valid_parameters"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "properties": {
+                          "message": {
+                            "description": "Human-readable error message",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "message"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "error"
+                    ],
+                    "type": "object"
                   }
-                },
-                "required": [
-                  "name",
-                  "photoUrls"
-                ],
-                "type": "object"
+                ]
               },
               "status": {
                 "description": "HTTP status code",
+                "maximum": 599,
+                "minimum": 100,
                 "type": "integer"
               }
             },
@@ -154,44 +220,110 @@ expression: responses
           "name": "findPetsByStatus",
           "outputSchema": {
             "additionalProperties": false,
+            "description": "Unified response structure with success and error variants",
             "properties": {
               "body": {
-                "items": {
-                  "additionalProperties": true,
-                  "properties": {
-                    "id": {
-                      "format": "int64",
-                      "type": "integer"
-                    },
-                    "name": {
-                      "example": "doggie",
-                      "type": "string"
-                    },
-                    "photoUrls": {
-                      "items": {
-                        "type": "string"
+                "description": "Response body - either success data or error information",
+                "oneOf": [
+                  {
+                    "items": {
+                      "additionalProperties": true,
+                      "properties": {
+                        "id": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "name": {
+                          "example": "doggie",
+                          "type": "string"
+                        },
+                        "photoUrls": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "status": {
+                          "enum": [
+                            "available",
+                            "pending",
+                            "sold"
+                          ],
+                          "type": "string"
+                        }
                       },
-                      "type": "array"
-                    },
-                    "status": {
-                      "enum": [
-                        "available",
-                        "pending",
-                        "sold"
+                      "required": [
+                        "name",
+                        "photoUrls"
                       ],
-                      "type": "string"
-                    }
+                      "type": "object"
+                    },
+                    "type": "array"
                   },
-                  "required": [
-                    "name",
-                    "photoUrls"
-                  ],
-                  "type": "object"
-                },
-                "type": "array"
+                  {
+                    "description": "Error response structure for tool execution failures",
+                    "properties": {
+                      "error": {
+                        "description": "Error information",
+                        "oneOf": [
+                          {
+                            "description": "Invalid parameter error with suggestions",
+                            "properties": {
+                              "parameter": {
+                                "description": "The parameter name that was invalid",
+                                "type": "string"
+                              },
+                              "suggestions": {
+                                "description": "Suggested correct parameter names",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "type": {
+                                "const": "invalid-parameter",
+                                "type": "string"
+                              },
+                              "valid_parameters": {
+                                "description": "All valid parameter names for this tool",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "parameter",
+                              "suggestions",
+                              "valid_parameters"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "properties": {
+                          "message": {
+                            "description": "Human-readable error message",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "message"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "error"
+                    ],
+                    "type": "object"
+                  }
+                ]
               },
               "status": {
                 "description": "HTTP status code",
+                "maximum": 599,
+                "minimum": 100,
                 "type": "integer"
               }
             },
@@ -233,41 +365,107 @@ expression: responses
           "name": "getPetById",
           "outputSchema": {
             "additionalProperties": false,
+            "description": "Unified response structure with success and error variants",
             "properties": {
               "body": {
-                "additionalProperties": true,
-                "properties": {
-                  "id": {
-                    "format": "int64",
-                    "type": "integer"
-                  },
-                  "name": {
-                    "example": "doggie",
-                    "type": "string"
-                  },
-                  "photoUrls": {
-                    "items": {
-                      "type": "string"
+                "description": "Response body - either success data or error information",
+                "oneOf": [
+                  {
+                    "additionalProperties": true,
+                    "properties": {
+                      "id": {
+                        "format": "int64",
+                        "type": "integer"
+                      },
+                      "name": {
+                        "example": "doggie",
+                        "type": "string"
+                      },
+                      "photoUrls": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "enum": [
+                          "available",
+                          "pending",
+                          "sold"
+                        ],
+                        "type": "string"
+                      }
                     },
-                    "type": "array"
-                  },
-                  "status": {
-                    "enum": [
-                      "available",
-                      "pending",
-                      "sold"
+                    "required": [
+                      "name",
+                      "photoUrls"
                     ],
-                    "type": "string"
+                    "type": "object"
+                  },
+                  {
+                    "description": "Error response structure for tool execution failures",
+                    "properties": {
+                      "error": {
+                        "description": "Error information",
+                        "oneOf": [
+                          {
+                            "description": "Invalid parameter error with suggestions",
+                            "properties": {
+                              "parameter": {
+                                "description": "The parameter name that was invalid",
+                                "type": "string"
+                              },
+                              "suggestions": {
+                                "description": "Suggested correct parameter names",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "type": {
+                                "const": "invalid-parameter",
+                                "type": "string"
+                              },
+                              "valid_parameters": {
+                                "description": "All valid parameter names for this tool",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "parameter",
+                              "suggestions",
+                              "valid_parameters"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "properties": {
+                          "message": {
+                            "description": "Human-readable error message",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "message"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "error"
+                    ],
+                    "type": "object"
                   }
-                },
-                "required": [
-                  "name",
-                  "photoUrls"
-                ],
-                "type": "object"
+                ]
               },
               "status": {
                 "description": "HTTP status code",
+                "maximum": 599,
+                "minimum": 100,
                 "type": "integer"
               }
             },
@@ -304,14 +502,7 @@ expression: responses
       "petId": 123
     },
     "data": {
-      "content": [
-        {
-          "annotations": null,
-          "meta": null,
-          "text": "HTTP ✅ Success\n\nStatus: 200 OK\n\nRequest: GET http://127.0.0.1:8088/pet/123\n\nResponse Body:\n{\n  \"category\": {\n    \"id\": 1,\n    \"name\": \"Dogs\"\n  },\n  \"id\": 123,\n  \"name\": \"doggie\",\n  \"photoUrls\": [\n    \"https://example.com/photo1.jpg\"\n  ],\n  \"status\": \"available\",\n  \"tags\": [\n    {\n      \"id\": 1,\n      \"name\": \"tag1\"\n    }\n  ]\n}",
-          "type": "text"
-        }
-      ],
+      "content": [],
       "isError": false,
       "meta": null,
       "structuredContent": {
@@ -348,14 +539,7 @@ expression: responses
       ]
     },
     "data": {
-      "content": [
-        {
-          "annotations": null,
-          "meta": null,
-          "text": "HTTP ✅ Success\n\nStatus: 200 OK\n\nRequest: GET http://127.0.0.1:8088/pet/findByStatus?status=available&status=pending\n\nResponse Body:\n[\n  {\n    \"category\": {\n      \"id\": 1,\n      \"name\": \"Dogs\"\n    },\n    \"id\": 1,\n    \"name\": \"doggie\",\n    \"photoUrls\": [\n      \"https://example.com/photo1.jpg\"\n    ],\n    \"status\": \"available\",\n    \"tags\": [\n      {\n        \"id\": 1,\n        \"name\": \"tag1\"\n      }\n    ]\n  },\n  {\n    \"category\": {\n      \"id\": 2,\n      \"name\": \"Cats\"\n    },\n    \"id\": 2,\n    \"name\": \"kitty\",\n    \"photoUrls\": [\n      \"https://example.com/photo2.jpg\"\n    ],\n    \"status\": \"pending\",\n    \"tags\": [\n      {\n        \"id\": 2,\n        \"name\": \"tag2\"\n      }\n    ]\n  }\n]",
-          "type": "text"
-        }
-      ],
+      "content": [],
       "isError": false,
       "meta": null,
       "structuredContent": {
@@ -412,14 +596,7 @@ expression: responses
       }
     },
     "data": {
-      "content": [
-        {
-          "annotations": null,
-          "meta": null,
-          "text": "HTTP ✅ Success\n\nStatus: 201 Created\n\nRequest: POST http://127.0.0.1:8088/pet\n\nRequest Body:\n{\n  \"category\": {\n    \"id\": 1,\n    \"name\": \"Dogs\"\n  },\n  \"name\": \"MCP Test Dog\",\n  \"photoUrls\": [\n    \"https://example.com/mcp-test-dog.jpg\"\n  ],\n  \"status\": \"available\",\n  \"tags\": [\n    {\n      \"id\": 1,\n      \"name\": \"mcp-test\"\n    }\n  ]\n}\n\nResponse Body:\n{\n  \"category\": {\n    \"id\": 1,\n    \"name\": \"Dogs\"\n  },\n  \"id\": 123,\n  \"name\": \"new doggie\",\n  \"photoUrls\": [\n    \"https://example.com/photo1.jpg\"\n  ],\n  \"status\": \"available\",\n  \"tags\": [\n    {\n      \"id\": 1,\n      \"name\": \"tag1\"\n    }\n  ]\n}",
-          "type": "text"
-        }
-      ],
+      "content": [],
       "isError": false,
       "meta": null,
       "structuredContent": {
@@ -453,14 +630,7 @@ expression: responses
       "petId": 999999
     },
     "data": {
-      "content": [
-        {
-          "annotations": null,
-          "meta": null,
-          "text": "HTTP ❌ Error\n\nStatus: 404 Not Found - Not Found: Endpoint or resource does not exist\n\nRequest: GET http://127.0.0.1:8088/pet/999999\n\nResponse Body:\n{\n  \"message\": \"Pet not found\"\n}",
-          "type": "text"
-        }
-      ],
+      "content": [],
       "isError": true,
       "meta": null,
       "structuredContent": {
@@ -481,14 +651,7 @@ expression: responses
       }
     },
     "data": {
-      "content": [
-        {
-          "annotations": null,
-          "meta": null,
-          "text": "HTTP ❌ Error\n\nStatus: 400 Bad Request - Bad Request: Check request parameters\n\nRequest: POST http://127.0.0.1:8088/pet\n\nRequest Body:\n{\n  \"status\": \"invalid_status_value\"\n}\n\nResponse Body:\n{\n  \"details\": \"Name is required\",\n  \"message\": \"Invalid input\"\n}",
-          "type": "text"
-        }
-      ],
+      "content": [],
       "isError": true,
       "meta": null,
       "structuredContent": {
@@ -508,19 +671,22 @@ expression: responses
       "pet_id": 123
     },
     "data": {
-      "content": [
-        {
-          "annotations": null,
-          "meta": null,
-          "text": "❌ Error executing tool 'getPetById'\n\nError: Invalid parameter: pet_id - Unknown parameter. Did you mean 'petId'?\n\nTool details:\n- Method: GET\n- Path: /pet/{petId}\n- Arguments: {\n  \"pet_id\": 123\n}",
-          "type": "text"
-        }
-      ],
+      "content": [],
       "isError": true,
       "meta": null,
       "structuredContent": {
         "body": {
-          "error": "Invalid parameter: pet_id - Unknown parameter. Did you mean 'petId'?"
+          "error": {
+            "message": "Unknown parameter 'pet_id'. Did you mean 'petId'?",
+            "parameter": "pet_id",
+            "suggestions": [
+              "petId"
+            ],
+            "type": "invalid-parameter",
+            "valid_parameters": [
+              "petId"
+            ]
+          }
         },
         "status": 400
       }
@@ -537,19 +703,21 @@ expression: responses
       ]
     },
     "data": {
-      "content": [
-        {
-          "annotations": null,
-          "meta": null,
-          "text": "❌ Error executing tool 'findPetsByStatus'\n\nError: Invalid parameter: limit - Unknown parameter. Valid parameters are: status, timeout_seconds\n\nTool details:\n- Method: GET\n- Path: /pet/findByStatus\n- Arguments: {\n  \"limit\": 10,\n  \"statuses\": [\n    \"available\"\n  ]\n}",
-          "type": "text"
-        }
-      ],
+      "content": [],
       "isError": true,
       "meta": null,
       "structuredContent": {
         "body": {
-          "error": "Invalid parameter: limit - Unknown parameter. Valid parameters are: status, timeout_seconds"
+          "error": {
+            "message": "Unknown parameter 'limit'. Valid parameters are: status, timeout_seconds",
+            "parameter": "limit",
+            "suggestions": [],
+            "type": "invalid-parameter",
+            "valid_parameters": [
+              "status",
+              "timeout_seconds"
+            ]
+          }
         },
         "status": 400
       }

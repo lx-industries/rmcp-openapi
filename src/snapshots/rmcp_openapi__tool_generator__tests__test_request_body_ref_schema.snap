@@ -1,0 +1,11 @@
+---
+source: src/tool_generator.rs
+expression: request_body_schema
+---
+{
+  "additionalProperties": true,
+  "description": "Request body data",
+  "type": "object",
+  "x-content-type": "application/json",
+  "x-location": "body"
+}

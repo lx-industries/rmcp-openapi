@@ -1,0 +1,14 @@
+---
+source: src/tool_generator.rs
+expression: request_body_schema
+---
+{
+  "description": "Array of pet objects",
+  "items": {
+    "additionalProperties": true,
+    "type": "object"
+  },
+  "type": "array",
+  "x-content-type": "application/json",
+  "x-location": "body"
+}

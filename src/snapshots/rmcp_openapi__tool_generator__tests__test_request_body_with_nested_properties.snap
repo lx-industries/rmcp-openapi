@@ -1,0 +1,24 @@
+---
+source: src/tool_generator.rs
+expression: request_body_schema
+---
+{
+  "additionalProperties": true,
+  "description": "User creation data",
+  "properties": {
+    "age": {
+      "maximum": 150,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "type": "object",
+  "x-content-type": "application/json",
+  "x-location": "body"
+}

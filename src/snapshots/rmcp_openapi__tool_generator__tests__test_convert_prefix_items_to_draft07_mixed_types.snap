@@ -1,0 +1,18 @@
+---
+source: src/tool_generator.rs
+expression: result
+---
+{
+  "items": {
+    "oneOf": [
+      {
+        "type": "integer"
+      },
+      {
+        "type": "string"
+      }
+    ]
+  },
+  "maxItems": 2,
+  "minItems": 2
+}

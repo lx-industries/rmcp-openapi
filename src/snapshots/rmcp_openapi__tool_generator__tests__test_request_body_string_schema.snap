@@ -1,0 +1,12 @@
+---
+source: src/tool_generator.rs
+expression: request_body_schema
+---
+{
+  "description": "Request body data",
+  "maxLength": 100,
+  "minLength": 1,
+  "type": "string",
+  "x-content-type": "application/json",
+  "x-location": "body"
+}

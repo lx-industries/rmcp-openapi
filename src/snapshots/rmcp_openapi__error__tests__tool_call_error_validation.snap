@@ -1,0 +1,7 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "message": "Validation error: Missing required field"
+}

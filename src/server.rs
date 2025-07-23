@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use url::Url;
 
-use crate::error::OpenApiError;
+use crate::error::{ErrorDetails, OpenApiError, ToolCallError};
 use crate::http_client::HttpClient;
 use crate::openapi::OpenApiSpecLocation;
 use crate::tool_registry::ToolRegistry;
@@ -202,29 +202,32 @@ impl OpenApiServer {
 /// - `ToolNotFound`, `FileNotFound` → 404 (Not Found)
 /// - `HttpRequest`, `Http` → 502 (Bad Gateway)
 /// - All other errors → 500 (Internal Server Error)
-fn create_structured_error_content(error: &OpenApiError, has_output_schema: bool) -> Option<Value> {
+fn create_structured_error_content(
+    error: &ToolCallError,
+    has_output_schema: bool,
+) -> Option<Value> {
     if !has_output_schema {
         return None;
     }
 
     // Map error types to appropriate HTTP status codes
-    let status_code = match error {
-        OpenApiError::InvalidParameter { .. } => 400,
-        OpenApiError::Validation(_) => 400,
-        OpenApiError::InvalidParameterLocation(_) => 400,
-        OpenApiError::ToolNotFound(_) => 404,
-        OpenApiError::FileNotFound(_) => 404,
-        OpenApiError::HttpRequest(_) => 502,
-        OpenApiError::Http(_) => 502,
+    let status_code = match &error.details {
+        Some(ErrorDetails::InvalidParameter { .. }) => 400,
+        None if error.message.contains("not found") => 404,
+        None if error.message.contains("HTTP 4") => 400,
+        None if error.message.contains("HTTP 5") => 502,
+        None if error.message.contains("HTTP request failed") => 502,
+        None if error.message.contains("Connection failed") => 502,
+        None if error.message.contains("timeout") => 502,
         _ => 500, // Other errors are server errors
     };
 
-    // Create structured error response matching the expected schema
-    // Our OpenAPI tools expect { status: number, body: any }
+    // Create structured error response with ToolCallError serialization
+    // ToolCallError serializes to { message: string, details?: object }
     Some(json!({
         "status": status_code,
         "body": {
-            "error": error.to_string()
+            "error": error
         }
     }))
 }
@@ -302,7 +305,11 @@ impl ServerHandler for OpenApiServer {
 
                     // Return successful response
                     Ok(CallToolResult {
-                        content: Some(vec![Content::text(response.to_mcp_content())]),
+                        content: if tool_metadata.output_schema.is_some() {
+                            Some(vec![]) // Empty content when structured_content is present
+                        } else {
+                            Some(vec![Content::text(response.to_mcp_content())])
+                        },
                         structured_content,
                         is_error: Some(!response.is_success),
                     })
@@ -315,15 +322,19 @@ impl ServerHandler for OpenApiServer {
 
                     // Return error response with details
                     Ok(CallToolResult {
-                        content: Some(vec![Content::text(format!(
-                            "❌ Error executing tool '{}'\n\nError: {}\n\nTool details:\n- Method: {}\n- Path: {}\n- Arguments: {}",
-                            request.name,
-                            e,
-                            tool_metadata.method.to_uppercase(),
-                            tool_metadata.path,
-                            serde_json::to_string_pretty(&arguments_value)
-                                .unwrap_or_else(|_| "Invalid JSON".to_string())
-                        ))]),
+                        content: if tool_metadata.output_schema.is_some() {
+                            Some(vec![]) // Empty content when structured_content is present
+                        } else {
+                            Some(vec![Content::text(format!(
+                                "❌ Error executing tool '{}'\n\nError: {}\n\nTool details:\n- Method: {}\n- Path: {}\n- Arguments: {}",
+                                request.name,
+                                e,
+                                tool_metadata.method.to_uppercase(),
+                                tool_metadata.path,
+                                serde_json::to_string_pretty(&arguments_value)
+                                    .unwrap_or_else(|_| "Invalid JSON".to_string())
+                            ))])
+                        },
                         structured_content,
                         is_error: Some(true),
                     })
@@ -341,21 +352,18 @@ mod tests {
 
     #[test]
     fn test_create_structured_error_content_invalid_parameter() {
-        let error = OpenApiError::InvalidParameter {
-            parameter: "pet_id".to_string(),
-            reason: "Unknown parameter. Did you mean 'petId'?".to_string(),
-        };
+        let error = ToolCallError::invalid_parameter(
+            "pet_id".to_string(),
+            vec!["petId".to_string()],
+            vec!["petId".to_string(), "timeout_seconds".to_string()],
+        );
 
         // With output schema
         let result = create_structured_error_content(&error, true);
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 400);
-        assert_eq!(
-            json_result["body"]["error"],
-            "Invalid parameter: pet_id - Unknown parameter. Did you mean 'petId'?"
-        );
+        insta::assert_json_snapshot!(json_result);
 
         // Without output schema
         let result = create_structured_error_content(&error, false);
@@ -364,61 +372,68 @@ mod tests {
 
     #[test]
     fn test_create_structured_error_content_tool_not_found() {
-        let error = OpenApiError::ToolNotFound("unknownTool".to_string());
+        let error = ToolCallError::tool_not_found("unknownTool".to_string());
 
         let result = create_structured_error_content(&error, true);
         assert!(result.is_some());
 
         let json_result = result.unwrap();
         assert_eq!(json_result["status"], 404);
-        assert_eq!(json_result["body"]["error"], "Tool not found: unknownTool");
+        assert_eq!(
+            json_result["body"]["error"]["message"],
+            "Tool 'unknownTool' not found"
+        );
+        assert!(json_result["body"]["error"]["details"].is_null());
     }
 
     #[test]
     fn test_create_structured_error_content_validation() {
-        let error = OpenApiError::Validation("Missing required field".to_string());
+        let error = ToolCallError::validation_error("Missing required field".to_string());
 
         let result = create_structured_error_content(&error, true);
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 400);
+        assert_eq!(json_result["status"], 500); // Validation errors without details default to 500
         assert_eq!(
-            json_result["body"]["error"],
-            "Parameter validation error: Missing required field"
+            json_result["body"]["error"]["message"],
+            "Validation error: Missing required field"
         );
+        assert!(json_result["body"]["error"]["details"].is_null());
     }
 
     #[test]
     fn test_create_structured_error_content_http_errors() {
         // HTTP request error
-        let error = OpenApiError::Http("Server returned 503".to_string());
+        let error = ToolCallError::http_error(503, "Server unavailable".to_string());
         let result = create_structured_error_content(&error, true);
         assert!(result.is_some());
 
         let json_result = result.unwrap();
         assert_eq!(json_result["status"], 502);
         assert_eq!(
-            json_result["body"]["error"],
-            "HTTP error: Server returned 503"
+            json_result["body"]["error"]["message"],
+            "HTTP 503 error: Server unavailable"
         );
+        assert!(json_result["body"]["error"]["details"].is_null());
 
-        // File not found
-        let error = OpenApiError::FileNotFound("/path/to/file".to_string());
+        // HTTP request failed (non-actionable error)
+        let error = ToolCallError::http_request_error("Connection timeout".to_string());
         let result = create_structured_error_content(&error, true);
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        assert_eq!(json_result["status"], 404);
+        assert_eq!(json_result["status"], 502);
         assert_eq!(
-            json_result["body"]["error"],
-            "File not found: /path/to/file"
+            json_result["body"]["error"]["message"],
+            "HTTP request failed: Connection timeout"
         );
+        assert!(json_result["body"]["error"]["details"].is_null());
     }
 
     #[test]
     fn test_create_structured_error_content_generic_error() {
-        let error = OpenApiError::McpError("Internal server error".to_string());
+        let error = ToolCallError::validation_error("Internal server error".to_string());
 
         let result = create_structured_error_content(&error, true);
         assert!(result.is_some());
@@ -426,22 +441,24 @@ mod tests {
         let json_result = result.unwrap();
         assert_eq!(json_result["status"], 500);
         assert_eq!(
-            json_result["body"]["error"],
-            "MCP error: Internal server error"
+            json_result["body"]["error"]["message"],
+            "Validation error: Internal server error"
         );
+        assert!(json_result["body"]["error"]["details"].is_null());
     }
 
     #[test]
     fn test_create_structured_error_content_no_output_schema() {
         // When has_output_schema is false, should always return None
         let errors = vec![
-            OpenApiError::InvalidParameter {
-                parameter: "test".to_string(),
-                reason: "test reason".to_string(),
-            },
-            OpenApiError::ToolNotFound("test".to_string()),
-            OpenApiError::Validation("test".to_string()),
-            OpenApiError::Http("test".to_string()),
+            ToolCallError::invalid_parameter(
+                "test".to_string(),
+                vec!["suggestion".to_string()],
+                vec!["valid1".to_string(), "valid2".to_string()],
+            ),
+            ToolCallError::tool_not_found("test".to_string()),
+            ToolCallError::validation_error("test".to_string()),
+            ToolCallError::http_request_error("test".to_string()),
         ];
 
         for error in errors {

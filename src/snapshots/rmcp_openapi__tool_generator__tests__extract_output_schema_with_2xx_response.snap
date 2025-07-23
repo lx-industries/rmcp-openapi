@@ -1,0 +1,90 @@
+---
+source: src/tool_generator.rs
+expression: result
+---
+{
+  "additionalProperties": false,
+  "description": "Unified response structure with success and error variants",
+  "properties": {
+    "body": {
+      "description": "Response body - either success data or error information",
+      "oneOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "description": "Error response structure for tool execution failures",
+          "properties": {
+            "error": {
+              "description": "Error information",
+              "oneOf": [
+                {
+                  "description": "Invalid parameter error with suggestions",
+                  "properties": {
+                    "parameter": {
+                      "description": "The parameter name that was invalid",
+                      "type": "string"
+                    },
+                    "suggestions": {
+                      "description": "Suggested correct parameter names",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "type": {
+                      "const": "invalid-parameter",
+                      "type": "string"
+                    },
+                    "valid_parameters": {
+                      "description": "All valid parameter names for this tool",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "parameter",
+                    "suggestions",
+                    "valid_parameters"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "properties": {
+                "message": {
+                  "description": "Human-readable error message",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "message"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "status": {
+      "description": "HTTP status code",
+      "maximum": 599,
+      "minimum": 100,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "status",
+    "body"
+  ],
+  "type": "object"
+}

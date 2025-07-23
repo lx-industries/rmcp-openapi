@@ -1,0 +1,22 @@
+---
+source: src/tool_generator.rs
+expression: request_body_schema
+---
+{
+  "additionalProperties": true,
+  "description": "Pet status update",
+  "properties": {
+    "reason": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "type": "object",
+  "x-content-type": "application/json",
+  "x-location": "body"
+}

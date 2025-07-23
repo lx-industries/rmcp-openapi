@@ -1,0 +1,5 @@
+---
+source: src/tool_generator.rs
+expression: json_result
+---
+null

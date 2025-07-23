@@ -1,0 +1,14 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "message": "Unknown parameter 'completely_wrong'. Valid parameters are: petId, timeout",
+  "parameter": "completely_wrong",
+  "suggestions": [],
+  "type": "invalid-parameter",
+  "valid_parameters": [
+    "petId",
+    "timeout"
+  ]
+}

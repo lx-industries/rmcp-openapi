@@ -1,0 +1,21 @@
+---
+source: src/server.rs
+expression: json_result
+---
+{
+  "body": {
+    "error": {
+      "message": "Unknown parameter 'pet_id'. Did you mean 'petId'?",
+      "parameter": "pet_id",
+      "suggestions": [
+        "petId"
+      ],
+      "type": "invalid-parameter",
+      "valid_parameters": [
+        "petId",
+        "timeout_seconds"
+      ]
+    }
+  },
+  "status": 400
+}

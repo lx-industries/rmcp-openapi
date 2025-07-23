@@ -1,8 +1,9 @@
+use schemars::schema_for;
 use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::error::OpenApiError;
+use crate::error::{ErrorResponse, OpenApiError, ToolCallError};
 use crate::server::ToolMetadata;
 use oas3::spec::{
     BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody,
@@ -219,7 +220,7 @@ impl ToolGenerator {
             spec,
         )?;
 
-        // Extract output schema from responses
+        // Extract output schema from responses (already returns wrapped Value)
         let output_schema = Self::extract_output_schema(&operation.responses, spec)?;
 
         Ok(ToolMetadata {
@@ -314,32 +315,9 @@ impl ToolGenerator {
                     for media_type_str in json_media_types {
                         if let Some(media_type) = content.get(media_type_str) {
                             if let Some(schema_or_ref) = &media_type.schema {
-                                // Convert OpenAPI schema to JSON Schema
-                                let mut visited = HashSet::new();
-                                // MediaType schema is ObjectOrReference<ObjectSchema>
-                                let json_schema = match schema_or_ref {
-                                    ObjectOrReference::Object(obj_schema) => {
-                                        Self::convert_object_schema_to_json_schema(
-                                            obj_schema,
-                                            spec,
-                                            &mut visited,
-                                        )?
-                                    }
-                                    ObjectOrReference::Ref { ref_path } => {
-                                        // Resolve schema reference
-                                        let resolved =
-                                            Self::resolve_reference(ref_path, spec, &mut visited)?;
-                                        Self::convert_object_schema_to_json_schema(
-                                            &resolved,
-                                            spec,
-                                            &mut visited,
-                                        )?
-                                    }
-                                };
-
-                                // Always wrap output schema in a consistent HTTP response structure
-                                let final_schema = Self::wrap_output_schema(json_schema);
-                                return Ok(Some(final_schema));
+                                // Wrap the schema with success/error structure
+                                let wrapped_schema = Self::wrap_output_schema(schema_or_ref, spec)?;
+                                return Ok(Some(wrapped_schema));
                             }
                         }
                     }
@@ -347,31 +325,9 @@ impl ToolGenerator {
                     // If no JSON media type found, try any media type with a schema
                     for media_type in content.values() {
                         if let Some(schema_or_ref) = &media_type.schema {
-                            let mut visited = HashSet::new();
-                            // MediaType schema is ObjectOrReference<ObjectSchema>
-                            let json_schema = match schema_or_ref {
-                                ObjectOrReference::Object(obj_schema) => {
-                                    Self::convert_object_schema_to_json_schema(
-                                        obj_schema,
-                                        spec,
-                                        &mut visited,
-                                    )?
-                                }
-                                ObjectOrReference::Ref { ref_path } => {
-                                    // Resolve schema reference
-                                    let resolved =
-                                        Self::resolve_reference(ref_path, spec, &mut visited)?;
-                                    Self::convert_object_schema_to_json_schema(
-                                        &resolved,
-                                        spec,
-                                        &mut visited,
-                                    )?
-                                }
-                            };
-
-                            // Always wrap output schema in a consistent HTTP response structure
-                            let final_schema = Self::wrap_output_schema(json_schema);
-                            return Ok(Some(final_schema));
+                            // Wrap the schema with success/error structure
+                            let wrapped_schema = Self::wrap_output_schema(schema_or_ref, spec)?;
+                            return Ok(Some(wrapped_schema));
                         }
                     }
                 }
@@ -453,6 +409,27 @@ impl ToolGenerator {
         // Add description if present
         if let Some(desc) = &obj_schema.description {
             schema_obj.insert("description".to_string(), json!(desc));
+        }
+
+        // Handle oneOf schemas - this takes precedence over other schema properties
+        if !obj_schema.one_of.is_empty() {
+            let mut one_of_schemas = Vec::new();
+            for schema_ref in &obj_schema.one_of {
+                let schema_json = match schema_ref {
+                    ObjectOrReference::Object(schema) => {
+                        Self::convert_object_schema_to_json_schema(schema, spec, visited)?
+                    }
+                    ObjectOrReference::Ref { ref_path } => {
+                        let resolved = Self::resolve_reference(ref_path, spec, visited)?;
+                        Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?
+                    }
+                };
+                one_of_schemas.push(schema_json);
+            }
+            schema_obj.insert("oneOf".to_string(), json!(one_of_schemas));
+            // When oneOf is present, we typically don't include other properties
+            // that would conflict with the oneOf semantics
+            return Ok(Value::Object(schema_obj));
         }
 
         // Handle object properties
@@ -1002,14 +979,14 @@ impl ToolGenerator {
         }
 
         // Determine items schema based on prefixItems types
-        let unique_types: std::collections::HashSet<_> = item_types.into_iter().collect();
+        let unique_types: std::collections::BTreeSet<_> = item_types.into_iter().collect();
 
         if unique_types.len() == 1 {
             // All items have same type
             let item_type = unique_types.into_iter().next().unwrap();
             result.insert("items".to_string(), json!({"type": item_type}));
         } else if unique_types.len() > 1 {
-            // Mixed types, use oneOf
+            // Mixed types, use oneOf (sorted for consistent ordering)
             let one_of: Vec<Value> = unique_types
                 .into_iter()
                 .map(|t| json!({"type": t}))
@@ -1116,10 +1093,10 @@ impl ToolGenerator {
     pub fn extract_parameters(
         tool_metadata: &ToolMetadata,
         arguments: &Value,
-    ) -> Result<ExtractedParameters, OpenApiError> {
-        let args = arguments
-            .as_object()
-            .ok_or_else(|| OpenApiError::Validation("Arguments must be an object".to_string()))?;
+    ) -> Result<ExtractedParameters, ToolCallError> {
+        let args = arguments.as_object().ok_or_else(|| {
+            ToolCallError::validation_error("Arguments must be an object".to_string())
+        })?;
 
         let mut path_params = HashMap::new();
         let mut query_params = HashMap::new();
@@ -1146,7 +1123,8 @@ impl ToolGenerator {
             }
 
             // Determine parameter location from the tool metadata
-            let location = Self::get_parameter_location(tool_metadata, key)?;
+            let location = Self::get_parameter_location(tool_metadata, key)
+                .map_err(|e| ToolCallError::validation_error(e.to_string()))?;
 
             // Get the original name if it exists
             let original_name = Self::get_original_parameter_name(tool_metadata, key);
@@ -1191,7 +1169,7 @@ impl ToolGenerator {
                     body_params.insert(body_name, value.clone());
                 }
                 _ => {
-                    return Err(OpenApiError::ToolGeneration(format!(
+                    return Err(ToolCallError::validation_error(format!(
                         "Unknown parameter location for parameter: {key}"
                     )));
                 }
@@ -1267,7 +1245,7 @@ impl ToolGenerator {
     fn validate_parameters(
         tool_metadata: &ToolMetadata,
         arguments: &Value,
-    ) -> Result<(), OpenApiError> {
+    ) -> Result<(), ToolCallError> {
         let schema = &tool_metadata.parameters;
 
         // Get required parameters from schema
@@ -1285,12 +1263,12 @@ impl ToolGenerator {
             .get("properties")
             .and_then(|p| p.as_object())
             .ok_or_else(|| {
-                OpenApiError::Validation("Tool schema missing properties".to_string())
+                ToolCallError::validation_error("Tool schema missing properties".to_string())
             })?;
 
-        let args = arguments
-            .as_object()
-            .ok_or_else(|| OpenApiError::Validation("Arguments must be an object".to_string()))?;
+        let args = arguments.as_object().ok_or_else(|| {
+            ToolCallError::validation_error("Arguments must be an object".to_string())
+        })?;
 
         // Check for unknown parameters
         Self::check_unknown_parameters(args, properties)?;
@@ -1298,10 +1276,12 @@ impl ToolGenerator {
         // Check all required parameters are provided in the arguments
         for required_param in &required_params {
             if !args.contains_key(*required_param) {
-                return Err(OpenApiError::InvalidParameter {
-                    parameter: (*required_param).to_string(),
-                    reason: "Required parameter is missing".to_string(),
-                });
+                let valid_params: Vec<String> = properties.keys().map(|s| s.to_string()).collect();
+                return Err(ToolCallError::invalid_parameter(
+                    (*required_param).to_string(),
+                    vec![], // No suggestions for missing required parameters
+                    valid_params,
+                ));
             }
         }
 
@@ -1312,14 +1292,15 @@ impl ToolGenerator {
     fn check_unknown_parameters(
         args: &serde_json::Map<String, Value>,
         properties: &serde_json::Map<String, Value>,
-    ) -> Result<(), OpenApiError> {
+    ) -> Result<(), ToolCallError> {
         // Early return if no parameters are defined but arguments are provided
         if properties.is_empty() && !args.is_empty() {
             let (arg_name, _) = args.iter().next().unwrap(); // Safe because args is not empty
-            return Err(OpenApiError::InvalidParameter {
-                parameter: arg_name.clone(),
-                reason: "Unknown parameter. No parameters are defined for this tool".to_string(),
-            });
+            return Err(ToolCallError::invalid_parameter(
+                arg_name.clone(),
+                vec![], // No suggestions since no parameters are defined
+                vec![], // No valid parameters
+            ));
         }
 
         // Get list of valid parameter names
@@ -1330,25 +1311,14 @@ impl ToolGenerator {
             if !properties.contains_key(arg_name) {
                 // Find similar parameter names
                 let suggestions = Self::find_similar_parameters(arg_name, &valid_params);
+                let valid_params_owned: Vec<String> =
+                    valid_params.iter().map(|s| s.to_string()).collect();
 
-                let reason = if suggestions.is_empty() {
-                    format!(
-                        "Unknown parameter. Valid parameters are: {}",
-                        valid_params.join(", ")
-                    )
-                } else if suggestions.len() == 1 {
-                    format!("Unknown parameter. Did you mean '{}'?", suggestions[0])
-                } else {
-                    format!(
-                        "Unknown parameter. Did you mean one of these? {}",
-                        suggestions.join(", ")
-                    )
-                };
-
-                return Err(OpenApiError::InvalidParameter {
-                    parameter: arg_name.clone(),
-                    reason,
-                });
+                return Err(ToolCallError::invalid_parameter(
+                    arg_name.clone(),
+                    suggestions,
+                    valid_params_owned,
+                ));
             }
         }
 
@@ -1374,21 +1344,134 @@ impl ToolGenerator {
         candidates.into_iter().map(|(_, name)| name).collect()
     }
 
-    /// Wrap an output schema in a consistent HTTP response structure
-    /// All output schemas are wrapped to include status code and body
-    fn wrap_output_schema(body_schema: Value) -> Value {
-        json!({
+    /// Wrap an output schema to include both success and error responses
+    ///
+    /// This function creates a unified response schema that can represent both successful
+    /// responses and error responses. It uses `json!()` macro instead of `schema_for!()`
+    /// for several important reasons:
+    ///
+    /// 1. **Dynamic Schema Construction**: The success schema is dynamically converted from
+    ///    OpenAPI specifications at runtime, not from a static Rust type. The `schema_for!()`
+    ///    macro requires a compile-time type, but we're working with schemas that are only
+    ///    known when parsing the OpenAPI spec.
+    ///
+    /// 2. **Composite Schema Building**: The function builds a complex wrapper schema that:
+    ///    - Contains a dynamically-converted OpenAPI schema for success responses
+    ///    - Includes a statically-typed error schema (which does use `schema_for!()`)
+    ///    - Adds metadata fields like HTTP status codes and descriptions
+    ///    - Uses JSON Schema's `oneOf` to allow either success or error responses
+    ///
+    /// 3. **Runtime Flexibility**: OpenAPI schemas can have arbitrary complexity and types
+    ///    that don't map directly to Rust types. Using `json!()` allows us to construct
+    ///    the exact JSON Schema structure needed without being constrained by Rust's type system.
+    ///
+    /// The error schema component does use `schema_for!(ErrorResponse)` (via `create_error_response_schema()`)
+    /// because `ErrorResponse` is a known Rust type, but the overall wrapper must be built dynamically.
+    fn wrap_output_schema(
+        body_schema: &ObjectOrReference<ObjectSchema>,
+        spec: &Spec,
+    ) -> Result<Value, OpenApiError> {
+        // Convert the body schema to JSON
+        let mut visited = HashSet::new();
+        let body_schema_json = match body_schema {
+            ObjectOrReference::Object(obj_schema) => {
+                Self::convert_object_schema_to_json_schema(obj_schema, spec, &mut visited)?
+            }
+            ObjectOrReference::Ref { ref_path } => {
+                let resolved = Self::resolve_reference(ref_path, spec, &mut visited)?;
+                Self::convert_object_schema_to_json_schema(&resolved, spec, &mut visited)?
+            }
+        };
+
+        let error_schema = create_error_response_schema();
+
+        Ok(json!({
             "type": "object",
+            "description": "Unified response structure with success and error variants",
+            "required": ["status", "body"],
+            "additionalProperties": false,
             "properties": {
                 "status": {
                     "type": "integer",
-                    "description": "HTTP status code"
+                    "description": "HTTP status code",
+                    "minimum": 100,
+                    "maximum": 599
                 },
-                "body": body_schema
-            },
-            "required": ["status", "body"],
-            "additionalProperties": false
-        })
+                "body": {
+                    "description": "Response body - either success data or error information",
+                    "oneOf": [
+                        body_schema_json,
+                        error_schema
+                    ]
+                }
+            }
+        }))
+    }
+}
+
+/// Create the error schema structure that all tool errors conform to
+fn create_error_response_schema() -> Value {
+    let root_schema = schema_for!(ErrorResponse);
+    let schema_json = serde_json::to_value(root_schema).expect("Valid error schema");
+
+    // Extract definitions/defs for inlining
+    let definitions = schema_json
+        .get("$defs")
+        .or_else(|| schema_json.get("definitions"))
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+
+    // Clone the schema and remove metadata
+    let mut result = schema_json.clone();
+    if let Some(obj) = result.as_object_mut() {
+        obj.remove("$schema");
+        obj.remove("$defs");
+        obj.remove("definitions");
+        obj.remove("title");
+    }
+
+    // Inline all references
+    inline_refs(&mut result, &definitions);
+
+    result
+}
+
+/// Recursively inline all $ref references in a JSON Schema
+fn inline_refs(schema: &mut Value, definitions: &Value) {
+    match schema {
+        Value::Object(obj) => {
+            // Check if this object has a $ref
+            if let Some(ref_value) = obj.get("$ref").cloned() {
+                if let Some(ref_str) = ref_value.as_str() {
+                    // Extract the definition name from the ref
+                    let def_name = ref_str
+                        .strip_prefix("#/$defs/")
+                        .or_else(|| ref_str.strip_prefix("#/definitions/"));
+
+                    if let Some(name) = def_name {
+                        if let Some(definition) = definitions.get(name) {
+                            // Replace the entire object with the definition
+                            *schema = definition.clone();
+                            // Continue to inline any refs in the definition
+                            inline_refs(schema, definitions);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Recursively process all values in the object
+            for (_, value) in obj.iter_mut() {
+                inline_refs(value, definitions);
+            }
+        }
+        Value::Array(arr) => {
+            // Recursively process all items in the array
+            for item in arr.iter_mut() {
+                inline_refs(item, definitions);
+            }
+        }
+        _ => {} // Other types don't contain refs
     }
 }
 
@@ -1422,6 +1505,8 @@ impl Default for RequestConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::ErrorDetails;
+    use insta::assert_json_snapshot;
     use oas3::spec::{
         BooleanSchema, Components, MediaType, ObjectOrReference, ObjectSchema, Operation,
         Parameter, ParameterIn, RequestBody, Schema, SchemaType, SchemaTypeSet, Spec,
@@ -1498,6 +1583,18 @@ mod tests {
         if !errors.is_empty() {
             panic!("Generated tool failed MCP schema validation: {errors:?}");
         }
+    }
+
+    #[test]
+    fn test_error_schema_structure() {
+        let error_schema = create_error_response_schema();
+
+        // Should not contain $schema or definitions at top level
+        assert!(error_schema.get("$schema").is_none());
+        assert!(error_schema.get("definitions").is_none());
+
+        // Verify the structure using snapshot
+        assert_json_snapshot!(error_schema);
     }
 
     #[test]
@@ -1617,28 +1714,8 @@ mod tests {
         assert!(metadata.output_schema.is_some());
         let output_schema = metadata.output_schema.as_ref().unwrap();
 
-        // All output schemas are wrapped in HTTP response structure
-        assert_eq!(output_schema.get("type"), Some(&json!("object")));
-        assert_eq!(
-            output_schema.get("required"),
-            Some(&json!(["status", "body"]))
-        );
-
-        let properties = output_schema
-            .get("properties")
-            .unwrap()
-            .as_object()
-            .unwrap();
-
-        // Check body field contains the original schema
-        let body_schema = properties.get("body").unwrap();
-        assert_eq!(body_schema.get("type"), Some(&json!("object")));
-        assert_eq!(body_schema.get("required"), Some(&json!(["id", "name"])));
-
-        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
-        assert!(body_properties.contains_key("id"));
-        assert!(body_properties.contains_key("name"));
-        assert!(body_properties.contains_key("status"));
+        // Use snapshot testing for the output schema
+        insta::assert_json_snapshot!("test_petstore_get_pet_by_id_output_schema", output_schema);
 
         // Validate against MCP Tool schema
         validate_tool_against_mcp_schema(&metadata);
@@ -1668,23 +1745,8 @@ mod tests {
         ToolGenerator::convert_prefix_items_to_draft07(&prefix_items, &items, &mut result, &spec)
             .unwrap();
 
-        // Should set exact array length
-        assert_eq!(result.get("minItems"), Some(&json!(2)));
-        assert_eq!(result.get("maxItems"), Some(&json!(2)));
-
-        // Should use oneOf for mixed types
-        let items_schema = result.get("items").unwrap();
-        assert!(items_schema.get("oneOf").is_some());
-        let one_of = items_schema.get("oneOf").unwrap().as_array().unwrap();
-        assert_eq!(one_of.len(), 2);
-
-        // Verify types are present
-        let types: Vec<&str> = one_of
-            .iter()
-            .map(|v| v.get("type").unwrap().as_str().unwrap())
-            .collect();
-        assert!(types.contains(&"integer"));
-        assert!(types.contains(&"string"));
+        // Use JSON snapshot for the schema
+        insta::assert_json_snapshot!("test_convert_prefix_items_to_draft07_mixed_types", result);
     }
 
     #[test]
@@ -1709,14 +1771,8 @@ mod tests {
         ToolGenerator::convert_prefix_items_to_draft07(&prefix_items, &items, &mut result, &spec)
             .unwrap();
 
-        // Should set exact array length
-        assert_eq!(result.get("minItems"), Some(&json!(2)));
-        assert_eq!(result.get("maxItems"), Some(&json!(2)));
-
-        // Should use single type for uniform types
-        let items_schema = result.get("items").unwrap();
-        assert_eq!(items_schema.get("type"), Some(&json!("string")));
-        assert!(items_schema.get("oneOf").is_none());
+        // Use JSON snapshot for the schema
+        insta::assert_json_snapshot!("test_convert_prefix_items_to_draft07_uniform_types", result);
     }
 
     #[test]
@@ -1759,18 +1815,8 @@ mod tests {
         let (result, _annotations) =
             ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec).unwrap();
 
-        // Verify the result
-        assert_eq!(result.get("type"), Some(&json!("array")));
-        assert_eq!(result.get("minItems"), Some(&json!(2)));
-        assert_eq!(result.get("maxItems"), Some(&json!(2)));
-        assert_eq!(
-            result.get("items").unwrap().get("type"),
-            Some(&json!("number"))
-        );
-        assert_eq!(
-            result.get("description"),
-            Some(&json!("X,Y coordinates as tuple"))
-        );
+        // Use JSON snapshot for the schema
+        insta::assert_json_snapshot!("test_array_with_prefix_items_integration", result);
     }
 
     #[test]
@@ -1808,12 +1854,8 @@ mod tests {
         let (result, _annotations) =
             ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec).unwrap();
 
-        // Verify the result
-        assert_eq!(result.get("type"), Some(&json!("array")));
-        let items = result.get("items").unwrap();
-        assert_eq!(items.get("type"), Some(&json!("string")));
-        assert_eq!(items.get("minLength"), Some(&json!(1)));
-        assert_eq!(items.get("maxLength"), Some(&json!(50)));
+        // Use JSON snapshot for the schema
+        insta::assert_json_snapshot!("test_array_with_regular_items_schema", result);
     }
 
     #[test]
@@ -1880,14 +1922,9 @@ mod tests {
             .unwrap();
         assert!(required.contains(&json!("request_body")));
 
-        // Check request body schema
+        // Check request body schema using snapshot
         let request_body_schema = properties.get("request_body").unwrap();
-        assert_eq!(request_body_schema.get("type"), Some(&json!("object")));
-        assert_eq!(
-            request_body_schema.get("description"),
-            Some(&json!("Pet object that needs to be added to the store"))
-        );
-        assert_eq!(request_body_schema.get("x-location"), Some(&json!("body")));
+        insta::assert_json_snapshot!("test_request_body_object_schema", request_body_schema);
 
         // Validate against MCP Tool schema
         validate_tool_against_mcp_schema(&metadata);
@@ -1965,13 +2002,9 @@ mod tests {
             .unwrap();
         assert!(!required.contains(&json!("request_body")));
 
-        // Check request body schema
+        // Check request body schema using snapshot
         let request_body_schema = properties.get("request_body").unwrap();
-        assert_eq!(request_body_schema.get("type"), Some(&json!("array")));
-        assert_eq!(
-            request_body_schema.get("description"),
-            Some(&json!("Array of pet objects"))
-        );
+        insta::assert_json_snapshot!("test_request_body_array_schema", request_body_schema);
 
         // Validate against MCP Tool schema
         validate_tool_against_mcp_schema(&metadata);
@@ -2033,13 +2066,7 @@ mod tests {
             .as_object()
             .unwrap();
         let request_body_schema = properties.get("request_body").unwrap();
-        assert_eq!(request_body_schema.get("type"), Some(&json!("string")));
-        assert_eq!(request_body_schema.get("minLength"), Some(&json!(1)));
-        assert_eq!(request_body_schema.get("maxLength"), Some(&json!(100)));
-        assert_eq!(
-            request_body_schema.get("description"),
-            Some(&json!("Request body data"))
-        );
+        insta::assert_json_snapshot!("test_request_body_string_schema", request_body_schema);
 
         // Validate against MCP Tool schema
         validate_tool_against_mcp_schema(&metadata);
@@ -2083,11 +2110,7 @@ mod tests {
             .as_object()
             .unwrap();
         let request_body_schema = properties.get("request_body").unwrap();
-        assert_eq!(request_body_schema.get("type"), Some(&json!("object")));
-        assert_eq!(
-            request_body_schema.get("additionalProperties"),
-            Some(&json!(true))
-        );
+        insta::assert_json_snapshot!("test_request_body_ref_schema", request_body_schema);
 
         // Validate against MCP Tool schema
         validate_tool_against_mcp_schema(&metadata);
@@ -2211,28 +2234,9 @@ mod tests {
             .as_object()
             .unwrap();
         let request_body_schema = properties.get("request_body").unwrap();
-
-        // Check basic structure
-        assert_eq!(request_body_schema.get("type"), Some(&json!("object")));
-        assert_eq!(
-            request_body_schema.get("description"),
-            Some(&json!("Pet status update"))
-        );
-
-        // Check extracted properties
-        let body_props = request_body_schema
-            .get("properties")
-            .unwrap()
-            .as_object()
-            .unwrap();
-        assert_eq!(body_props.len(), 2);
-        assert!(body_props.contains_key("status"));
-        assert!(body_props.contains_key("reason"));
-
-        // Check required array from schema
-        assert_eq!(
-            request_body_schema.get("required"),
-            Some(&json!(["status"]))
+        insta::assert_json_snapshot!(
+            "test_request_body_simple_object_with_properties",
+            request_body_schema
         );
 
         // Should not be in top-level required since request body itself is optional
@@ -2327,36 +2331,9 @@ mod tests {
             .as_object()
             .unwrap();
         let request_body_schema = properties.get("request_body").unwrap();
-        assert_eq!(request_body_schema.get("type"), Some(&json!("object")));
-
-        // Check that properties were extracted
-        assert!(request_body_schema.get("properties").is_some());
-        let props = request_body_schema
-            .get("properties")
-            .unwrap()
-            .as_object()
-            .unwrap();
-        assert!(props.contains_key("name"));
-        assert!(props.contains_key("age"));
-
-        // Check name property
-        let name_prop = props.get("name").unwrap();
-        assert_eq!(name_prop.get("type"), Some(&json!("string")));
-
-        // Check age property
-        let age_prop = props.get("age").unwrap();
-        assert_eq!(age_prop.get("type"), Some(&json!("integer")));
-        assert_eq!(age_prop.get("minimum"), Some(&json!(0)));
-        assert_eq!(age_prop.get("maximum"), Some(&json!(150)));
-
-        // Check required array
-        assert_eq!(request_body_schema.get("required"), Some(&json!(["name"])));
-
-        // With properties defined but no explicit additionalProperties in OpenAPI,
-        // it should default to true (OpenAPI 3.0 default)
-        assert_eq!(
-            request_body_schema.get("additionalProperties"),
-            Some(&json!(true))
+        insta::assert_json_snapshot!(
+            "test_request_body_with_nested_properties",
+            request_body_schema
         );
 
         // Validate against MCP Tool schema
@@ -2449,35 +2426,8 @@ mod tests {
         let spec = create_test_spec();
         let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
 
-        assert!(result.is_some());
-        let schema = result.unwrap();
-
-        // All output schemas are wrapped in HTTP response structure
-        assert_eq!(schema.get("type"), Some(&json!("object")));
-        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
-
-        let properties = schema.get("properties").unwrap().as_object().unwrap();
-
-        // Check status field
-        assert_eq!(
-            properties.get("status").unwrap().get("type"),
-            Some(&json!("integer"))
-        );
-
-        // Check body field contains the original object schema
-        let body_schema = properties.get("body").unwrap();
-        assert_eq!(body_schema.get("type"), Some(&json!("object")));
-        assert_eq!(body_schema.get("required"), Some(&json!(["id", "name"])));
-
-        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
-        assert_eq!(
-            body_properties.get("id").unwrap().get("type"),
-            Some(&json!("integer"))
-        );
-        assert_eq!(
-            body_properties.get("name").unwrap().get("type"),
-            Some(&json!("string"))
-        );
+        // Result is already a JSON Value
+        insta::assert_json_snapshot!(result);
     }
 
     #[test]
@@ -2524,23 +2474,8 @@ mod tests {
         let spec = create_test_spec();
         let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
 
-        assert!(result.is_some());
-        let schema = result.unwrap();
-
-        // All output schemas are wrapped in HTTP response structure
-        assert_eq!(schema.get("type"), Some(&json!("object")));
-        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
-
-        let properties = schema.get("properties").unwrap().as_object().unwrap();
-
-        // Check body field contains the original schema
-        let body_schema = properties.get("body").unwrap();
-        assert_eq!(body_schema.get("type"), Some(&json!("object")));
-        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
-        assert_eq!(
-            body_properties.get("created").unwrap().get("type"),
-            Some(&json!("boolean"))
-        );
+        // Result is already a JSON Value
+        insta::assert_json_snapshot!(result);
     }
 
     #[test]
@@ -2582,32 +2517,17 @@ mod tests {
         let spec = create_test_spec();
         let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
 
-        assert!(result.is_some());
-        let schema = result.unwrap();
-
-        // All output schemas are wrapped in HTTP response structure
-        assert_eq!(schema.get("type"), Some(&json!("object")));
-        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
-        let properties = schema.get("properties").unwrap();
-
-        // Check status field
-        let status_schema = properties.get("status").unwrap();
-        assert_eq!(status_schema.get("type"), Some(&json!("integer")));
-
-        // Check body field contains the array schema
-        let body_schema = properties.get("body").unwrap();
-        assert_eq!(body_schema.get("type"), Some(&json!("array")));
-        assert_eq!(
-            body_schema.get("items").unwrap().get("type"),
-            Some(&json!("string"))
-        );
+        // Result is already a JSON Value
+        insta::assert_json_snapshot!(result);
     }
 
     #[test]
     fn test_extract_output_schema_no_responses() {
         let spec = create_test_spec();
         let result = ToolGenerator::extract_output_schema(&None, &spec).unwrap();
-        assert!(result.is_none());
+
+        // Result is already a JSON Value
+        insta::assert_json_snapshot!(result);
     }
 
     #[test]
@@ -2639,7 +2559,9 @@ mod tests {
 
         let spec = create_test_spec();
         let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
-        assert!(result.is_none());
+
+        // Result is already a JSON Value
+        insta::assert_json_snapshot!(result);
     }
 
     #[test]
@@ -2696,23 +2618,8 @@ mod tests {
 
         let result = ToolGenerator::extract_output_schema(&Some(responses), &spec).unwrap();
 
-        assert!(result.is_some());
-        let schema = result.unwrap();
-
-        // All output schemas are wrapped in HTTP response structure
-        assert_eq!(schema.get("type"), Some(&json!("object")));
-        assert_eq!(schema.get("required"), Some(&json!(["status", "body"])));
-
-        let properties = schema.get("properties").unwrap().as_object().unwrap();
-
-        // Check body field contains the referenced schema
-        let body_schema = properties.get("body").unwrap();
-        assert_eq!(body_schema.get("type"), Some(&json!("object")));
-        let body_properties = body_schema.get("properties").unwrap().as_object().unwrap();
-        assert_eq!(
-            body_properties.get("name").unwrap().get("type"),
-            Some(&json!("string"))
-        );
+        // Result is already a JSON Value
+        insta::assert_json_snapshot!(result);
     }
 
     #[test]
@@ -2785,7 +2692,12 @@ mod tests {
         // Check that output_schema is included
         assert!(metadata.output_schema.is_some());
         let output_schema = metadata.output_schema.as_ref().unwrap();
-        assert_eq!(output_schema.get("type"), Some(&json!("object")));
+
+        // Use JSON snapshot for the output schema
+        insta::assert_json_snapshot!(
+            "test_generate_tool_metadata_includes_output_schema",
+            output_schema
+        );
 
         // Validate against MCP Tool schema (this also validates output_schema if present)
         validate_tool_against_mcp_schema(&metadata);
@@ -2935,26 +2847,8 @@ mod tests {
             ToolGenerator::convert_object_schema_to_json_schema(&obj_schema, &spec, &mut visited)
                 .unwrap();
 
-        let properties = result.get("properties").unwrap().as_object().unwrap();
-
-        // Check sanitized property names
-        assert!(properties.contains_key("user_name"));
-        assert!(properties.contains_key("price"));
-        assert!(properties.contains_key("validName"));
-
-        // Check original names are preserved in annotations
-        let user_name_schema = properties.get("user_name").unwrap();
-        assert_eq!(
-            user_name_schema.get(X_ORIGINAL_NAME),
-            Some(&json!("user name"))
-        );
-
-        let price_schema = properties.get("price").unwrap();
-        assert_eq!(price_schema.get(X_ORIGINAL_NAME), Some(&json!("price($)")));
-
-        // Valid name should not have x-original-name annotation
-        let valid_name_schema = properties.get("validName").unwrap();
-        assert_eq!(valid_name_schema.get(X_ORIGINAL_NAME), None);
+        // Use JSON snapshot for the schema
+        insta::assert_json_snapshot!("test_property_sanitization_with_annotations", result);
     }
 
     #[test]
@@ -3091,11 +2985,23 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
-                assert_eq!(parameter, "page_sixe");
-                assert!(reason.contains("Did you mean 'page_size'?"));
+            Err(err) => {
+                assert!(err.message.contains("page_sixe"));
+                assert!(err.message.contains("Did you mean 'page_size'?"));
+                // Check structured details
+                if let Some(ErrorDetails::InvalidParameter {
+                    parameter,
+                    suggestions,
+                    ..
+                }) = &err.details
+                {
+                    assert_eq!(parameter, "page_sixe");
+                    assert_eq!(suggestions, &vec!["page_size".to_string()]);
+                } else {
+                    panic!("Expected InvalidParameter details");
+                }
             }
-            _ => panic!("Expected InvalidParameter error"),
+            _ => panic!("Expected ToolCallError"),
         }
     }
 
@@ -3113,12 +3019,26 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
-                assert_eq!(parameter, "xyz123");
-                assert!(reason.contains("Valid parameters are: limit, offset"));
-                assert!(!reason.contains("Did you mean"));
+            Err(err) => {
+                assert!(err.message.contains("xyz123"));
+                assert!(err.message.contains("Valid parameters are:"));
+                assert!(!err.message.contains("Did you mean"));
+                // Check structured details
+                if let Some(ErrorDetails::InvalidParameter {
+                    parameter,
+                    suggestions,
+                    valid_parameters,
+                }) = &err.details
+                {
+                    assert_eq!(parameter, "xyz123");
+                    assert!(suggestions.is_empty());
+                    assert!(valid_parameters.contains(&"limit".to_string()));
+                    assert!(valid_parameters.contains(&"offset".to_string()));
+                } else {
+                    panic!("Expected InvalidParameter details");
+                }
             }
-            _ => panic!("Expected InvalidParameter error"),
+            _ => panic!("Expected ToolCallError"),
         }
     }
 
@@ -3137,12 +3057,26 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
-                assert_eq!(parameter, "usr_id");
-                assert!(reason.contains("Did you mean one of these?"));
-                assert!(reason.contains("user_id"));
+            Err(err) => {
+                assert!(err.message.contains("usr_id"));
+                assert!(err.message.contains("Did you mean one of these?"));
+                assert!(err.message.contains("user_id"));
+                // Check structured details
+                if let Some(ErrorDetails::InvalidParameter {
+                    parameter,
+                    suggestions,
+                    valid_parameters,
+                }) = &err.details
+                {
+                    assert_eq!(parameter, "usr_id");
+                    assert!(!suggestions.is_empty());
+                    assert!(suggestions.contains(&"user_id".to_string()));
+                    assert_eq!(valid_parameters.len(), 3);
+                } else {
+                    panic!("Expected InvalidParameter details");
+                }
             }
-            _ => panic!("Expected InvalidParameter error"),
+            _ => panic!("Expected ToolCallError"),
         }
     }
 
@@ -3173,11 +3107,24 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(OpenApiError::InvalidParameter { parameter, reason }) => {
-                assert_eq!(parameter, "any_param");
-                assert!(reason.contains("No parameters are defined for this tool"));
+            Err(err) => {
+                assert!(err.message.contains("any_param"));
+                assert!(err.message.contains("Valid parameters are:"));
+                // Check structured details - should have empty valid_parameters and suggestions
+                if let Some(ErrorDetails::InvalidParameter {
+                    parameter,
+                    suggestions,
+                    valid_parameters,
+                }) = &err.details
+                {
+                    assert_eq!(parameter, "any_param");
+                    assert!(suggestions.is_empty());
+                    assert!(valid_parameters.is_empty());
+                } else {
+                    panic!("Expected InvalidParameter details");
+                }
             }
-            _ => panic!("Expected InvalidParameter error"),
+            _ => panic!("Expected ToolCallError"),
         }
     }
 

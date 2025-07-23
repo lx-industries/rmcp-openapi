@@ -1,0 +1,11 @@
+---
+source: src/tool_generator.rs
+expression: result
+---
+{
+  "items": {
+    "type": "string"
+  },
+  "maxItems": 2,
+  "minItems": 2
+}

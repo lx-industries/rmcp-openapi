@@ -1,0 +1,7 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "message": "Tool 'unknownTool' not found"
+}

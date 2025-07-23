@@ -1,0 +1,21 @@
+---
+source: src/tool_generator.rs
+expression: result
+---
+{
+  "additionalProperties": true,
+  "properties": {
+    "price": {
+      "type": "number",
+      "x-original-name": "price($)"
+    },
+    "user_name": {
+      "type": "string",
+      "x-original-name": "user name"
+    },
+    "validName": {
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

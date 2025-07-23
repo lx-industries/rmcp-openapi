@@ -19,13 +19,14 @@ name = "rmcp-openapi-server"
 path = "src/main.rs"
 
 [dependencies]
-rmcp = { git = "https://github.com/lx-industries/rust-sdk.git", rev = "f752f66a4b815fd04254f3b119e45711032c3555", features = [
+rmcp = { git = "https://github.com/lx-industries/rust-sdk.git", rev = "5109fcbb390f5a1f6f0b6105583476b759b0cdc2", features = [
     "server",
     "transport-sse-server",
 ] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+schemars = "1.0.4"
 thiserror = "2.0"
 tokio = { version = "1.0", features = ["full"] }
 regex = "1.0"
@@ -39,7 +40,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 strsim = "0.11.1"
 
 [dev-dependencies]
-rmcp = { git = "https://github.com/lx-industries/rust-sdk.git", rev = "f752f66a4b815fd04254f3b119e45711032c3555", features = [
+rmcp = { git = "https://github.com/lx-industries/rust-sdk.git", rev = "5109fcbb390f5a1f6f0b6105583476b759b0cdc2", features = [
     "server",
     "transport-sse-server",
     "transport-child-process",

@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
 
-use crate::error::OpenApiError;
+use crate::error::{OpenApiError, ToolCallError};
 use crate::server::ToolMetadata;
 use crate::tool_generator::{ExtractedParameters, ToolGenerator};
 
@@ -73,12 +73,14 @@ impl HttpClient {
         &self,
         tool_metadata: &ToolMetadata,
         arguments: &Value,
-    ) -> Result<HttpResponse, OpenApiError> {
+    ) -> Result<HttpResponse, ToolCallError> {
         // Extract parameters from arguments
         let extracted_params = ToolGenerator::extract_parameters(tool_metadata, arguments)?;
 
         // Build the URL with path parameters
-        let mut url = self.build_url(tool_metadata, &extracted_params)?;
+        let mut url = self
+            .build_url(tool_metadata, &extracted_params)
+            .map_err(|e| ToolCallError::validation_error(e.to_string()))?;
 
         // Add query parameters with proper URL encoding
         if !extracted_params.query.is_empty() {
@@ -86,7 +88,9 @@ impl HttpClient {
         }
 
         // Create the HTTP request
-        let mut request = self.create_request(&tool_metadata.method, &url)?;
+        let mut request = self
+            .create_request(&tool_metadata.method, &url)
+            .map_err(|e| ToolCallError::validation_error(e.to_string()))?;
 
         // Add headers
         if !extracted_params.headers.is_empty() {
@@ -101,7 +105,8 @@ impl HttpClient {
         // Add request body if present
         if !extracted_params.body.is_empty() {
             request =
-                Self::add_request_body(request, &extracted_params.body, &extracted_params.config)?;
+                Self::add_request_body(request, &extracted_params.body, &extracted_params.config)
+                    .map_err(|e| ToolCallError::json_error(e.to_string()))?;
         }
 
         // Apply custom timeout if specified
@@ -134,27 +139,27 @@ impl HttpClient {
 
         // Execute the request
         let response = request.send().await.map_err(|e| {
-            // Provide more specific error information
+            // Provide more specific error information using ToolCallError constructors
             if e.is_timeout() {
-                OpenApiError::Http(format!(
+                ToolCallError::http_request_error(format!(
                     "Request timeout after {} seconds while calling {} {}",
                     extracted_params.config.timeout_seconds,
                     tool_metadata.method.to_uppercase(),
                     final_url
                 ))
             } else if e.is_connect() {
-                OpenApiError::Http(format!(
+                ToolCallError::http_request_error(format!(
                     "Connection failed to {final_url} - check if the server is running and the URL is correct"
                 ))
             } else if e.is_request() {
-                OpenApiError::Http(format!(
+                ToolCallError::http_request_error(format!(
                     "Request error: {} (URL: {}, Method: {})",
                     e,
                     final_url,
                     tool_metadata.method.to_uppercase()
                 ))
             } else {
-                OpenApiError::Http(format!(
+                ToolCallError::http_request_error(format!(
                     "HTTP request failed: {} (URL: {}, Method: {})",
                     e,
                     final_url,
@@ -171,6 +176,7 @@ impl HttpClient {
             &request_body_string,
         )
         .await
+        .map_err(|e| ToolCallError::http_request_error(e.to_string()))
     }
 
     /// Build the complete URL with path parameters substituted
