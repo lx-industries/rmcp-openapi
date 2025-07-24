@@ -403,18 +403,7 @@ mod tests {
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result, @r###"
-        {
-          "body": {
-            "error": {
-              "message": "Server unavailable",
-              "status": 503,
-              "type": "http-error"
-            }
-          },
-          "status": 502
-        }
-        "###);
+        insta::assert_json_snapshot!(json_result);
 
         // HTTP request failed (non-actionable error)
         let error = ToolCallError::http_request_error("Connection timeout".to_string());
@@ -422,17 +411,7 @@ mod tests {
         assert!(result.is_some());
 
         let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result, @r###"
-        {
-          "body": {
-            "error": {
-              "message": "Connection timeout",
-              "type": "http-request-error"
-            }
-          },
-          "status": 502
-        }
-        "###);
+        insta::assert_json_snapshot!(json_result);
     }
 
     #[test]

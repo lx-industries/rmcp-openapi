@@ -1,0 +1,13 @@
+---
+source: src/server.rs
+expression: json_result
+---
+{
+  "body": {
+    "error": {
+      "message": "Connection timeout",
+      "type": "http-request-error"
+    }
+  },
+  "status": 502
+}
