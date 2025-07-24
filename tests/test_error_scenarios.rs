@@ -1,4 +1,5 @@
 use insta::assert_json_snapshot;
+use rmcp_openapi::error::ValidationError;
 use rmcp_openapi::{HttpClient, OpenApiServer, ToolCallError, ToolGenerator};
 use serde_json::json;
 use std::env;
@@ -96,7 +97,7 @@ async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationError { .. }));
+    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();
@@ -192,8 +193,25 @@ async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
 
     // Should get parameter extraction error
     assert!(result.is_err());
-    let error_message = result.unwrap_err().to_string();
-    assert!(error_message.contains("petId") || error_message.contains("required"));
+    let error = result.unwrap_err();
+    let error_message = error.to_string();
+
+    // New error structure: should be ValidationErrors with missing required parameter
+    match error {
+        ToolCallError::ValidationErrors { violations } => {
+            assert!(!violations.is_empty());
+            // Should have a missing required parameter error for petId
+            let has_missing_petid = violations.iter().any(|e| match e {
+                ValidationError::MissingRequiredParameter { parameter, .. } => parameter == "petId",
+                _ => false,
+            });
+            assert!(
+                has_missing_petid,
+                "Expected missing required parameter error for petId"
+            );
+        }
+        _ => panic!("Expected ValidationErrors variant, got: {error_message}"),
+    }
 
     Ok(())
 }
@@ -253,7 +271,7 @@ async fn test_array_type_validation_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationError { .. }));
+    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();
@@ -283,7 +301,7 @@ async fn test_enum_validation_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationError { .. }));
+    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();
@@ -561,7 +579,7 @@ async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationError { .. }));
+    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();

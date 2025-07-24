@@ -3,12 +3,21 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "actual_value": "not-an-email",
-  "constraints": {
-    "format": "email"
-  },
-  "expected_type": "string",
-  "field_path": "contact.email",
-  "message": "Invalid email format",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": "not-an-email",
+      "constraints": [
+        {
+          "format": "email",
+          "type": "format"
+        }
+      ],
+      "expected_type": "string",
+      "field_path": "contact.email",
+      "message": "Invalid email format",
+      "parameter": "contact",
+      "type": "constraint-violation"
+    }
+  ]
 }

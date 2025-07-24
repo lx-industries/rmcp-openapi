@@ -3,6 +3,12 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "message": "Invalid parameter location: body",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "message": "Invalid parameter location: body",
+      "parameter": "",
+      "type": "constraint-violation"
+    }
+  ]
 }

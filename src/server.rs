@@ -212,10 +212,8 @@ fn create_structured_error_content(
 
     // Map error types to appropriate HTTP status codes
     let status_code = match error {
-        ToolCallError::InvalidParameter { .. } => 400,
+        ToolCallError::ValidationErrors { .. } => 400,
         ToolCallError::ToolNotFound { .. } => 404,
-        ToolCallError::ValidationError { .. } => 400,
-        ToolCallError::MissingRequiredParameter { .. } => 400,
         ToolCallError::HttpError { status, .. } => {
             if *status >= 400 && *status < 500 {
                 400

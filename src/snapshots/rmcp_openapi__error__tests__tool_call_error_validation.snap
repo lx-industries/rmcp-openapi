@@ -3,6 +3,12 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "message": "Missing required field",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "message": "Missing required field",
+      "parameter": "",
+      "type": "constraint-violation"
+    }
+  ]
 }

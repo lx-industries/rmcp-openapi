@@ -3,17 +3,26 @@ source: tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
-  "actual_value": {
-    "status": "invalid"
-  },
-  "constraints": {
-    "required": [
-      "name",
-      "photoUrls"
-    ]
-  },
-  "expected_type": "object",
-  "field_path": "request_body/status",
-  "message": "\"invalid\" is not one of [\"available\",\"pending\",\"sold\"]",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": {
+        "status": "invalid"
+      },
+      "constraints": [
+        {
+          "properties": [
+            "name",
+            "photoUrls"
+          ],
+          "type": "required"
+        }
+      ],
+      "expected_type": "object",
+      "field_path": "request_body/status",
+      "message": "\"invalid\" is not one of [\"available\",\"pending\",\"sold\"]",
+      "parameter": "request_body",
+      "type": "constraint-violation"
+    }
+  ]
 }

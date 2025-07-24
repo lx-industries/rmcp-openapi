@@ -4,14 +4,19 @@ expression: serialized
 ---
 {
   "error": {
-    "parameter": "test_param",
-    "suggestions": [
-      "testParam"
-    ],
-    "type": "invalid-parameter",
-    "valid_parameters": [
-      "testParam",
-      "otherParam"
+    "type": "validation-errors",
+    "violations": [
+      {
+        "parameter": "test_param",
+        "suggestions": [
+          "testParam"
+        ],
+        "type": "invalid-parameter",
+        "valid_parameters": [
+          "testParam",
+          "otherParam"
+        ]
+      }
     ]
   }
 }

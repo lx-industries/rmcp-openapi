@@ -3,11 +3,17 @@ source: tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
-  "actual_value": [
-    "invalid_status"
-  ],
-  "expected_type": "array",
-  "field_path": "status/0",
-  "message": "\"invalid_status\" is not one of [\"available\",\"pending\",\"sold\"]",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": [
+        "invalid_status"
+      ],
+      "expected_type": "array",
+      "field_path": "status/0",
+      "message": "\"invalid_status\" is not one of [\"available\",\"pending\",\"sold\"]",
+      "parameter": "status",
+      "type": "constraint-violation"
+    }
+  ]
 }

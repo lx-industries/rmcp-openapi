@@ -3,12 +3,21 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "actual_value": "staging",
-  "constraints": {
-    "const_value": "production"
-  },
-  "expected_type": "string",
-  "field_path": "environment",
-  "message": "\"staging\" is not equal to const \"production\"",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": "staging",
+      "constraints": [
+        {
+          "type": "const-value",
+          "value": "production"
+        }
+      ],
+      "expected_type": "string",
+      "field_path": "environment",
+      "message": "\"staging\" is not equal to const \"production\"",
+      "parameter": "environment",
+      "type": "constraint-violation"
+    }
+  ]
 }

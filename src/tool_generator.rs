@@ -3,7 +3,9 @@ use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::error::{ErrorResponse, OpenApiError, ToolCallError, ValidationConstraints};
+use crate::error::{
+    ErrorResponse, OpenApiError, ToolCallError, ValidationConstraint, ValidationError,
+};
 use crate::server::ToolMetadata;
 use oas3::spec::{
     BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody,
@@ -1270,23 +1272,26 @@ impl ToolGenerator {
             ToolCallError::validation_error("Arguments must be an object".to_string())
         })?;
 
+        // Collect ALL validation errors before returning
+        let mut all_errors = Vec::new();
+
         // Check for unknown parameters
-        Self::check_unknown_parameters(args, properties)?;
+        all_errors.extend(Self::check_unknown_parameters(args, properties));
 
         // Check all required parameters are provided in the arguments
-        for required_param in &required_params {
-            if !args.contains_key(*required_param) {
-                let valid_params: Vec<String> = properties.keys().map(|s| s.to_string()).collect();
-                return Err(ToolCallError::invalid_parameter(
-                    (*required_param).to_string(),
-                    vec![], // No suggestions for missing required parameters
-                    valid_params,
-                ));
-            }
-        }
+        all_errors.extend(Self::check_missing_required(
+            args,
+            properties,
+            &required_params,
+        ));
 
         // Validate parameter values against their schemas
-        Self::validate_parameter_values(args, properties)?;
+        all_errors.extend(Self::validate_parameter_values(args, properties));
+
+        // Return all errors if any were found
+        if !all_errors.is_empty() {
+            return Err(ToolCallError::validation_errors(all_errors));
+        }
 
         Ok(())
     }
@@ -1295,37 +1300,62 @@ impl ToolGenerator {
     fn check_unknown_parameters(
         args: &serde_json::Map<String, Value>,
         properties: &serde_json::Map<String, Value>,
-    ) -> Result<(), ToolCallError> {
-        // Early return if no parameters are defined but arguments are provided
-        if properties.is_empty() && !args.is_empty() {
-            let (arg_name, _) = args.iter().next().unwrap(); // Safe because args is not empty
-            return Err(ToolCallError::invalid_parameter(
-                arg_name.clone(),
-                vec![], // No suggestions since no parameters are defined
-                vec![], // No valid parameters
-            ));
-        }
+    ) -> Vec<ValidationError> {
+        let mut errors = Vec::new();
 
         // Get list of valid parameter names
-        let valid_params: Vec<&str> = properties.keys().map(|s| s.as_str()).collect();
+        let valid_params: Vec<String> = properties.keys().map(|s| s.to_string()).collect();
 
         // Check each provided argument
         for (arg_name, _) in args.iter() {
             if !properties.contains_key(arg_name) {
                 // Find similar parameter names
-                let suggestions = Self::find_similar_parameters(arg_name, &valid_params);
-                let valid_params_owned: Vec<String> =
-                    valid_params.iter().map(|s| s.to_string()).collect();
+                let valid_params_refs: Vec<&str> =
+                    valid_params.iter().map(|s| s.as_str()).collect();
+                let suggestions = Self::find_similar_parameters(arg_name, &valid_params_refs);
 
-                return Err(ToolCallError::invalid_parameter(
-                    arg_name.clone(),
+                errors.push(ValidationError::InvalidParameter {
+                    parameter: arg_name.clone(),
                     suggestions,
-                    valid_params_owned,
-                ));
+                    valid_parameters: valid_params.clone(),
+                });
             }
         }
 
-        Ok(())
+        errors
+    }
+
+    /// Check for missing required parameters
+    fn check_missing_required(
+        args: &serde_json::Map<String, Value>,
+        properties: &serde_json::Map<String, Value>,
+        required_params: &HashSet<&str>,
+    ) -> Vec<ValidationError> {
+        let mut errors = Vec::new();
+
+        for required_param in required_params {
+            if !args.contains_key(*required_param) {
+                // Get the parameter schema to extract description and type
+                let param_schema = properties.get(*required_param);
+
+                let description = param_schema
+                    .and_then(|schema| schema.get("description"))
+                    .and_then(|d| d.as_str())
+                    .map(|s| s.to_string());
+
+                let expected_type = param_schema
+                    .and_then(Self::get_expected_type)
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                errors.push(ValidationError::MissingRequiredParameter {
+                    parameter: (*required_param).to_string(),
+                    description,
+                    expected_type,
+                });
+            }
+        }
+
+        errors
     }
 
     /// Find similar parameter names using Jaro distance
@@ -1351,7 +1381,9 @@ impl ToolGenerator {
     fn validate_parameter_values(
         args: &serde_json::Map<String, Value>,
         properties: &serde_json::Map<String, Value>,
-    ) -> Result<(), ToolCallError> {
+    ) -> Vec<ValidationError> {
+        let mut errors = Vec::new();
+
         for (param_name, param_value) in args {
             if let Some(param_schema) = properties.get(param_name) {
                 // Create a schema that wraps the parameter schema
@@ -1366,26 +1398,31 @@ impl ToolGenerator {
                 let compiled = match jsonschema::validator_for(&schema) {
                     Ok(compiled) => compiled,
                     Err(e) => {
-                        return Err(ToolCallError::validation_error(format!(
-                            "Failed to compile schema for parameter '{param_name}': {e}"
-                        )));
+                        errors.push(ValidationError::ConstraintViolation {
+                            parameter: param_name.clone(),
+                            message: format!(
+                                "Failed to compile schema for parameter '{param_name}': {e}"
+                            ),
+                            field_path: None,
+                            actual_value: None,
+                            expected_type: None,
+                            constraints: vec![],
+                        });
+                        continue;
                     }
                 };
 
                 // Create an object with just this parameter to validate
                 let instance = json!({ param_name: param_value });
 
-                // Validate and collect errors
+                // Validate and collect all errors for this parameter
                 let validation_errors: Vec<_> =
                     compiled.validate(&instance).err().into_iter().collect();
 
-                if !validation_errors.is_empty() {
-                    // Get the first error for detailed information
-                    let first_error = &validation_errors[0];
-
+                for validation_error in validation_errors {
                     // Extract error details
-                    let error_message = first_error.to_string();
-                    let instance_path_str = first_error.instance_path.to_string();
+                    let error_message = validation_error.to_string();
+                    let instance_path_str = validation_error.instance_path.to_string();
                     let field_path = if instance_path_str.is_empty() || instance_path_str == "/" {
                         Some(param_name.clone())
                     } else {
@@ -1398,96 +1435,155 @@ impl ToolGenerator {
                     // Determine expected type
                     let expected_type = Self::get_expected_type(param_schema);
 
-                    return Err(ToolCallError::validation_error_detailed(
-                        error_message,
+                    errors.push(ValidationError::ConstraintViolation {
+                        parameter: param_name.clone(),
+                        message: error_message,
                         field_path,
-                        Some(param_value.clone()),
+                        actual_value: Some(Box::new(param_value.clone())),
                         expected_type,
                         constraints,
-                    ));
+                    });
                 }
             }
         }
 
-        Ok(())
+        errors
     }
 
     /// Extract validation constraints from a schema
-    fn extract_constraints_from_schema(schema: &Value) -> Option<ValidationConstraints> {
-        let constraints = ValidationConstraints {
-            minimum: schema.get("minimum").and_then(|v| v.as_f64()),
-            maximum: schema.get("maximum").and_then(|v| v.as_f64()),
-            exclusive_minimum: schema.get("exclusiveMinimum").and_then(|v| v.as_bool()),
-            exclusive_maximum: schema.get("exclusiveMaximum").and_then(|v| v.as_bool()),
-            min_length: schema
-                .get("minLength")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            max_length: schema
-                .get("maxLength")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            pattern: schema
-                .get("pattern")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
-            enum_values: schema.get("enum").and_then(|v| v.as_array()).cloned(),
-            format: schema
-                .get("format")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
-            multiple_of: schema.get("multipleOf").and_then(|v| v.as_f64()),
-            min_items: schema
-                .get("minItems")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            max_items: schema
-                .get("maxItems")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            unique_items: schema.get("uniqueItems").and_then(|v| v.as_bool()),
-            min_properties: schema
-                .get("minProperties")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            max_properties: schema
-                .get("maxProperties")
-                .and_then(|v| v.as_u64())
-                .map(|v| v as usize),
-            const_value: schema.get("const").cloned(),
-            required: schema
-                .get("required")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect()
-                }),
-        };
+    fn extract_constraints_from_schema(schema: &Value) -> Vec<ValidationConstraint> {
+        let mut constraints = Vec::new();
 
-        // Only return constraints if at least one is set
-        if constraints.minimum.is_some()
-            || constraints.maximum.is_some()
-            || constraints.exclusive_minimum.is_some()
-            || constraints.exclusive_maximum.is_some()
-            || constraints.min_length.is_some()
-            || constraints.max_length.is_some()
-            || constraints.pattern.is_some()
-            || constraints.enum_values.is_some()
-            || constraints.format.is_some()
-            || constraints.multiple_of.is_some()
-            || constraints.min_items.is_some()
-            || constraints.max_items.is_some()
-            || constraints.unique_items.is_some()
-            || constraints.min_properties.is_some()
-            || constraints.max_properties.is_some()
-            || constraints.const_value.is_some()
-            || constraints.required.is_some()
-        {
-            Some(constraints)
-        } else {
-            None
+        // Minimum value constraint
+        if let Some(min_value) = schema.get("minimum").and_then(|v| v.as_f64()) {
+            let exclusive = schema
+                .get("exclusiveMinimum")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            constraints.push(ValidationConstraint::Minimum {
+                value: min_value,
+                exclusive,
+            });
         }
+
+        // Maximum value constraint
+        if let Some(max_value) = schema.get("maximum").and_then(|v| v.as_f64()) {
+            let exclusive = schema
+                .get("exclusiveMaximum")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            constraints.push(ValidationConstraint::Maximum {
+                value: max_value,
+                exclusive,
+            });
+        }
+
+        // Minimum length constraint
+        if let Some(min_len) = schema
+            .get("minLength")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+        {
+            constraints.push(ValidationConstraint::MinLength { value: min_len });
+        }
+
+        // Maximum length constraint
+        if let Some(max_len) = schema
+            .get("maxLength")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+        {
+            constraints.push(ValidationConstraint::MaxLength { value: max_len });
+        }
+
+        // Pattern constraint
+        if let Some(pattern) = schema
+            .get("pattern")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+        {
+            constraints.push(ValidationConstraint::Pattern { pattern });
+        }
+
+        // Enum values constraint
+        if let Some(enum_values) = schema.get("enum").and_then(|v| v.as_array()).cloned() {
+            constraints.push(ValidationConstraint::EnumValues {
+                values: enum_values,
+            });
+        }
+
+        // Format constraint
+        if let Some(format) = schema
+            .get("format")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+        {
+            constraints.push(ValidationConstraint::Format { format });
+        }
+
+        // Multiple of constraint
+        if let Some(multiple_of) = schema.get("multipleOf").and_then(|v| v.as_f64()) {
+            constraints.push(ValidationConstraint::MultipleOf { value: multiple_of });
+        }
+
+        // Minimum items constraint
+        if let Some(min_items) = schema
+            .get("minItems")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+        {
+            constraints.push(ValidationConstraint::MinItems { value: min_items });
+        }
+
+        // Maximum items constraint
+        if let Some(max_items) = schema
+            .get("maxItems")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+        {
+            constraints.push(ValidationConstraint::MaxItems { value: max_items });
+        }
+
+        // Unique items constraint
+        if let Some(true) = schema.get("uniqueItems").and_then(|v| v.as_bool()) {
+            constraints.push(ValidationConstraint::UniqueItems);
+        }
+
+        // Minimum properties constraint
+        if let Some(min_props) = schema
+            .get("minProperties")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+        {
+            constraints.push(ValidationConstraint::MinProperties { value: min_props });
+        }
+
+        // Maximum properties constraint
+        if let Some(max_props) = schema
+            .get("maxProperties")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize)
+        {
+            constraints.push(ValidationConstraint::MaxProperties { value: max_props });
+        }
+
+        // Constant value constraint
+        if let Some(const_value) = schema.get("const").cloned() {
+            constraints.push(ValidationConstraint::ConstValue { value: const_value });
+        }
+
+        // Required properties constraint
+        if let Some(required) = schema.get("required").and_then(|v| v.as_array()) {
+            let properties: Vec<String> = required
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect();
+            if !properties.is_empty() {
+                constraints.push(ValidationConstraint::Required { properties });
+            }
+        }
+
+        constraints
     }
 
     /// Get the expected type from a schema
@@ -3148,26 +3244,23 @@ mod tests {
         args.insert("page_sixe".to_string(), json!(10)); // typo
 
         let result = ToolGenerator::check_unknown_parameters(&args, &properties);
-        assert!(result.is_err());
+        assert!(!result.is_empty());
+        assert_eq!(result.len(), 1);
 
-        match result {
-            Err(err) => {
-                assert!(err.message().contains("page_sixe"));
-                assert!(err.message().contains("Did you mean 'page_size'?"));
-                // Check structured details
-                if let ToolCallError::InvalidParameter {
-                    parameter,
-                    suggestions,
-                    ..
-                } = &err
-                {
-                    assert_eq!(parameter, "page_sixe");
-                    assert_eq!(suggestions, &vec!["page_size".to_string()]);
-                } else {
-                    panic!("Expected InvalidParameter variant");
-                }
+        match &result[0] {
+            ValidationError::InvalidParameter {
+                parameter,
+                suggestions,
+                valid_parameters,
+            } => {
+                assert_eq!(parameter, "page_sixe");
+                assert_eq!(suggestions, &vec!["page_size".to_string()]);
+                assert_eq!(
+                    valid_parameters,
+                    &vec!["page_size".to_string(), "user_id".to_string()]
+                );
             }
-            _ => panic!("Expected ToolCallError"),
+            _ => panic!("Expected InvalidParameter variant"),
         }
     }
 
@@ -3182,29 +3275,21 @@ mod tests {
         args.insert("xyz123".to_string(), json!("value"));
 
         let result = ToolGenerator::check_unknown_parameters(&args, &properties);
-        assert!(result.is_err());
+        assert!(!result.is_empty());
+        assert_eq!(result.len(), 1);
 
-        match result {
-            Err(err) => {
-                assert!(err.message().contains("xyz123"));
-                assert!(err.message().contains("Valid parameters are:"));
-                assert!(!err.message().contains("Did you mean"));
-                // Check structured details
-                if let ToolCallError::InvalidParameter {
-                    parameter,
-                    suggestions,
-                    valid_parameters,
-                } = &err
-                {
-                    assert_eq!(parameter, "xyz123");
-                    assert!(suggestions.is_empty());
-                    assert!(valid_parameters.contains(&"limit".to_string()));
-                    assert!(valid_parameters.contains(&"offset".to_string()));
-                } else {
-                    panic!("Expected InvalidParameter variant");
-                }
+        match &result[0] {
+            ValidationError::InvalidParameter {
+                parameter,
+                suggestions,
+                valid_parameters,
+            } => {
+                assert_eq!(parameter, "xyz123");
+                assert!(suggestions.is_empty());
+                assert!(valid_parameters.contains(&"limit".to_string()));
+                assert!(valid_parameters.contains(&"offset".to_string()));
             }
-            _ => panic!("Expected ToolCallError"),
+            _ => panic!("Expected InvalidParameter variant"),
         }
     }
 
@@ -3220,29 +3305,21 @@ mod tests {
         args.insert("usr_id".to_string(), json!("123"));
 
         let result = ToolGenerator::check_unknown_parameters(&args, &properties);
-        assert!(result.is_err());
+        assert!(!result.is_empty());
+        assert_eq!(result.len(), 1);
 
-        match result {
-            Err(err) => {
-                assert!(err.message().contains("usr_id"));
-                assert!(err.message().contains("Did you mean one of these?"));
-                assert!(err.message().contains("user_id"));
-                // Check structured details
-                if let ToolCallError::InvalidParameter {
-                    parameter,
-                    suggestions,
-                    valid_parameters,
-                } = &err
-                {
-                    assert_eq!(parameter, "usr_id");
-                    assert!(!suggestions.is_empty());
-                    assert!(suggestions.contains(&"user_id".to_string()));
-                    assert_eq!(valid_parameters.len(), 3);
-                } else {
-                    panic!("Expected InvalidParameter variant");
-                }
+        match &result[0] {
+            ValidationError::InvalidParameter {
+                parameter,
+                suggestions,
+                valid_parameters,
+            } => {
+                assert_eq!(parameter, "usr_id");
+                assert!(!suggestions.is_empty());
+                assert!(suggestions.contains(&"user_id".to_string()));
+                assert_eq!(valid_parameters.len(), 3);
             }
-            _ => panic!("Expected ToolCallError"),
+            _ => panic!("Expected InvalidParameter variant"),
         }
     }
 
@@ -3258,7 +3335,7 @@ mod tests {
         args.insert("email".to_string(), json!("john@example.com"));
 
         let result = ToolGenerator::check_unknown_parameters(&args, &properties);
-        assert!(result.is_ok());
+        assert!(result.is_empty());
     }
 
     #[test]
@@ -3270,27 +3347,20 @@ mod tests {
         args.insert("any_param".to_string(), json!("value"));
 
         let result = ToolGenerator::check_unknown_parameters(&args, &properties);
-        assert!(result.is_err());
+        assert!(!result.is_empty());
+        assert_eq!(result.len(), 1);
 
-        match result {
-            Err(err) => {
-                assert!(err.message().contains("any_param"));
-                assert!(err.message().contains("Valid parameters are:"));
-                // Check structured details - should have empty valid_parameters and suggestions
-                if let ToolCallError::InvalidParameter {
-                    parameter,
-                    suggestions,
-                    valid_parameters,
-                } = &err
-                {
-                    assert_eq!(parameter, "any_param");
-                    assert!(suggestions.is_empty());
-                    assert!(valid_parameters.is_empty());
-                } else {
-                    panic!("Expected InvalidParameter variant");
-                }
+        match &result[0] {
+            ValidationError::InvalidParameter {
+                parameter,
+                suggestions,
+                valid_parameters,
+            } => {
+                assert_eq!(parameter, "any_param");
+                assert!(suggestions.is_empty());
+                assert!(valid_parameters.is_empty());
             }
-            _ => panic!("Expected ToolCallError"),
+            _ => panic!("Expected InvalidParameter variant"),
         }
     }
 

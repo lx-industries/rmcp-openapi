@@ -3,21 +3,30 @@ source: tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
-  "actual_value": {
-    "name": 12345,
-    "photoUrls": [
-      "https://example.com/photo.jpg"
-    ],
-    "status": "available"
-  },
-  "constraints": {
-    "required": [
-      "name",
-      "photoUrls"
-    ]
-  },
-  "expected_type": "object",
-  "field_path": "request_body/name",
-  "message": "12345 is not of type \"string\"",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": {
+        "name": 12345,
+        "photoUrls": [
+          "https://example.com/photo.jpg"
+        ],
+        "status": "available"
+      },
+      "constraints": [
+        {
+          "properties": [
+            "name",
+            "photoUrls"
+          ],
+          "type": "required"
+        }
+      ],
+      "expected_type": "object",
+      "field_path": "request_body/name",
+      "message": "12345 is not of type \"string\"",
+      "parameter": "request_body",
+      "type": "constraint-violation"
+    }
+  ]
 }

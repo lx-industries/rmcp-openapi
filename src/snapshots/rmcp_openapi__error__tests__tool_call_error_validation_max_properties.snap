@@ -3,16 +3,25 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "actual_value": {
-    "a": 1,
-    "b": 2,
-    "c": 3
-  },
-  "constraints": {
-    "max_properties": 2
-  },
-  "expected_type": "object",
-  "field_path": "config",
-  "message": "Object has 3 properties but maximum is 2",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": {
+        "a": 1,
+        "b": 2,
+        "c": 3
+      },
+      "constraints": [
+        {
+          "type": "max-properties",
+          "value": 2
+        }
+      ],
+      "expected_type": "object",
+      "field_path": "config",
+      "message": "Object has 3 properties but maximum is 2",
+      "parameter": "config",
+      "type": "constraint-violation"
+    }
+  ]
 }

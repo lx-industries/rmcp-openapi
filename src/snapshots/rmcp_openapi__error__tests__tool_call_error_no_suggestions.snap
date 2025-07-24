@@ -3,11 +3,16 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "parameter": "completely_wrong",
-  "suggestions": [],
-  "type": "invalid-parameter",
-  "valid_parameters": [
-    "petId",
-    "timeout"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "parameter": "completely_wrong",
+      "suggestions": [],
+      "type": "invalid-parameter",
+      "valid_parameters": [
+        "petId",
+        "timeout"
+      ]
+    }
   ]
 }

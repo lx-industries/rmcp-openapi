@@ -3,16 +3,25 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "actual_value": "unknown",
-  "constraints": {
-    "enum_values": [
-      "available",
-      "pending",
-      "sold"
-    ]
-  },
-  "expected_type": "string",
-  "field_path": "status",
-  "message": "Parameter 'status' must be one of: available, pending, sold",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": "unknown",
+      "constraints": [
+        {
+          "type": "enum-values",
+          "values": [
+            "available",
+            "pending",
+            "sold"
+          ]
+        }
+      ],
+      "expected_type": "string",
+      "field_path": "status",
+      "message": "Parameter 'status' must be one of: available, pending, sold",
+      "parameter": "status",
+      "type": "constraint-violation"
+    }
+  ]
 }

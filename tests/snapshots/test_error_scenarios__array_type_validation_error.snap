@@ -3,9 +3,15 @@ source: tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
-  "actual_value": "available",
-  "expected_type": "array",
-  "field_path": "status",
-  "message": "\"available\" is not of type \"array\"",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": "available",
+      "expected_type": "array",
+      "field_path": "status",
+      "message": "\"available\" is not of type \"array\"",
+      "parameter": "status",
+      "type": "constraint-violation"
+    }
+  ]
 }

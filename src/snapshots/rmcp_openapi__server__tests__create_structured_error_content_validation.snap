@@ -5,8 +5,14 @@ expression: json_result
 {
   "body": {
     "error": {
-      "message": "Missing required field",
-      "type": "validation-error"
+      "type": "validation-errors",
+      "violations": [
+        {
+          "message": "Missing required field",
+          "parameter": "",
+          "type": "constraint-violation"
+        }
+      ]
     }
   },
   "status": 400

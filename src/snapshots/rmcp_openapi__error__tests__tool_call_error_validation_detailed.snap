@@ -3,13 +3,27 @@ source: src/error.rs
 expression: serialized
 ---
 {
-  "actual_value": 200,
-  "constraints": {
-    "maximum": 150.0,
-    "minimum": 0.0
-  },
-  "expected_type": "integer",
-  "field_path": "age",
-  "message": "Parameter 'age' must be between 0 and 150",
-  "type": "validation-error"
+  "type": "validation-errors",
+  "violations": [
+    {
+      "actual_value": 200,
+      "constraints": [
+        {
+          "exclusive": false,
+          "type": "minimum",
+          "value": 0.0
+        },
+        {
+          "exclusive": false,
+          "type": "maximum",
+          "value": 150.0
+        }
+      ],
+      "expected_type": "integer",
+      "field_path": "age",
+      "message": "Parameter 'age' must be between 0 and 150",
+      "parameter": "age",
+      "type": "constraint-violation"
+    }
+  ]
 }

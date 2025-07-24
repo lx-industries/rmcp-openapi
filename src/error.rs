@@ -152,60 +152,130 @@ use serde::Serialize;
 use serde_json::Value;
 use thiserror::Error;
 
-/// Validation constraints that were violated
+/// Individual validation constraint that was violated
 #[derive(Debug, Serialize, JsonSchema)]
-pub struct ValidationConstraints {
-    /// Minimum value (for numbers)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub minimum: Option<f64>,
-    /// Maximum value (for numbers)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub maximum: Option<f64>,
-    /// Whether minimum is exclusive
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub exclusive_minimum: Option<bool>,
-    /// Whether maximum is exclusive
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub exclusive_maximum: Option<bool>,
-    /// Minimum length (for strings/arrays)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_length: Option<usize>,
-    /// Maximum length (for strings/arrays)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_length: Option<usize>,
-    /// Pattern the string must match
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pattern: Option<String>,
-    /// Allowed enum values
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enum_values: Option<Vec<Value>>,
-    /// Expected format (e.g., "date-time", "email", "uri")
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub format: Option<String>,
-    /// Number must be a multiple of this value
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub multiple_of: Option<f64>,
-    /// Minimum number of items (for arrays)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_items: Option<usize>,
-    /// Maximum number of items (for arrays)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_items: Option<usize>,
-    /// Whether array items must be unique
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub unique_items: Option<bool>,
-    /// Minimum number of properties (for objects)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_properties: Option<usize>,
-    /// Maximum number of properties (for objects)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_properties: Option<usize>,
-    /// Exact value that must match
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub const_value: Option<Value>,
-    /// Required properties (for objects)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required: Option<Vec<String>>,
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum ValidationConstraint {
+    /// Minimum value constraint (for numbers)
+    Minimum {
+        /// The minimum value
+        value: f64,
+        /// Whether the minimum is exclusive
+        exclusive: bool,
+    },
+    /// Maximum value constraint (for numbers)
+    Maximum {
+        /// The maximum value
+        value: f64,
+        /// Whether the maximum is exclusive
+        exclusive: bool,
+    },
+    /// Minimum length constraint (for strings/arrays)
+    MinLength {
+        /// The minimum length
+        value: usize,
+    },
+    /// Maximum length constraint (for strings/arrays)
+    MaxLength {
+        /// The maximum length
+        value: usize,
+    },
+    /// Pattern constraint (for strings)
+    Pattern {
+        /// The regex pattern that must be matched
+        pattern: String,
+    },
+    /// Enum values constraint
+    EnumValues {
+        /// The allowed enum values
+        values: Vec<Value>,
+    },
+    /// Format constraint (e.g., "date-time", "email", "uri")
+    Format {
+        /// The expected format
+        format: String,
+    },
+    /// Multiple of constraint (for numbers)
+    MultipleOf {
+        /// The value that the number must be a multiple of
+        value: f64,
+    },
+    /// Minimum number of items constraint (for arrays)
+    MinItems {
+        /// The minimum number of items
+        value: usize,
+    },
+    /// Maximum number of items constraint (for arrays)
+    MaxItems {
+        /// The maximum number of items
+        value: usize,
+    },
+    /// Unique items constraint (for arrays)
+    UniqueItems,
+    /// Minimum number of properties constraint (for objects)
+    MinProperties {
+        /// The minimum number of properties
+        value: usize,
+    },
+    /// Maximum number of properties constraint (for objects)
+    MaxProperties {
+        /// The maximum number of properties
+        value: usize,
+    },
+    /// Constant value constraint
+    ConstValue {
+        /// The exact value that must match
+        value: Value,
+    },
+    /// Required properties constraint (for objects)
+    Required {
+        /// The required property names
+        properties: Vec<String>,
+    },
+}
+
+/// Individual validation error types
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum ValidationError {
+    /// Invalid parameter error with suggestions
+    InvalidParameter {
+        /// The parameter name that was invalid
+        parameter: String,
+        /// Suggested correct parameter names
+        suggestions: Vec<String>,
+        /// All valid parameter names for this tool
+        valid_parameters: Vec<String>,
+    },
+    /// Missing required parameter
+    MissingRequiredParameter {
+        /// Name of the missing parameter
+        parameter: String,
+        /// Description of the parameter from OpenAPI
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// Expected type of the parameter
+        expected_type: String,
+    },
+    /// Constraint violation (e.g., type mismatches, pattern violations)
+    ConstraintViolation {
+        /// Name of the parameter that failed validation
+        parameter: String,
+        /// Description of what validation failed
+        message: String,
+        /// Path to the field that failed validation (e.g., "address.street")
+        #[serde(skip_serializing_if = "Option::is_none")]
+        field_path: Option<String>,
+        /// The actual value that failed validation
+        #[serde(skip_serializing_if = "Option::is_none")]
+        actual_value: Option<Box<Value>>,
+        /// Expected type or format
+        #[serde(skip_serializing_if = "Option::is_none")]
+        expected_type: Option<String>,
+        /// Specific constraints that were violated
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        constraints: Vec<ValidationConstraint>,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -278,11 +348,7 @@ impl From<OpenApiError> for ErrorData {
                 // Map ToolCallError based on its variant
                 let (code, message) = match &e {
                     ToolCallError::ToolNotFound { .. } => (ErrorCode(-32601), e.to_string()),
-                    ToolCallError::InvalidParameter { .. }
-                    | ToolCallError::ValidationError { .. }
-                    | ToolCallError::MissingRequiredParameter { .. } => {
-                        (ErrorCode(-32602), e.to_string())
-                    }
+                    ToolCallError::ValidationErrors { .. } => (ErrorCode(-32602), e.to_string()),
                     ToolCallError::HttpError { .. } | ToolCallError::HttpRequestError { .. } => {
                         (ErrorCode(-32000), e.to_string())
                     }
@@ -295,35 +361,17 @@ impl From<OpenApiError> for ErrorData {
     }
 }
 
-/// Helper function to format parameter suggestions
-fn format_suggestions(suggestions: &[String], valid_parameters: &[String]) -> String {
-    if suggestions.is_empty() {
-        format!("Valid parameters are: {}", valid_parameters.join(", "))
-    } else if suggestions.len() == 1 {
-        format!("Did you mean '{}'?", suggestions[0])
-    } else {
-        format!("Did you mean one of these? {}", suggestions.join(", "))
-    }
-}
-
 /// Error that can occur during tool execution
 #[derive(Debug, Serialize, JsonSchema, Error)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 #[schemars(tag = "type", rename_all = "kebab-case")]
 pub enum ToolCallError {
-    /// Invalid parameter error with suggestions
-    #[error(
-        "Unknown parameter '{parameter}'. {}",
-        format_suggestions(suggestions, valid_parameters)
-    )]
-    #[serde(rename = "invalid-parameter")]
-    InvalidParameter {
-        /// The parameter name that was invalid
-        parameter: String,
-        /// Suggested correct parameter names
-        suggestions: Vec<String>,
-        /// All valid parameter names for this tool
-        valid_parameters: Vec<String>,
+    /// Multiple validation errors
+    #[error("Validation failed with multiple errors")]
+    #[serde(rename = "validation-errors")]
+    ValidationErrors {
+        /// List of validation errors
+        violations: Vec<ValidationError>,
     },
 
     /// Tool not found error
@@ -333,38 +381,6 @@ pub enum ToolCallError {
         /// Name of the tool that was not found
         tool_name: String,
         // TODO: Future enhancement - add available_tools and suggestions
-    },
-
-    /// Validation error (e.g., type mismatches, constraint violations)
-    #[error("Validation error: {message}")]
-    #[serde(rename = "validation-error")]
-    ValidationError {
-        /// Description of what validation failed
-        message: String,
-        /// Path to the field that failed validation (e.g., "address.street")
-        #[serde(skip_serializing_if = "Option::is_none")]
-        field_path: Option<String>,
-        /// The actual value that failed validation
-        #[serde(skip_serializing_if = "Option::is_none")]
-        actual_value: Option<Box<Value>>,
-        /// Expected type or format
-        #[serde(skip_serializing_if = "Option::is_none")]
-        expected_type: Option<String>,
-        /// Constraint details that were violated
-        #[serde(skip_serializing_if = "Option::is_none")]
-        constraints: Option<Box<ValidationConstraints>>,
-    },
-
-    /// Missing required parameter
-    #[error("Missing required parameter '{parameter}' of type {expected_type}")]
-    #[serde(rename = "missing-required-parameter")]
-    MissingRequiredParameter {
-        /// Name of the missing parameter
-        parameter: String,
-        /// Description of the parameter from OpenAPI
-        description: Option<String>,
-        /// Expected type of the parameter
-        expected_type: String,
     },
 
     /// HTTP error response from the API
@@ -396,16 +412,23 @@ pub enum ToolCallError {
 }
 
 impl ToolCallError {
+    /// Create a validation errors collection
+    pub fn validation_errors(violations: Vec<ValidationError>) -> Self {
+        Self::ValidationErrors { violations }
+    }
+
     /// Create an invalid parameter error with suggestions
     pub fn invalid_parameter(
         parameter: String,
         suggestions: Vec<String>,
         valid_parameters: Vec<String>,
     ) -> Self {
-        Self::InvalidParameter {
-            parameter,
-            suggestions,
-            valid_parameters,
+        Self::ValidationErrors {
+            violations: vec![ValidationError::InvalidParameter {
+                parameter,
+                suggestions,
+                valid_parameters,
+            }],
         }
     }
 
@@ -416,12 +439,15 @@ impl ToolCallError {
 
     /// Create a validation error with only a message
     pub fn validation_error(msg: String) -> Self {
-        Self::ValidationError {
-            message: msg,
-            field_path: None,
-            actual_value: None,
-            expected_type: None,
-            constraints: None,
+        Self::ValidationErrors {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: String::new(),
+                message: msg,
+                field_path: None,
+                actual_value: None,
+                expected_type: None,
+                constraints: vec![],
+            }],
         }
     }
 
@@ -431,14 +457,29 @@ impl ToolCallError {
         field_path: Option<String>,
         actual_value: Option<Value>,
         expected_type: Option<String>,
-        constraints: Option<ValidationConstraints>,
+        constraints: Vec<ValidationConstraint>,
     ) -> Self {
-        Self::ValidationError {
-            message,
-            field_path,
-            actual_value: actual_value.map(Box::new),
-            expected_type,
-            constraints: constraints.map(Box::new),
+        // Extract parameter name from field_path or use empty string
+        let parameter = field_path
+            .as_ref()
+            .map(|path| {
+                path.split('.')
+                    .next()
+                    .unwrap_or("")
+                    .trim_start_matches('/')
+                    .to_string()
+            })
+            .unwrap_or_default();
+
+        Self::ValidationErrors {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter,
+                message,
+                field_path,
+                actual_value: actual_value.map(Box::new),
+                expected_type,
+                constraints,
+            }],
         }
     }
 
@@ -462,12 +503,15 @@ impl ToolCallError {
 
     /// Create an invalid parameter location error
     pub fn invalid_parameter_location(msg: String) -> Self {
-        Self::ValidationError {
-            message: format!("Invalid parameter location: {msg}"),
-            field_path: None,
-            actual_value: None,
-            expected_type: None,
-            constraints: None,
+        Self::ValidationErrors {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: String::new(),
+                message: format!("Invalid parameter location: {msg}"),
+                field_path: None,
+                actual_value: None,
+                expected_type: None,
+                constraints: vec![],
+            }],
         }
     }
 
@@ -547,32 +591,23 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_detailed() {
-        let constraints = ValidationConstraints {
-            minimum: Some(0.0),
-            maximum: Some(150.0),
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: None,
-            min_items: None,
-            max_items: None,
-            unique_items: None,
-            min_properties: None,
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![
+            ValidationConstraint::Minimum {
+                value: 0.0,
+                exclusive: false,
+            },
+            ValidationConstraint::Maximum {
+                value: 150.0,
+                exclusive: false,
+            },
+        ];
 
         let error = ToolCallError::validation_error_detailed(
             "Parameter 'age' must be between 0 and 150".to_string(),
             Some("age".to_string()),
             Some(json!(200)),
             Some("integer".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -581,32 +616,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_enum() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: Some(vec![json!("available"), json!("pending"), json!("sold")]),
-            format: None,
-            multiple_of: None,
-            min_items: None,
-            max_items: None,
-            unique_items: None,
-            min_properties: None,
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::EnumValues {
+            values: vec![json!("available"), json!("pending"), json!("sold")],
+        }];
 
         let error = ToolCallError::validation_error_detailed(
             "Parameter 'status' must be one of: available, pending, sold".to_string(),
             Some("status".to_string()),
             Some(json!("unknown")),
             Some("string".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -615,32 +634,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_format() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: Some("email".to_string()),
-            multiple_of: None,
-            min_items: None,
-            max_items: None,
-            unique_items: None,
-            min_properties: None,
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::Format {
+            format: "email".to_string(),
+        }];
 
         let error = ToolCallError::validation_error_detailed(
             "Invalid email format".to_string(),
             Some("contact.email".to_string()),
             Some(json!("not-an-email")),
             Some("string".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -690,32 +693,14 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_multiple_of() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: Some(3.0),
-            min_items: None,
-            max_items: None,
-            unique_items: None,
-            min_properties: None,
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::MultipleOf { value: 3.0 }];
 
         let error = ToolCallError::validation_error_detailed(
             "10.5 is not a multiple of 3".to_string(),
             Some("price".to_string()),
             Some(json!(10.5)),
             Some("number".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -724,32 +709,14 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_min_items() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: None,
-            min_items: Some(2),
-            max_items: None,
-            unique_items: None,
-            min_properties: None,
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::MinItems { value: 2 }];
 
         let error = ToolCallError::validation_error_detailed(
             "Array has 1 items but minimum is 2".to_string(),
             Some("tags".to_string()),
             Some(json!(["tag1"])),
             Some("array".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -758,32 +725,14 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_max_items() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: None,
-            min_items: None,
-            max_items: Some(3),
-            unique_items: None,
-            min_properties: None,
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::MaxItems { value: 3 }];
 
         let error = ToolCallError::validation_error_detailed(
             "Array has 4 items but maximum is 3".to_string(),
             Some("categories".to_string()),
             Some(json!(["a", "b", "c", "d"])),
             Some("array".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -792,32 +741,14 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_unique_items() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: None,
-            min_items: None,
-            max_items: None,
-            unique_items: Some(true),
-            min_properties: None,
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::UniqueItems];
 
         let error = ToolCallError::validation_error_detailed(
             "Array items [1, 2, 2, 3] are not unique".to_string(),
             Some("numbers".to_string()),
             Some(json!([1, 2, 2, 3])),
             Some("array".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -826,32 +757,14 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_min_properties() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: None,
-            min_items: None,
-            max_items: None,
-            unique_items: None,
-            min_properties: Some(3),
-            max_properties: None,
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::MinProperties { value: 3 }];
 
         let error = ToolCallError::validation_error_detailed(
             "Object has 2 properties but minimum is 3".to_string(),
             Some("metadata".to_string()),
             Some(json!({"name": "test", "version": "1.0"})),
             Some("object".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -860,32 +773,14 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_max_properties() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: None,
-            min_items: None,
-            max_items: None,
-            unique_items: None,
-            min_properties: None,
-            max_properties: Some(2),
-            const_value: None,
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::MaxProperties { value: 2 }];
 
         let error = ToolCallError::validation_error_detailed(
             "Object has 3 properties but maximum is 2".to_string(),
             Some("config".to_string()),
             Some(json!({"a": 1, "b": 2, "c": 3})),
             Some("object".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();
@@ -894,32 +789,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_const() {
-        let constraints = ValidationConstraints {
-            minimum: None,
-            maximum: None,
-            exclusive_minimum: None,
-            exclusive_maximum: None,
-            min_length: None,
-            max_length: None,
-            pattern: None,
-            enum_values: None,
-            format: None,
-            multiple_of: None,
-            min_items: None,
-            max_items: None,
-            unique_items: None,
-            min_properties: None,
-            max_properties: None,
-            const_value: Some(json!("production")),
-            required: None,
-        };
+        let constraints = vec![ValidationConstraint::ConstValue {
+            value: json!("production"),
+        }];
 
         let error = ToolCallError::validation_error_detailed(
             r#""staging" is not equal to const "production""#.to_string(),
             Some("environment".to_string()),
             Some(json!("staging")),
             Some("string".to_string()),
-            Some(constraints),
+            constraints,
         );
 
         let serialized = serde_json::to_value(&error).unwrap();

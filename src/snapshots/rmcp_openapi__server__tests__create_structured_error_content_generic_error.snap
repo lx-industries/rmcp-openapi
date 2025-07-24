@@ -5,8 +5,14 @@ expression: json_result
 {
   "body": {
     "error": {
-      "message": "Internal server error",
-      "type": "validation-error"
+      "type": "validation-errors",
+      "violations": [
+        {
+          "message": "Internal server error",
+          "parameter": "",
+          "type": "constraint-violation"
+        }
+      ]
     }
   },
   "status": 400
