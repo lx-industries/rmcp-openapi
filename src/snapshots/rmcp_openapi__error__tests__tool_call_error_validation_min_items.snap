@@ -1,0 +1,16 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "actual_value": [
+    "tag1"
+  ],
+  "constraints": {
+    "min_items": 2
+  },
+  "expected_type": "array",
+  "field_path": "tags",
+  "message": "Array has 1 items but minimum is 2",
+  "type": "validation-error"
+}

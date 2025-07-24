@@ -1,0 +1,18 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "actual_value": "unknown",
+  "constraints": {
+    "enum_values": [
+      "available",
+      "pending",
+      "sold"
+    ]
+  },
+  "expected_type": "string",
+  "field_path": "status",
+  "message": "Parameter 'status' must be one of: available, pending, sold",
+  "type": "validation-error"
+}

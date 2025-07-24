@@ -1,0 +1,14 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "actual_value": 10.5,
+  "constraints": {
+    "multiple_of": 3.0
+  },
+  "expected_type": "number",
+  "field_path": "price",
+  "message": "10.5 is not a multiple of 3",
+  "type": "validation-error"
+}

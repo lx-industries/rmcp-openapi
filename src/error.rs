@@ -19,13 +19,50 @@
 //! ```
 //!
 //! ## ValidationError
-//! Parameter value validation failures. Includes descriptive message about what validation failed.
+//! Parameter value validation failures. Includes descriptive message, field path, actual value,
+//! expected type, and constraint details.
 //!
-//! Example:
+//! Example for numeric constraints:
 //! ```json
 //! {
 //!   "type": "validation-error",
-//!   "message": "Parameter 'age' must be a positive integer"
+//!   "message": "Parameter 'age' must be between 0 and 150",
+//!   "field_path": "age",
+//!   "actual_value": 200,
+//!   "expected_type": "integer",
+//!   "constraints": {
+//!     "minimum": 0,
+//!     "maximum": 150
+//!   }
+//! }
+//! ```
+//!
+//! Example for array constraints:
+//! ```json
+//! {
+//!   "type": "validation-error",
+//!   "message": "Array has 1 items but minimum is 2",
+//!   "field_path": "tags",
+//!   "actual_value": ["tag1"],
+//!   "expected_type": "array",
+//!   "constraints": {
+//!     "min_items": 2,
+//!     "unique_items": true
+//!   }
+//! }
+//! ```
+//!
+//! Example for const constraint:
+//! ```json
+//! {
+//!   "type": "validation-error",
+//!   "message": "\"staging\" is not equal to const \"production\"",
+//!   "field_path": "environment",
+//!   "actual_value": "staging",
+//!   "expected_type": "string",
+//!   "constraints": {
+//!     "const_value": "production"
+//!   }
 //! }
 //! ```
 //!
@@ -112,7 +149,64 @@
 use rmcp::model::{ErrorCode, ErrorData};
 use schemars::JsonSchema;
 use serde::Serialize;
+use serde_json::Value;
 use thiserror::Error;
+
+/// Validation constraints that were violated
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ValidationConstraints {
+    /// Minimum value (for numbers)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub minimum: Option<f64>,
+    /// Maximum value (for numbers)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub maximum: Option<f64>,
+    /// Whether minimum is exclusive
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusive_minimum: Option<bool>,
+    /// Whether maximum is exclusive
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusive_maximum: Option<bool>,
+    /// Minimum length (for strings/arrays)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_length: Option<usize>,
+    /// Maximum length (for strings/arrays)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_length: Option<usize>,
+    /// Pattern the string must match
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+    /// Allowed enum values
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enum_values: Option<Vec<Value>>,
+    /// Expected format (e.g., "date-time", "email", "uri")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    /// Number must be a multiple of this value
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub multiple_of: Option<f64>,
+    /// Minimum number of items (for arrays)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_items: Option<usize>,
+    /// Maximum number of items (for arrays)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_items: Option<usize>,
+    /// Whether array items must be unique
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique_items: Option<bool>,
+    /// Minimum number of properties (for objects)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_properties: Option<usize>,
+    /// Maximum number of properties (for objects)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_properties: Option<usize>,
+    /// Exact value that must match
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub const_value: Option<Value>,
+    /// Required properties (for objects)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required: Option<Vec<String>>,
+}
 
 #[derive(Debug, Error)]
 pub enum OpenApiError {
@@ -247,7 +341,18 @@ pub enum ToolCallError {
     ValidationError {
         /// Description of what validation failed
         message: String,
-        // TODO: Future enhancement - add field_path, expected_type, constraints
+        /// Path to the field that failed validation (e.g., "address.street")
+        #[serde(skip_serializing_if = "Option::is_none")]
+        field_path: Option<String>,
+        /// The actual value that failed validation
+        #[serde(skip_serializing_if = "Option::is_none")]
+        actual_value: Option<Box<Value>>,
+        /// Expected type or format
+        #[serde(skip_serializing_if = "Option::is_none")]
+        expected_type: Option<String>,
+        /// Constraint details that were violated
+        #[serde(skip_serializing_if = "Option::is_none")]
+        constraints: Option<Box<ValidationConstraints>>,
     },
 
     /// Missing required parameter
@@ -309,9 +414,32 @@ impl ToolCallError {
         Self::ToolNotFound { tool_name }
     }
 
-    /// Create a validation error
+    /// Create a validation error with only a message
     pub fn validation_error(msg: String) -> Self {
-        Self::ValidationError { message: msg }
+        Self::ValidationError {
+            message: msg,
+            field_path: None,
+            actual_value: None,
+            expected_type: None,
+            constraints: None,
+        }
+    }
+
+    /// Create a detailed validation error
+    pub fn validation_error_detailed(
+        message: String,
+        field_path: Option<String>,
+        actual_value: Option<Value>,
+        expected_type: Option<String>,
+        constraints: Option<ValidationConstraints>,
+    ) -> Self {
+        Self::ValidationError {
+            message,
+            field_path,
+            actual_value: actual_value.map(Box::new),
+            expected_type,
+            constraints: constraints.map(Box::new),
+        }
     }
 
     /// Create an HTTP error
@@ -336,6 +464,10 @@ impl ToolCallError {
     pub fn invalid_parameter_location(msg: String) -> Self {
         Self::ValidationError {
             message: format!("Invalid parameter location: {msg}"),
+            field_path: None,
+            actual_value: None,
+            expected_type: None,
+            constraints: None,
         }
     }
 
@@ -356,6 +488,7 @@ pub struct ErrorResponse {
 mod tests {
     use super::*;
     use insta::assert_json_snapshot;
+    use serde_json::json;
 
     #[test]
     fn test_tool_call_error_serialization_with_details() {
@@ -413,6 +546,108 @@ mod tests {
     }
 
     #[test]
+    fn test_tool_call_error_validation_detailed() {
+        let constraints = ValidationConstraints {
+            minimum: Some(0.0),
+            maximum: Some(150.0),
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: None,
+            min_items: None,
+            max_items: None,
+            unique_items: None,
+            min_properties: None,
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Parameter 'age' must be between 0 and 150".to_string(),
+            Some("age".to_string()),
+            Some(json!(200)),
+            Some("integer".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_enum() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: Some(vec![json!("available"), json!("pending"), json!("sold")]),
+            format: None,
+            multiple_of: None,
+            min_items: None,
+            max_items: None,
+            unique_items: None,
+            min_properties: None,
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Parameter 'status' must be one of: available, pending, sold".to_string(),
+            Some("status".to_string()),
+            Some(json!("unknown")),
+            Some("string".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_format() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: Some("email".to_string()),
+            multiple_of: None,
+            min_items: None,
+            max_items: None,
+            unique_items: None,
+            min_properties: None,
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Invalid email format".to_string(),
+            Some("contact.email".to_string()),
+            Some(json!("not-an-email")),
+            Some("string".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
     fn test_tool_call_error_http_error() {
         let error = ToolCallError::http_error(404, "Not found".to_string());
         let serialized = serde_json::to_value(&error).unwrap();
@@ -450,6 +685,244 @@ mod tests {
 
         let response = ErrorResponse { error };
         let serialized = serde_json::to_value(&response).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_multiple_of() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: Some(3.0),
+            min_items: None,
+            max_items: None,
+            unique_items: None,
+            min_properties: None,
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "10.5 is not a multiple of 3".to_string(),
+            Some("price".to_string()),
+            Some(json!(10.5)),
+            Some("number".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_min_items() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: None,
+            min_items: Some(2),
+            max_items: None,
+            unique_items: None,
+            min_properties: None,
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Array has 1 items but minimum is 2".to_string(),
+            Some("tags".to_string()),
+            Some(json!(["tag1"])),
+            Some("array".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_max_items() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: None,
+            min_items: None,
+            max_items: Some(3),
+            unique_items: None,
+            min_properties: None,
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Array has 4 items but maximum is 3".to_string(),
+            Some("categories".to_string()),
+            Some(json!(["a", "b", "c", "d"])),
+            Some("array".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_unique_items() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: None,
+            min_items: None,
+            max_items: None,
+            unique_items: Some(true),
+            min_properties: None,
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Array items [1, 2, 2, 3] are not unique".to_string(),
+            Some("numbers".to_string()),
+            Some(json!([1, 2, 2, 3])),
+            Some("array".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_min_properties() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: None,
+            min_items: None,
+            max_items: None,
+            unique_items: None,
+            min_properties: Some(3),
+            max_properties: None,
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Object has 2 properties but minimum is 3".to_string(),
+            Some("metadata".to_string()),
+            Some(json!({"name": "test", "version": "1.0"})),
+            Some("object".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_max_properties() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: None,
+            min_items: None,
+            max_items: None,
+            unique_items: None,
+            min_properties: None,
+            max_properties: Some(2),
+            const_value: None,
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            "Object has 3 properties but maximum is 2".to_string(),
+            Some("config".to_string()),
+            Some(json!({"a": 1, "b": 2, "c": 3})),
+            Some("object".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
+        assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_tool_call_error_validation_const() {
+        let constraints = ValidationConstraints {
+            minimum: None,
+            maximum: None,
+            exclusive_minimum: None,
+            exclusive_maximum: None,
+            min_length: None,
+            max_length: None,
+            pattern: None,
+            enum_values: None,
+            format: None,
+            multiple_of: None,
+            min_items: None,
+            max_items: None,
+            unique_items: None,
+            min_properties: None,
+            max_properties: None,
+            const_value: Some(json!("production")),
+            required: None,
+        };
+
+        let error = ToolCallError::validation_error_detailed(
+            r#""staging" is not equal to const "production""#.to_string(),
+            Some("environment".to_string()),
+            Some(json!("staging")),
+            Some("string".to_string()),
+            Some(constraints),
+        );
+
+        let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
     }
 }

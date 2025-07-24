@@ -1,0 +1,15 @@
+---
+source: tests/test_error_scenarios.rs
+expression: error_json
+---
+{
+  "actual_value": "not_a_number",
+  "constraints": {
+    "format": "int64",
+    "minimum": 1.0
+  },
+  "expected_type": "integer",
+  "field_path": "petId",
+  "message": "\"not_a_number\" is not of type \"integer\"",
+  "type": "validation-error"
+}

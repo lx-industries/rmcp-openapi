@@ -90,6 +90,171 @@ expression: output_schema
                 {
                   "description": "Validation error (e.g., type mismatches, constraint violations)",
                   "properties": {
+                    "actual_value": {
+                      "description": "The actual value that failed validation"
+                    },
+                    "constraints": {
+                      "anyOf": [
+                        {
+                          "description": "Validation constraints that were violated",
+                          "properties": {
+                            "const_value": {
+                              "description": "Exact value that must match"
+                            },
+                            "enum_values": {
+                              "description": "Allowed enum values",
+                              "items": true,
+                              "type": [
+                                "array",
+                                "null"
+                              ]
+                            },
+                            "exclusive_maximum": {
+                              "description": "Whether maximum is exclusive",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "exclusive_minimum": {
+                              "description": "Whether minimum is exclusive",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "format": {
+                              "description": "Expected format (e.g., \"date-time\", \"email\", \"uri\")",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "max_items": {
+                              "description": "Maximum number of items (for arrays)",
+                              "format": "uint",
+                              "minimum": 0,
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "max_length": {
+                              "description": "Maximum length (for strings/arrays)",
+                              "format": "uint",
+                              "minimum": 0,
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "max_properties": {
+                              "description": "Maximum number of properties (for objects)",
+                              "format": "uint",
+                              "minimum": 0,
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "maximum": {
+                              "description": "Maximum value (for numbers)",
+                              "format": "double",
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "min_items": {
+                              "description": "Minimum number of items (for arrays)",
+                              "format": "uint",
+                              "minimum": 0,
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "min_length": {
+                              "description": "Minimum length (for strings/arrays)",
+                              "format": "uint",
+                              "minimum": 0,
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "min_properties": {
+                              "description": "Minimum number of properties (for objects)",
+                              "format": "uint",
+                              "minimum": 0,
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "minimum": {
+                              "description": "Minimum value (for numbers)",
+                              "format": "double",
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "multiple_of": {
+                              "description": "Number must be a multiple of this value",
+                              "format": "double",
+                              "type": [
+                                "number",
+                                "null"
+                              ]
+                            },
+                            "pattern": {
+                              "description": "Pattern the string must match",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "required": {
+                              "description": "Required properties (for objects)",
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": [
+                                "array",
+                                "null"
+                              ]
+                            },
+                            "unique_items": {
+                              "description": "Whether array items must be unique",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          },
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Constraint details that were violated"
+                    },
+                    "expected_type": {
+                      "description": "Expected type or format",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "field_path": {
+                      "description": "Path to the field that failed validation (e.g., \"address.street\")",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "message": {
                       "description": "Description of what validation failed",
                       "type": "string"

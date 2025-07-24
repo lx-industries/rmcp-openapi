@@ -1,0 +1,19 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "actual_value": [
+    "a",
+    "b",
+    "c",
+    "d"
+  ],
+  "constraints": {
+    "max_items": 3
+  },
+  "expected_type": "array",
+  "field_path": "categories",
+  "message": "Array has 4 items but maximum is 3",
+  "type": "validation-error"
+}

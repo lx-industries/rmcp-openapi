@@ -3,7 +3,7 @@ use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::error::{ErrorResponse, OpenApiError, ToolCallError};
+use crate::error::{ErrorResponse, OpenApiError, ToolCallError, ValidationConstraints};
 use crate::server::ToolMetadata;
 use oas3::spec::{
     BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody,
@@ -1285,6 +1285,9 @@ impl ToolGenerator {
             }
         }
 
+        // Validate parameter values against their schemas
+        Self::validate_parameter_values(args, properties)?;
+
         Ok(())
     }
 
@@ -1342,6 +1345,169 @@ impl ToolGenerator {
         candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
 
         candidates.into_iter().map(|(_, name)| name).collect()
+    }
+
+    /// Validate parameter values against their schemas
+    fn validate_parameter_values(
+        args: &serde_json::Map<String, Value>,
+        properties: &serde_json::Map<String, Value>,
+    ) -> Result<(), ToolCallError> {
+        for (param_name, param_value) in args {
+            if let Some(param_schema) = properties.get(param_name) {
+                // Create a schema that wraps the parameter schema
+                let schema = json!({
+                    "type": "object",
+                    "properties": {
+                        param_name: param_schema
+                    }
+                });
+
+                // Compile the schema
+                let compiled = match jsonschema::validator_for(&schema) {
+                    Ok(compiled) => compiled,
+                    Err(e) => {
+                        return Err(ToolCallError::validation_error(format!(
+                            "Failed to compile schema for parameter '{param_name}': {e}"
+                        )));
+                    }
+                };
+
+                // Create an object with just this parameter to validate
+                let instance = json!({ param_name: param_value });
+
+                // Validate and collect errors
+                let validation_errors: Vec<_> =
+                    compiled.validate(&instance).err().into_iter().collect();
+
+                if !validation_errors.is_empty() {
+                    // Get the first error for detailed information
+                    let first_error = &validation_errors[0];
+
+                    // Extract error details
+                    let error_message = first_error.to_string();
+                    let instance_path_str = first_error.instance_path.to_string();
+                    let field_path = if instance_path_str.is_empty() || instance_path_str == "/" {
+                        Some(param_name.clone())
+                    } else {
+                        Some(instance_path_str.trim_start_matches('/').to_string())
+                    };
+
+                    // Extract constraints from the schema
+                    let constraints = Self::extract_constraints_from_schema(param_schema);
+
+                    // Determine expected type
+                    let expected_type = Self::get_expected_type(param_schema);
+
+                    return Err(ToolCallError::validation_error_detailed(
+                        error_message,
+                        field_path,
+                        Some(param_value.clone()),
+                        expected_type,
+                        constraints,
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Extract validation constraints from a schema
+    fn extract_constraints_from_schema(schema: &Value) -> Option<ValidationConstraints> {
+        let constraints = ValidationConstraints {
+            minimum: schema.get("minimum").and_then(|v| v.as_f64()),
+            maximum: schema.get("maximum").and_then(|v| v.as_f64()),
+            exclusive_minimum: schema.get("exclusiveMinimum").and_then(|v| v.as_bool()),
+            exclusive_maximum: schema.get("exclusiveMaximum").and_then(|v| v.as_bool()),
+            min_length: schema
+                .get("minLength")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            max_length: schema
+                .get("maxLength")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            pattern: schema
+                .get("pattern")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            enum_values: schema.get("enum").and_then(|v| v.as_array()).cloned(),
+            format: schema
+                .get("format")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            multiple_of: schema.get("multipleOf").and_then(|v| v.as_f64()),
+            min_items: schema
+                .get("minItems")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            max_items: schema
+                .get("maxItems")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            unique_items: schema.get("uniqueItems").and_then(|v| v.as_bool()),
+            min_properties: schema
+                .get("minProperties")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            max_properties: schema
+                .get("maxProperties")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize),
+            const_value: schema.get("const").cloned(),
+            required: schema
+                .get("required")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                }),
+        };
+
+        // Only return constraints if at least one is set
+        if constraints.minimum.is_some()
+            || constraints.maximum.is_some()
+            || constraints.exclusive_minimum.is_some()
+            || constraints.exclusive_maximum.is_some()
+            || constraints.min_length.is_some()
+            || constraints.max_length.is_some()
+            || constraints.pattern.is_some()
+            || constraints.enum_values.is_some()
+            || constraints.format.is_some()
+            || constraints.multiple_of.is_some()
+            || constraints.min_items.is_some()
+            || constraints.max_items.is_some()
+            || constraints.unique_items.is_some()
+            || constraints.min_properties.is_some()
+            || constraints.max_properties.is_some()
+            || constraints.const_value.is_some()
+            || constraints.required.is_some()
+        {
+            Some(constraints)
+        } else {
+            None
+        }
+    }
+
+    /// Get the expected type from a schema
+    fn get_expected_type(schema: &Value) -> Option<String> {
+        if let Some(type_value) = schema.get("type") {
+            if let Some(type_str) = type_value.as_str() {
+                return Some(type_str.to_string());
+            } else if let Some(type_array) = type_value.as_array() {
+                // Handle multiple types (e.g., ["string", "null"])
+                let types: Vec<String> = type_array
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .collect();
+                if !types.is_empty() {
+                    return Some(types.join(" | "));
+                }
+            }
+        }
+        None
     }
 
     /// Wrap an output schema to include both success and error responses

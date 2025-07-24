@@ -284,6 +284,143 @@ async def run():
                         }
                     }))
 
+                # Step 9: Test Type Validation Errors
+                # Test passing string for integer parameter
+                try:
+                    type_error_result = await session.call_tool(
+                        name="getPetById",
+                        arguments={
+                            "petId": "not-a-number"  # String instead of integer
+                        }
+                    )
+                    result_data = type_error_result.model_dump() if hasattr(type_error_result, 'model_dump') else str(type_error_result)
+                    cleaned_data = clean_tool_response_text(result_data)
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "getPetById",
+                        "arguments": {"petId": "not-a-number"},
+                        "success": True,
+                        "data": cleaned_data
+                    }))
+                except Exception as error:
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "getPetById",
+                        "arguments": {"petId": "not-a-number"},
+                        "success": False,
+                        "error": {
+                            "message": str(error),
+                            "code": getattr(error, 'code', 'unknown')
+                        }
+                    }))
+
+                # Test passing string instead of array
+                try:
+                    array_type_error_result = await session.call_tool(
+                        name="findPetsByStatus",
+                        arguments={
+                            "status": "available"  # String instead of array
+                        }
+                    )
+                    result_data = array_type_error_result.model_dump() if hasattr(array_type_error_result, 'model_dump') else str(array_type_error_result)
+                    cleaned_data = clean_tool_response_text(result_data)
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "findPetsByStatus",
+                        "arguments": {"status": "available"},
+                        "success": True,
+                        "data": cleaned_data
+                    }))
+                except Exception as error:
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "findPetsByStatus",
+                        "arguments": {"status": "available"},
+                        "success": False,
+                        "error": {
+                            "message": str(error),
+                            "code": getattr(error, 'code', 'unknown')
+                        }
+                    }))
+
+                # Step 10: Test Enum Validation Error
+                try:
+                    enum_error_result = await session.call_tool(
+                        name="findPetsByStatus",
+                        arguments={
+                            "status": ["invalid_status"]  # Invalid enum value
+                        }
+                    )
+                    result_data = enum_error_result.model_dump() if hasattr(enum_error_result, 'model_dump') else str(enum_error_result)
+                    cleaned_data = clean_tool_response_text(result_data)
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "findPetsByStatus",
+                        "arguments": {"status": ["invalid_status"]},
+                        "success": True,
+                        "data": cleaned_data
+                    }))
+                except Exception as error:
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "findPetsByStatus",
+                        "arguments": {"status": ["invalid_status"]},
+                        "success": False,
+                        "error": {
+                            "message": str(error),
+                            "code": getattr(error, 'code', 'unknown')
+                        }
+                    }))
+
+                # Step 11: Test Nested Object Validation Error
+                try:
+                    nested_error_result = await session.call_tool(
+                        name="addPet",
+                        arguments={
+                            "request_body": {
+                                "name": "Test Pet",
+                                "photoUrls": ["https://example.com/photo.jpg"],
+                                "category": {
+                                    "id": "not-a-number",  # String instead of integer
+                                    "name": "Dogs"
+                                },
+                                "status": "available"
+                            }
+                        }
+                    )
+                    result_data = nested_error_result.model_dump() if hasattr(nested_error_result, 'model_dump') else str(nested_error_result)
+                    cleaned_data = clean_tool_response_text(result_data)
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "addPet",
+                        "arguments": {
+                            "request_body": {
+                                "name": "Test Pet",
+                                "category": {"id": "not-a-number"},
+                                "status": "available"
+                            }
+                        },
+                        "success": True,
+                        "data": cleaned_data
+                    }))
+                except Exception as error:
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "addPet",
+                        "arguments": {
+                            "request_body": {
+                                "name": "Test Pet",
+                                "category": {"id": "not-a-number"},
+                                "status": "available"
+                            }
+                        },
+                        "success": False,
+                        "error": {
+                            "message": str(error),
+                            "code": getattr(error, 'code', 'unknown')
+                        }
+                    }))
+
     except Exception as connection_error:
         print(json.dumps({
             "type": "connection_error",

@@ -1,0 +1,19 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "actual_value": [
+    1,
+    2,
+    2,
+    3
+  ],
+  "constraints": {
+    "unique_items": true
+  },
+  "expected_type": "array",
+  "field_path": "numbers",
+  "message": "Array items [1, 2, 2, 3] are not unique",
+  "type": "validation-error"
+}

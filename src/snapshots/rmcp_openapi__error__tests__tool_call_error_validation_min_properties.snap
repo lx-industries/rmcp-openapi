@@ -1,0 +1,17 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "actual_value": {
+    "name": "test",
+    "version": "1.0"
+  },
+  "constraints": {
+    "min_properties": 3
+  },
+  "expected_type": "object",
+  "field_path": "metadata",
+  "message": "Object has 2 properties but minimum is 3",
+  "type": "validation-error"
+}

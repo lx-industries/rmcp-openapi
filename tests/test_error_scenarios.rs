@@ -1,4 +1,5 @@
-use rmcp_openapi::{HttpClient, OpenApiServer};
+use insta::assert_json_snapshot;
+use rmcp_openapi::{HttpClient, OpenApiServer, ToolCallError, ToolGenerator};
 use serde_json::json;
 use std::env;
 use url::Url;
@@ -73,62 +74,33 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
 /// Test HTTP 400 Bad Request error handling
 #[tokio::test]
 async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
-    if should_use_live_api() {
-        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
-        let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
 
-        let tool_metadata = server
-            .registry
-            .get_tool("addPet")
-            .expect("addPet tool should be registered");
+    let tool_metadata = server
+        .registry
+        .get_tool("addPet")
+        .expect("addPet tool should be registered");
 
-        // Send invalid pet data (missing required fields)
-        let invalid_pet_data = json!({
-            // Missing required 'name' and 'photoUrls' fields
-            "status": "invalid_status_that_doesnt_exist"
-        });
+    // Test with invalid enum value - should fail validation before HTTP request
+    let invalid_pet_data = json!({
+        "status": "invalid"
+    });
 
-        let arguments = json!({
-            "request_body": invalid_pet_data
-        });
+    let arguments = json!({
+        "request_body": invalid_pet_data
+    });
 
-        let response = client.execute_tool_call(tool_metadata, &arguments).await?;
+    // Extract parameters to trigger validation
+    let result = ToolGenerator::extract_parameters(tool_metadata, &arguments);
 
-        // Live API should return 400 or 422 for validation errors
-        assert!(response.status_code == 400 || response.status_code == 422);
-        assert!(!response.is_success);
-    } else {
-        let mut mock_server = MockPetstoreServer::new_with_port(9002).await;
-        let _mock = mock_server.mock_add_pet_validation_error();
+    // Should fail with validation error
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(matches!(error, ToolCallError::ValidationError { .. }));
 
-        let server = create_server_with_base_url(mock_server.base_url()).await?;
-        let client = HttpClient::new().with_base_url(mock_server.base_url())?;
-
-        let tool_metadata = server
-            .registry
-            .get_tool("addPet")
-            .expect("addPet tool should be registered");
-
-        let invalid_pet_data = json!({
-            "status": "invalid"
-        });
-
-        let arguments = json!({
-            "request_body": invalid_pet_data
-        });
-
-        let response = client.execute_tool_call(tool_metadata, &arguments).await?;
-
-        // Mock server returns 400
-        assert_eq!(response.status_code, 400);
-        assert!(!response.is_success);
-        assert!(response.status_text.contains("Bad Request"));
-
-        // Verify error details
-        let error_data = response.json()?;
-        assert_eq!(error_data["message"], "Invalid input");
-        assert_eq!(error_data["details"], "Name is required");
-    }
+    // Snapshot the error for detailed validation
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
 
     Ok(())
 }
@@ -244,21 +216,78 @@ async fn test_type_validation_error() -> anyhow::Result<()> {
 
     let result = client.execute_tool_call(tool_metadata, &arguments).await;
 
-    // This may succeed if the HTTP client converts the string to integer,
-    // or it may fail with a validation error. Either behavior is acceptable
-    // since the URL construction will handle string-to-number conversion.
-    // The key is that it doesn't panic or crash.
-    match result {
-        Ok(response) => {
-            // If it succeeds, the URL should contain the string value
-            assert!(response.request_url.contains("not_a_number"));
-        }
-        Err(error) => {
-            // If it fails, it should be a validation error
-            let error_message = error.to_string();
-            assert!(error_message.contains("petId") || error_message.contains("parameter"));
-        }
+    // Should fail with validation error
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+
+    // Snapshot the error for detailed validation
+    if let Ok(error_json) = serde_json::to_value(&error) {
+        assert_json_snapshot!(error_json);
+    } else {
+        // Fallback to string comparison if error is not serializable
+        let error_message = error.to_string();
+        assert!(error_message.contains("\"not_a_number\" is not of type \"integer\""));
     }
+
+    Ok(())
+}
+
+/// Test array type validation
+#[tokio::test]
+async fn test_array_type_validation_error() -> anyhow::Result<()> {
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+
+    let tool_metadata = server
+        .registry
+        .get_tool("findPetsByStatus")
+        .expect("findPetsByStatus tool should be registered");
+
+    // Pass string instead of array
+    let arguments = json!({
+        "status": "available"  // Should be an array
+    });
+
+    // Extract parameters to trigger validation
+    let result = ToolGenerator::extract_parameters(tool_metadata, &arguments);
+
+    // Should fail with validation error
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(matches!(error, ToolCallError::ValidationError { .. }));
+
+    // Snapshot the error for detailed validation
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
+
+    Ok(())
+}
+
+/// Test enum validation
+#[tokio::test]
+async fn test_enum_validation_error() -> anyhow::Result<()> {
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+
+    let tool_metadata = server
+        .registry
+        .get_tool("findPetsByStatus")
+        .expect("findPetsByStatus tool should be registered");
+
+    // Pass invalid enum value
+    let arguments = json!({
+        "status": ["invalid_status"]  // Not one of: available, pending, sold
+    });
+
+    // Extract parameters to trigger validation
+    let result = ToolGenerator::extract_parameters(tool_metadata, &arguments);
+
+    // Should fail with validation error
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(matches!(error, ToolCallError::ValidationError { .. }));
+
+    // Snapshot the error for detailed validation
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
 
     Ok(())
 }
@@ -507,6 +536,40 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Test passing integer for string field
+#[tokio::test]
+async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+
+    let tool_metadata = server
+        .registry
+        .get_tool("addPet")
+        .expect("addPet tool should be registered");
+
+    // Pass integer instead of string for name
+    let arguments = json!({
+        "request_body": {
+            "name": 12345,  // Should be string
+            "photoUrls": ["https://example.com/photo.jpg"],
+            "status": "available"
+        }
+    });
+
+    // Extract parameters to trigger validation
+    let result = ToolGenerator::extract_parameters(tool_metadata, &arguments);
+
+    // Should fail with validation error
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(matches!(error, ToolCallError::ValidationError { .. }));
+
+    // Snapshot the error for detailed validation
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
+
+    Ok(())
+}
+
 /// Helper function to create a server with a specific base URL
 async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     // Using petstore-openapi-norefs.json until issue #18 is implemented
@@ -532,22 +595,6 @@ impl MockPetstoreServer {
             .with_status(404)
             .with_header("content-type", "application/json")
             .with_body(json!({"message": "Pet not found"}).to_string())
-            .create()
-    }
-
-    /// Mock addPet with validation error
-    pub fn mock_add_pet_validation_error(&mut self) -> Mock {
-        self.server
-            .mock("POST", "/pet")
-            .with_status(400)
-            .with_header("content-type", "application/json")
-            .with_body(
-                json!({
-                    "message": "Invalid input",
-                    "details": "Name is required"
-                })
-                .to_string(),
-            )
             .create()
     }
 
