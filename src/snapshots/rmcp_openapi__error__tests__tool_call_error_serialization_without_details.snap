@@ -3,6 +3,7 @@ source: src/error.rs
 expression: serialized
 ---
 {
+  "suggestions": [],
   "tool_name": "unknownTool",
   "type": "tool-not-found"
 }

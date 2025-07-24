@@ -1,0 +1,17 @@
+---
+source: src/server.rs
+expression: json_result_with_suggestions
+---
+{
+  "body": {
+    "error": {
+      "suggestions": [
+        "getPetById",
+        "getPetsByStatus"
+      ],
+      "tool_name": "getPetByID",
+      "type": "tool-not-found"
+    }
+  },
+  "status": 404
+}

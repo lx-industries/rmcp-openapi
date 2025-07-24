@@ -588,6 +588,85 @@ async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Test tool not found error with suggestions
+#[tokio::test]
+async fn test_tool_not_found_with_suggestions() -> anyhow::Result<()> {
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+
+    // Verify the server has the expected tools
+    let tool_names = server.get_tool_names();
+
+    // Simulate the error that would be generated when calling a non-existent tool with a typo
+    // This tests the error generation logic without going through the full MCP protocol
+
+    // Use the internal logic to find similar tool names (via the public API)
+    // Since find_similar_strings is private, we'll test this by creating the error directly
+    // which mirrors what happens in server.rs when a tool is not found
+    let mut suggestions = Vec::new();
+
+    // Manually compute suggestions using the same logic (Jaro distance > 0.7)
+    for known_tool in &tool_names {
+        let distance = strsim::jaro("getPetByID", known_tool);
+        if distance > 0.7 {
+            suggestions.push((distance, known_tool.clone()));
+        }
+    }
+
+    // Sort by distance (descending) and take top 3
+    suggestions.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    let suggestions: Vec<String> = suggestions
+        .into_iter()
+        .take(3)
+        .map(|(_, name)| name)
+        .collect();
+
+    // Create the error with suggestions
+    let error = ToolCallError::tool_not_found("getPetByID".to_string(), suggestions);
+
+    // Snapshot the error structure
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
+
+    Ok(())
+}
+
+/// Test tool not found error with multiple suggestions
+#[tokio::test]
+async fn test_tool_not_found_multiple_suggestions() -> anyhow::Result<()> {
+    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+
+    // Verify the server has the expected tools
+    let tool_names = server.get_tool_names();
+
+    // Use a typo that could match multiple tools: "findPet" could match both findPetsByStatus and getPetById
+    let mut suggestions = Vec::new();
+
+    // Manually compute suggestions using the same logic (Jaro distance > 0.7)
+    for known_tool in &tool_names {
+        let distance = strsim::jaro("findPet", known_tool);
+        if distance > 0.7 {
+            suggestions.push((distance, known_tool.clone()));
+        }
+    }
+
+    // Sort by distance (descending) and take top 3
+    suggestions.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    let suggestions: Vec<String> = suggestions
+        .into_iter()
+        .take(3)
+        .map(|(_, name)| name)
+        .collect();
+
+    // Create the error with suggestions
+    let error = ToolCallError::tool_not_found("findPet".to_string(), suggestions);
+
+    // Snapshot the error structure - should contain multiple suggestions
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
+
+    Ok(())
+}
+
 /// Helper function to create a server with a specific base URL
 async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     // Using petstore-openapi-norefs.json until issue #18 is implemented

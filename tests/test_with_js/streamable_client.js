@@ -288,6 +288,176 @@ try {
     }));
   }
 
+  // Step 9: Test Type Validation Errors
+  // Test passing string for integer parameter
+  try {
+    const typeErrorResult = await client.callTool({
+      name: "getPetById",
+      arguments: {
+        petId: "not-a-number"  // String instead of integer
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetById",
+      arguments: { petId: "not-a-number" },
+      success: true,
+      data: cleanToolResponseText(typeErrorResult)
+    }));
+  } catch (error) {
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetById",
+      arguments: { petId: "not-a-number" },
+      success: false,
+      error: {
+        message: error.message,
+        code: error.code || "unknown"
+      }
+    }));
+  }
+
+  // Test passing string instead of array
+  try {
+    const arrayTypeErrorResult = await client.callTool({
+      name: "findPetsByStatus",
+      arguments: {
+        status: "available"  // String instead of array
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "findPetsByStatus",
+      arguments: { status: "available" },
+      success: true,
+      data: cleanToolResponseText(arrayTypeErrorResult)
+    }));
+  } catch (error) {
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "findPetsByStatus",
+      arguments: { status: "available" },
+      success: false,
+      error: {
+        message: error.message,
+        code: error.code || "unknown"
+      }
+    }));
+  }
+
+  // Step 10: Test Enum Validation Error
+  try {
+    const enumErrorResult = await client.callTool({
+      name: "findPetsByStatus",
+      arguments: {
+        status: ["invalid_status"]  // Invalid enum value
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "findPetsByStatus",
+      arguments: { status: ["invalid_status"] },
+      success: true,
+      data: cleanToolResponseText(enumErrorResult)
+    }));
+  } catch (error) {
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "findPetsByStatus",
+      arguments: { status: ["invalid_status"] },
+      success: false,
+      error: {
+        message: error.message,
+        code: error.code || "unknown"
+      }
+    }));
+  }
+
+  // Step 11: Test Nested Object Validation Error
+  try {
+    const nestedErrorResult = await client.callTool({
+      name: "addPet",
+      arguments: {
+        request_body: {
+          name: "Test Pet",
+          photoUrls: ["https://example.com/photo.jpg"],
+          category: {
+            id: "not-a-number",  // String instead of integer
+            name: "Dogs"
+          },
+          status: "available"
+        }
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "addPet",
+      arguments: {
+        request_body: {
+          name: "Test Pet",
+          category: { id: "not-a-number" },
+          status: "available"
+        }
+      },
+      success: true,
+      data: cleanToolResponseText(nestedErrorResult)
+    }));
+  } catch (error) {
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "addPet",
+      arguments: {
+        request_body: {
+          name: "Test Pet",
+          category: { id: "not-a-number" },
+          status: "available"
+        }
+      },
+      success: false,
+      error: {
+        message: error.message,
+        code: error.code || "unknown"
+      }
+    }));
+  }
+
+  // Step 12: Test Tool Not Found with Suggestions
+  // Test with typo in tool name (getPetByID instead of getPetById)
+  try {
+    const toolNotFoundResult = await client.callTool({
+      name: "getPetByID",  // Typo: wrong case
+      arguments: {
+        petId: 123
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetByID",
+      arguments: { petId: 123 },
+      success: true,
+      data: cleanToolResponseText(toolNotFoundResult)
+    }));
+  } catch (error) {
+    // Build error object with all available fields
+    const errorObj = {
+      message: error.message,
+      code: error.code || "unknown"
+    };
+    
+    // Include data field if present (contains suggestions)
+    if (error.data !== undefined) {
+      errorObj.data = error.data;
+    }
+    
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetByID",
+      arguments: { petId: 123 },
+      success: false,
+      error: errorObj
+    }));
+  }
+
 } catch (connectionError) {
   console.log(JSON.stringify({
     type: "connection_error",

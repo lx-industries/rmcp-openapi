@@ -541,6 +541,13 @@ expression: responses
                           {
                             "description": "Tool not found error",
                             "properties": {
+                              "suggestions": {
+                                "description": "Suggested tool names based on similarity",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
                               "tool_name": {
                                 "description": "Name of the tool that was not found",
                                 "type": "string"
@@ -552,7 +559,8 @@ expression: responses
                             },
                             "required": [
                               "type",
-                              "tool_name"
+                              "tool_name",
+                              "suggestions"
                             ],
                             "type": "object"
                           },
@@ -1165,6 +1173,13 @@ expression: responses
                           {
                             "description": "Tool not found error",
                             "properties": {
+                              "suggestions": {
+                                "description": "Suggested tool names based on similarity",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
                               "tool_name": {
                                 "description": "Name of the tool that was not found",
                                 "type": "string"
@@ -1176,7 +1191,8 @@ expression: responses
                             },
                             "required": [
                               "type",
-                              "tool_name"
+                              "tool_name",
+                              "suggestions"
                             ],
                             "type": "object"
                           },
@@ -1773,6 +1789,13 @@ expression: responses
                           {
                             "description": "Tool not found error",
                             "properties": {
+                              "suggestions": {
+                                "description": "Suggested tool names based on similarity",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
                               "tool_name": {
                                 "description": "Name of the tool that was not found",
                                 "type": "string"
@@ -1784,7 +1807,8 @@ expression: responses
                             },
                             "required": [
                               "type",
-                              "tool_name"
+                              "tool_name",
+                              "suggestions"
                             ],
                             "type": "object"
                           },
@@ -2309,6 +2333,23 @@ expression: responses
     },
     "success": true,
     "tool": "addPet",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "petId": 123
+    },
+    "error": {
+      "code": -32601,
+      "data": {
+        "suggestions": [
+          "getPetById"
+        ]
+      },
+      "message": "Tool 'getPetByID' not found"
+    },
+    "success": false,
+    "tool": "getPetByID",
     "type": "tool_call_result"
   }
 ]

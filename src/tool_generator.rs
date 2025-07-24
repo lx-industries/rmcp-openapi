@@ -1312,7 +1312,7 @@ impl ToolGenerator {
                 // Find similar parameter names
                 let valid_params_refs: Vec<&str> =
                     valid_params.iter().map(|s| s.as_str()).collect();
-                let suggestions = Self::find_similar_parameters(arg_name, &valid_params_refs);
+                let suggestions = crate::find_similar_strings(arg_name, &valid_params_refs);
 
                 errors.push(ValidationError::InvalidParameter {
                     parameter: arg_name.clone(),
@@ -1356,25 +1356,6 @@ impl ToolGenerator {
         }
 
         errors
-    }
-
-    /// Find similar parameter names using Jaro distance
-    fn find_similar_parameters(unknown: &str, known_params: &[&str]) -> Vec<String> {
-        use strsim::jaro;
-
-        let mut candidates = Vec::new();
-
-        for param in known_params {
-            let confidence = jaro(unknown, param);
-            if confidence > 0.7 {
-                candidates.push((confidence, param.to_string()));
-            }
-        }
-
-        // Sort by confidence (highest first)
-        candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-
-        candidates.into_iter().map(|(_, name)| name).collect()
     }
 
     /// Validate parameter values against their schemas
@@ -3362,33 +3343,6 @@ mod tests {
             }
             _ => panic!("Expected InvalidParameter variant"),
         }
-    }
-
-    #[test]
-    fn test_find_similar_parameters() {
-        // Test basic similarity
-        let known = vec!["page_size", "user_id", "status"];
-        let suggestions = ToolGenerator::find_similar_parameters("page_sixe", &known);
-        assert_eq!(suggestions, vec!["page_size"]);
-
-        // Test no suggestions for very different string
-        let suggestions = ToolGenerator::find_similar_parameters("xyz123", &known);
-        assert!(suggestions.is_empty());
-
-        // Test transposed characters
-        let known = vec!["limit", "offset"];
-        let suggestions = ToolGenerator::find_similar_parameters("lmiit", &known);
-        assert_eq!(suggestions, vec!["limit"]);
-
-        // Test missing character
-        let known = vec!["project_id", "merge_request_id"];
-        let suggestions = ToolGenerator::find_similar_parameters("projct_id", &known);
-        assert_eq!(suggestions, vec!["project_id"]);
-
-        // Test extra character
-        let known = vec!["name", "email"];
-        let suggestions = ToolGenerator::find_similar_parameters("namee", &known);
-        assert_eq!(suggestions, vec!["name"]);
     }
 
     #[test]

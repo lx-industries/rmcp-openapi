@@ -1,0 +1,12 @@
+---
+source: tests/test_error_scenarios.rs
+expression: error_json
+---
+{
+  "suggestions": [
+    "findPetsByStatus",
+    "addPet"
+  ],
+  "tool_name": "findPet",
+  "type": "tool-not-found"
+}

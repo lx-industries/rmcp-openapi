@@ -454,6 +454,13 @@ expression: result
                 {
                   "description": "Tool not found error",
                   "properties": {
+                    "suggestions": {
+                      "description": "Suggested tool names based on similarity",
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "tool_name": {
                       "description": "Name of the tool that was not found",
                       "type": "string"
@@ -465,7 +472,8 @@ expression: result
                   },
                   "required": [
                     "type",
-                    "tool_name"
+                    "tool_name",
+                    "suggestions"
                   ],
                   "type": "object"
                 },

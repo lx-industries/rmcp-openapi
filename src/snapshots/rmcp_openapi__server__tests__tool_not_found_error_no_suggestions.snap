@@ -1,0 +1,8 @@
+---
+source: src/server.rs
+expression: error_json
+---
+{
+  "code": -32601,
+  "message": "Tool 'completelyUnrelatedToolName' not found"
+}

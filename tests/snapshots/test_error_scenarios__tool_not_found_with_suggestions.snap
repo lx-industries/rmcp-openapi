@@ -1,0 +1,11 @@
+---
+source: tests/test_error_scenarios.rs
+expression: error_json
+---
+{
+  "suggestions": [
+    "getPetById"
+  ],
+  "tool_name": "getPetByID",
+  "type": "tool-not-found"
+}

@@ -5,6 +5,7 @@ expression: json_result
 {
   "body": {
     "error": {
+      "suggestions": [],
       "tool_name": "unknownTool",
       "type": "tool-not-found"
     }

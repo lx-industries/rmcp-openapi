@@ -1,5 +1,6 @@
 from mcp import ClientSession, StdioServerParameters, types
 from mcp.client.sse import sse_client
+from mcp.shared.exceptions import McpError
 import sys
 import json
 import re
@@ -414,6 +415,53 @@ async def run():
                                 "status": "available"
                             }
                         },
+                        "success": False,
+                        "error": {
+                            "message": str(error),
+                            "code": getattr(error, 'code', 'unknown')
+                        }
+                    }))
+
+                # Step 12: Test Tool Not Found with Suggestions
+                # Test with typo in tool name (getPetByID instead of getPetById)
+                try:
+                    tool_not_found_result = await session.call_tool(
+                        name="getPetByID",  # Typo: wrong case
+                        arguments={
+                            "petId": 123
+                        }
+                    )
+                    result_data = tool_not_found_result.model_dump() if hasattr(tool_not_found_result, 'model_dump') else str(tool_not_found_result)
+                    cleaned_data = clean_tool_response_text(result_data)
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "getPetByID",
+                        "arguments": {"petId": 123},
+                        "success": True,
+                        "data": cleaned_data
+                    }))
+                except McpError as error:
+                    # Extract error details from the error.error (ErrorData) object
+                    error_dict = {
+                        "message": error.error.message,
+                        "code": error.error.code
+                    }
+                    # Include data field if present (contains suggestions)
+                    if error.error.data is not None:
+                        error_dict["data"] = error.error.data
+                    
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "getPetByID",
+                        "arguments": {"petId": 123},
+                        "success": False,
+                        "error": error_dict
+                    }))
+                except Exception as error:
+                    print(json.dumps({
+                        "type": "tool_call_result",
+                        "tool": "getPetByID",
+                        "arguments": {"petId": 123},
                         "success": False,
                         "error": {
                             "message": str(error),

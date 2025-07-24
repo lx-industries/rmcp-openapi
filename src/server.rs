@@ -344,7 +344,14 @@ impl ServerHandler for OpenApiServer {
                 }
             }
         } else {
-            Err(OpenApiError::ToolNotFound(request.name.to_string()).into())
+            // Generate tool name suggestions when tool not found
+            let tool_names = self.registry.get_tool_names();
+            let tool_name_refs: Vec<&str> = tool_names.iter().map(|s| s.as_str()).collect();
+            let suggestions = crate::find_similar_strings(&request.name, &tool_name_refs);
+
+            // Create ToolCallError with suggestions
+            let error = ToolCallError::tool_not_found(request.name.to_string(), suggestions);
+            Err(error.into())
         }
     }
 }
@@ -375,13 +382,32 @@ mod tests {
 
     #[test]
     fn test_create_structured_error_content_tool_not_found() {
-        let error = ToolCallError::tool_not_found("unknownTool".to_string());
-
+        // Test without suggestions
+        let error = ToolCallError::tool_not_found("unknownTool".to_string(), vec![]);
         let result = create_structured_error_content(&error, true);
-        assert!(result.is_some());
-
         let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result);
+        insta::assert_json_snapshot!(json_result, @r###"
+        {
+          "body": {
+            "error": {
+              "suggestions": [],
+              "tool_name": "unknownTool",
+              "type": "tool-not-found"
+            }
+          },
+          "status": 404
+        }
+        "###);
+
+        // Test with suggestions
+        let error_with_suggestions = ToolCallError::tool_not_found(
+            "getPetByID".to_string(),
+            vec!["getPetById".to_string(), "getPetsByStatus".to_string()],
+        );
+        let result_with_suggestions =
+            create_structured_error_content(&error_with_suggestions, true);
+        let json_result_with_suggestions = result_with_suggestions.unwrap();
+        insta::assert_json_snapshot!(json_result_with_suggestions);
     }
 
     #[test]
@@ -434,7 +460,7 @@ mod tests {
                 vec!["suggestion".to_string()],
                 vec!["valid1".to_string(), "valid2".to_string()],
             ),
-            ToolCallError::tool_not_found("test".to_string()),
+            ToolCallError::tool_not_found("test".to_string(), vec![]),
             ToolCallError::validation_error("test".to_string()),
             ToolCallError::http_request_error("test".to_string()),
         ];
@@ -443,5 +469,152 @@ mod tests {
             let result = create_structured_error_content(&error, false);
             assert!(result.is_none());
         }
+    }
+
+    #[test]
+    fn test_tool_not_found_error_with_suggestions() {
+        // Create a server with test tools
+        let mut server = OpenApiServer::new(OpenApiSpecLocation::Url(
+            Url::parse("test://example").unwrap(),
+        ));
+
+        // Create test tool metadata
+        let tool1 = ToolMetadata {
+            name: "getPetById".to_string(),
+            title: Some("Get Pet by ID".to_string()),
+            description: "Find pet by ID".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "petId": {
+                        "type": "integer"
+                    }
+                },
+                "required": ["petId"]
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/pet/{petId}".to_string(),
+        };
+
+        let tool2 = ToolMetadata {
+            name: "getPetsByStatus".to_string(),
+            title: Some("Find Pets by Status".to_string()),
+            description: "Find pets by status".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["status"]
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/pet/findByStatus".to_string(),
+        };
+
+        // Get mutable access to registry and register tools
+        let registry = Arc::get_mut(&mut server.registry).unwrap();
+
+        // Create a mock operation for testing
+        let mock_operation = oas3::spec::Operation::default();
+
+        // Register tools with mock operations
+        registry
+            .register_tool(
+                tool1,
+                (
+                    mock_operation.clone(),
+                    "GET".to_string(),
+                    "/pet/{petId}".to_string(),
+                ),
+            )
+            .unwrap();
+        registry
+            .register_tool(
+                tool2,
+                (
+                    mock_operation,
+                    "GET".to_string(),
+                    "/pet/findByStatus".to_string(),
+                ),
+            )
+            .unwrap();
+
+        // Test: Create ToolNotFound error with a typo
+        let tool_names = server.registry.get_tool_names();
+        let tool_name_refs: Vec<&str> = tool_names.iter().map(|s| s.as_str()).collect();
+        let suggestions = crate::find_similar_strings("getPetByID", &tool_name_refs);
+
+        let error = ToolCallError::tool_not_found("getPetByID".to_string(), suggestions);
+        let error_data: ErrorData = error.into();
+        let error_json = serde_json::to_value(&error_data).unwrap();
+
+        // Snapshot the error to verify suggestions
+        insta::assert_json_snapshot!(error_json);
+    }
+
+    #[test]
+    fn test_tool_not_found_error_no_suggestions() {
+        // Create a server with test tools
+        let mut server = OpenApiServer::new(OpenApiSpecLocation::Url(
+            Url::parse("test://example").unwrap(),
+        ));
+
+        // Create test tool metadata
+        let tool = ToolMetadata {
+            name: "getPetById".to_string(),
+            title: Some("Get Pet by ID".to_string()),
+            description: "Find pet by ID".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "petId": {
+                        "type": "integer"
+                    }
+                },
+                "required": ["petId"]
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/pet/{petId}".to_string(),
+        };
+
+        // Get mutable access to registry and register tool
+        let registry = Arc::get_mut(&mut server.registry).unwrap();
+
+        // Create a mock operation for testing
+        let mock_operation = oas3::spec::Operation::default();
+
+        // Register tool with mock operation
+        registry
+            .register_tool(
+                tool,
+                (
+                    mock_operation,
+                    "GET".to_string(),
+                    "/pet/{petId}".to_string(),
+                ),
+            )
+            .unwrap();
+
+        // Test: Create ToolNotFound error with unrelated name
+        let tool_names = server.registry.get_tool_names();
+        let tool_name_refs: Vec<&str> = tool_names.iter().map(|s| s.as_str()).collect();
+        let suggestions =
+            crate::find_similar_strings("completelyUnrelatedToolName", &tool_name_refs);
+
+        let error =
+            ToolCallError::tool_not_found("completelyUnrelatedToolName".to_string(), suggestions);
+        let error_data: ErrorData = error.into();
+        let error_json = serde_json::to_value(&error_data).unwrap();
+
+        // Snapshot the error to verify no suggestions
+        insta::assert_json_snapshot!(error_json);
     }
 }

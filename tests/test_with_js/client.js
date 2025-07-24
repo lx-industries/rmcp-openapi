@@ -421,6 +421,43 @@ try {
     }));
   }
 
+  // Step 12: Test Tool Not Found with Suggestions
+  // Test with typo in tool name (getPetByID instead of getPetById)
+  try {
+    const toolNotFoundResult = await client.callTool({
+      name: "getPetByID",  // Typo: wrong case
+      arguments: {
+        petId: 123
+      }
+    });
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetByID",
+      arguments: { petId: 123 },
+      success: true,
+      data: cleanToolResponseText(toolNotFoundResult)
+    }));
+  } catch (error) {
+    // Build error object with all available fields
+    const errorObj = {
+      message: error.message,
+      code: error.code || "unknown"
+    };
+    
+    // Include data field if present (contains suggestions)
+    if (error.data !== undefined) {
+      errorObj.data = error.data;
+    }
+    
+    console.log(JSON.stringify({
+      type: "tool_call_result",
+      tool: "getPetByID",
+      arguments: { petId: 123 },
+      success: false,
+      error: errorObj
+    }));
+  }
+
 } catch (connectionError) {
   console.log(JSON.stringify({
     type: "connection_error",

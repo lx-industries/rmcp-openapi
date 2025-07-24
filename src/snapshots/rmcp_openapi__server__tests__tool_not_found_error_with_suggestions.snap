@@ -1,0 +1,14 @@
+---
+source: src/server.rs
+expression: error_json
+---
+{
+  "code": -32601,
+  "data": {
+    "suggestions": [
+      "getPetById",
+      "getPetsByStatus"
+    ]
+  },
+  "message": "Tool 'getPetByID' not found"
+}

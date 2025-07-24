@@ -534,6 +534,13 @@ expression: responses
                           {
                             "description": "Tool not found error",
                             "properties": {
+                              "suggestions": {
+                                "description": "Suggested tool names based on similarity",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
                               "tool_name": {
                                 "description": "Name of the tool that was not found",
                                 "type": "string"
@@ -545,7 +552,8 @@ expression: responses
                             },
                             "required": [
                               "type",
-                              "tool_name"
+                              "tool_name",
+                              "suggestions"
                             ],
                             "type": "object"
                           },
@@ -1152,6 +1160,13 @@ expression: responses
                           {
                             "description": "Tool not found error",
                             "properties": {
+                              "suggestions": {
+                                "description": "Suggested tool names based on similarity",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
                               "tool_name": {
                                 "description": "Name of the tool that was not found",
                                 "type": "string"
@@ -1163,7 +1178,8 @@ expression: responses
                             },
                             "required": [
                               "type",
-                              "tool_name"
+                              "tool_name",
+                              "suggestions"
                             ],
                             "type": "object"
                           },
@@ -1754,6 +1770,13 @@ expression: responses
                           {
                             "description": "Tool not found error",
                             "properties": {
+                              "suggestions": {
+                                "description": "Suggested tool names based on similarity",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
                               "tool_name": {
                                 "description": "Name of the tool that was not found",
                                 "type": "string"
@@ -1765,7 +1788,8 @@ expression: responses
                             },
                             "required": [
                               "type",
-                              "tool_name"
+                              "tool_name",
+                              "suggestions"
                             ],
                             "type": "object"
                           },
@@ -2150,6 +2174,153 @@ expression: responses
     },
     "success": true,
     "tool": "findPetsByStatus",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "petId": "not-a-number"
+    },
+    "data": {
+      "content": [],
+      "isError": true,
+      "structuredContent": {
+        "body": {
+          "error": {
+            "type": "validation-errors",
+            "violations": [
+              {
+                "actual_value": "not-a-number",
+                "constraints": [
+                  {
+                    "exclusive": false,
+                    "type": "minimum",
+                    "value": 1
+                  },
+                  {
+                    "format": "int64",
+                    "type": "format"
+                  }
+                ],
+                "expected_type": "integer",
+                "field_path": "petId",
+                "message": "\"not-a-number\" is not of type \"integer\"",
+                "parameter": "petId",
+                "type": "constraint-violation"
+              }
+            ]
+          }
+        },
+        "status": 400
+      }
+    },
+    "success": true,
+    "tool": "getPetById",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "status": "available"
+    },
+    "data": {
+      "content": [],
+      "isError": true,
+      "structuredContent": {
+        "body": {
+          "error": {
+            "type": "validation-errors",
+            "violations": [
+              {
+                "actual_value": "available",
+                "expected_type": "array",
+                "field_path": "status",
+                "message": "\"available\" is not of type \"array\"",
+                "parameter": "status",
+                "type": "constraint-violation"
+              }
+            ]
+          }
+        },
+        "status": 400
+      }
+    },
+    "success": true,
+    "tool": "findPetsByStatus",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "status": [
+        "invalid_status"
+      ]
+    },
+    "data": {
+      "content": [],
+      "isError": true,
+      "structuredContent": {
+        "body": {
+          "error": {
+            "type": "validation-errors",
+            "violations": [
+              {
+                "actual_value": [
+                  "invalid_status"
+                ],
+                "expected_type": "array",
+                "field_path": "status/0",
+                "message": "\"invalid_status\" is not one of [\"available\",\"pending\",\"sold\"]",
+                "parameter": "status",
+                "type": "constraint-violation"
+              }
+            ]
+          }
+        },
+        "status": 400
+      }
+    },
+    "success": true,
+    "tool": "findPetsByStatus",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "request_body": {
+        "category": {
+          "id": "not-a-number"
+        },
+        "name": "Test Pet",
+        "status": "available"
+      }
+    },
+    "data": {
+      "content": [],
+      "isError": true,
+      "structuredContent": {
+        "body": {
+          "details": "Name is required",
+          "message": "Invalid input"
+        },
+        "status": 400
+      }
+    },
+    "success": true,
+    "tool": "addPet",
+    "type": "tool_call_result"
+  },
+  {
+    "arguments": {
+      "petId": 123
+    },
+    "error": {
+      "code": -32601,
+      "data": {
+        "suggestions": [
+          "getPetById"
+        ]
+      },
+      "message": "MCP error -32601: Tool 'getPetByID' not found"
+    },
+    "success": false,
+    "tool": "getPetByID",
     "type": "tool_call_result"
   }
 ]
