@@ -1,6 +1,6 @@
 use insta::assert_json_snapshot;
-use rmcp_openapi::error::ValidationError;
-use rmcp_openapi::{HttpClient, OpenApiServer, ToolCallError, ToolGenerator};
+use rmcp_openapi::error::{ToolCallError, ToolCallValidationError, ValidationError};
+use rmcp_openapi::{HttpClient, OpenApiServer, ToolGenerator};
 use serde_json::json;
 use std::env;
 use url::Url;
@@ -97,7 +97,10 @@ async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
+    assert!(matches!(
+        error,
+        ToolCallValidationError::InvalidParameters { .. }
+    ));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();
@@ -198,7 +201,7 @@ async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
 
     // New error structure: should be ValidationErrors with missing required parameter
     match error {
-        ToolCallError::ValidationErrors { violations } => {
+        ToolCallError::Validation(ToolCallValidationError::InvalidParameters { violations }) => {
             assert!(!violations.is_empty());
             // Should have a missing required parameter error for petId
             let has_missing_petid = violations.iter().any(|e| match e {
@@ -271,7 +274,10 @@ async fn test_array_type_validation_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
+    assert!(matches!(
+        error,
+        ToolCallValidationError::InvalidParameters { .. }
+    ));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();
@@ -301,7 +307,10 @@ async fn test_enum_validation_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
+    assert!(matches!(
+        error,
+        ToolCallValidationError::InvalidParameters { .. }
+    ));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();
@@ -579,7 +588,10 @@ async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
     // Should fail with validation error
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, ToolCallError::ValidationErrors { .. }));
+    assert!(matches!(
+        error,
+        ToolCallValidationError::InvalidParameters { .. }
+    ));
 
     // Snapshot the error for detailed validation
     let error_json = serde_json::to_value(&error).unwrap();
@@ -621,7 +633,10 @@ async fn test_tool_not_found_with_suggestions() -> anyhow::Result<()> {
         .collect();
 
     // Create the error with suggestions
-    let error = ToolCallError::tool_not_found("getPetByID".to_string(), suggestions);
+    let error = ToolCallError::Validation(ToolCallValidationError::ToolNotFound {
+        tool_name: "getPetByID".to_string(),
+        suggestions,
+    });
 
     // Snapshot the error structure
     let error_json = serde_json::to_value(&error).unwrap();
@@ -658,7 +673,10 @@ async fn test_tool_not_found_multiple_suggestions() -> anyhow::Result<()> {
         .collect();
 
     // Create the error with suggestions
-    let error = ToolCallError::tool_not_found("findPet".to_string(), suggestions);
+    let error = ToolCallError::Validation(ToolCallValidationError::ToolNotFound {
+        tool_name: "findPet".to_string(),
+        suggestions,
+    });
 
     // Snapshot the error structure - should contain multiple suggestions
     let error_json = serde_json::to_value(&error).unwrap();

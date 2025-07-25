@@ -33,467 +33,14 @@ expression: output_schema
           "description": "Error response structure for tool execution failures",
           "properties": {
             "error": {
-              "description": "Error that can occur during tool execution",
+              "description": "Execution errors that occur during tool execution\nThese return as Ok(CallToolResult { is_error: true })",
               "oneOf": [
-                {
-                  "description": "Multiple validation errors",
-                  "properties": {
-                    "type": {
-                      "const": "validation-errors",
-                      "type": "string"
-                    },
-                    "violations": {
-                      "description": "List of validation errors",
-                      "items": {
-                        "description": "Individual validation error types",
-                        "oneOf": [
-                          {
-                            "description": "Invalid parameter error with suggestions",
-                            "properties": {
-                              "parameter": {
-                                "description": "The parameter name that was invalid",
-                                "type": "string"
-                              },
-                              "suggestions": {
-                                "description": "Suggested correct parameter names",
-                                "items": {
-                                  "type": "string"
-                                },
-                                "type": "array"
-                              },
-                              "type": {
-                                "const": "invalid-parameter",
-                                "type": "string"
-                              },
-                              "valid_parameters": {
-                                "description": "All valid parameter names for this tool",
-                                "items": {
-                                  "type": "string"
-                                },
-                                "type": "array"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "parameter",
-                              "suggestions",
-                              "valid_parameters"
-                            ],
-                            "type": "object"
-                          },
-                          {
-                            "description": "Missing required parameter",
-                            "properties": {
-                              "description": {
-                                "description": "Description of the parameter from OpenAPI",
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "expected_type": {
-                                "description": "Expected type of the parameter",
-                                "type": "string"
-                              },
-                              "parameter": {
-                                "description": "Name of the missing parameter",
-                                "type": "string"
-                              },
-                              "type": {
-                                "const": "missing-required-parameter",
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "parameter",
-                              "expected_type"
-                            ],
-                            "type": "object"
-                          },
-                          {
-                            "description": "Constraint violation (e.g., type mismatches, pattern violations)",
-                            "properties": {
-                              "actual_value": {
-                                "description": "The actual value that failed validation"
-                              },
-                              "constraints": {
-                                "description": "Specific constraints that were violated",
-                                "items": {
-                                  "description": "Individual validation constraint that was violated",
-                                  "oneOf": [
-                                    {
-                                      "description": "Minimum value constraint (for numbers)",
-                                      "properties": {
-                                        "exclusive": {
-                                          "description": "Whether the minimum is exclusive",
-                                          "type": "boolean"
-                                        },
-                                        "type": {
-                                          "const": "minimum",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The minimum value",
-                                          "format": "double",
-                                          "type": "number"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value",
-                                        "exclusive"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Maximum value constraint (for numbers)",
-                                      "properties": {
-                                        "exclusive": {
-                                          "description": "Whether the maximum is exclusive",
-                                          "type": "boolean"
-                                        },
-                                        "type": {
-                                          "const": "maximum",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The maximum value",
-                                          "format": "double",
-                                          "type": "number"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value",
-                                        "exclusive"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Minimum length constraint (for strings/arrays)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "min-length",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The minimum length",
-                                          "format": "uint",
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Maximum length constraint (for strings/arrays)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "max-length",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The maximum length",
-                                          "format": "uint",
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Pattern constraint (for strings)",
-                                      "properties": {
-                                        "pattern": {
-                                          "description": "The regex pattern that must be matched",
-                                          "type": "string"
-                                        },
-                                        "type": {
-                                          "const": "pattern",
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "pattern"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Enum values constraint",
-                                      "properties": {
-                                        "type": {
-                                          "const": "enum-values",
-                                          "type": "string"
-                                        },
-                                        "values": {
-                                          "description": "The allowed enum values",
-                                          "items": true,
-                                          "type": "array"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "values"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Format constraint (e.g., \"date-time\", \"email\", \"uri\")",
-                                      "properties": {
-                                        "format": {
-                                          "description": "The expected format",
-                                          "type": "string"
-                                        },
-                                        "type": {
-                                          "const": "format",
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "format"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Multiple of constraint (for numbers)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "multiple-of",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The value that the number must be a multiple of",
-                                          "format": "double",
-                                          "type": "number"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Minimum number of items constraint (for arrays)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "min-items",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The minimum number of items",
-                                          "format": "uint",
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Maximum number of items constraint (for arrays)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "max-items",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The maximum number of items",
-                                          "format": "uint",
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Unique items constraint (for arrays)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "unique-items",
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "type"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Minimum number of properties constraint (for objects)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "min-properties",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The minimum number of properties",
-                                          "format": "uint",
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Maximum number of properties constraint (for objects)",
-                                      "properties": {
-                                        "type": {
-                                          "const": "max-properties",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The maximum number of properties",
-                                          "format": "uint",
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Constant value constraint",
-                                      "properties": {
-                                        "type": {
-                                          "const": "const-value",
-                                          "type": "string"
-                                        },
-                                        "value": {
-                                          "description": "The exact value that must match"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "value"
-                                      ],
-                                      "type": "object"
-                                    },
-                                    {
-                                      "description": "Required properties constraint (for objects)",
-                                      "properties": {
-                                        "properties": {
-                                          "description": "The required property names",
-                                          "items": {
-                                            "type": "string"
-                                          },
-                                          "type": "array"
-                                        },
-                                        "type": {
-                                          "const": "required",
-                                          "type": "string"
-                                        }
-                                      },
-                                      "required": [
-                                        "type",
-                                        "properties"
-                                      ],
-                                      "type": "object"
-                                    }
-                                  ]
-                                },
-                                "type": "array"
-                              },
-                              "expected_type": {
-                                "description": "Expected type or format",
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "field_path": {
-                                "description": "Path to the field that failed validation (e.g., \"address.street\")",
-                                "type": [
-                                  "string",
-                                  "null"
-                                ]
-                              },
-                              "message": {
-                                "description": "Description of what validation failed",
-                                "type": "string"
-                              },
-                              "parameter": {
-                                "description": "Name of the parameter that failed validation",
-                                "type": "string"
-                              },
-                              "type": {
-                                "const": "constraint-violation",
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "type",
-                              "parameter",
-                              "message",
-                              "constraints"
-                            ],
-                            "type": "object"
-                          }
-                        ]
-                      },
-                      "type": "array"
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "violations"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "description": "Tool not found error",
-                  "properties": {
-                    "suggestions": {
-                      "description": "Suggested tool names based on similarity",
-                      "items": {
-                        "type": "string"
-                      },
-                      "type": "array"
-                    },
-                    "tool_name": {
-                      "description": "Name of the tool that was not found",
-                      "type": "string"
-                    },
-                    "type": {
-                      "const": "tool-not-found",
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "tool_name",
-                    "suggestions"
-                  ],
-                  "type": "object"
-                },
                 {
                   "description": "HTTP error response from the API",
                   "properties": {
+                    "details": {
+                      "description": "Optional structured error details from API"
+                    },
                     "message": {
                       "description": "Error message or response body",
                       "type": "string"
@@ -518,38 +65,81 @@ expression: output_schema
                   "type": "object"
                 },
                 {
-                  "description": "HTTP request failed (network, connection, timeout)",
+                  "description": "Network/connection failures",
                   "properties": {
+                    "category": {
+                      "description": "Network error categories for better error handling",
+                      "oneOf": [
+                        {
+                          "const": "timeout",
+                          "description": "Request timeout",
+                          "type": "string"
+                        },
+                        {
+                          "const": "connect",
+                          "description": "Connection error (DNS, refused, unreachable)",
+                          "type": "string"
+                        },
+                        {
+                          "const": "request",
+                          "description": "Request construction/sending error",
+                          "type": "string"
+                        },
+                        {
+                          "const": "body",
+                          "description": "Response body error",
+                          "type": "string"
+                        },
+                        {
+                          "const": "decode",
+                          "description": "Response decoding error",
+                          "type": "string"
+                        },
+                        {
+                          "const": "other",
+                          "description": "Other network errors",
+                          "type": "string"
+                        }
+                      ]
+                    },
                     "message": {
-                      "description": "Description of the request failure",
+                      "description": "Description of the network failure",
                       "type": "string"
                     },
                     "type": {
-                      "const": "http-request-error",
+                      "const": "network-error",
                       "type": "string"
                     }
                   },
                   "required": [
                     "type",
-                    "message"
+                    "message",
+                    "category"
                   ],
                   "type": "object"
                 },
                 {
-                  "description": "JSON parsing/serialization error",
+                  "description": "Response parsing failed",
                   "properties": {
-                    "message": {
-                      "description": "Description of the JSON error",
+                    "raw_response": {
+                      "description": "Raw response body for debugging",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reason": {
+                      "description": "Description of the parsing failure",
                       "type": "string"
                     },
                     "type": {
-                      "const": "json-error",
+                      "const": "response-parsing-error",
                       "type": "string"
                     }
                   },
                   "required": [
                     "type",
-                    "message"
+                    "reason"
                   ],
                   "type": "object"
                 }

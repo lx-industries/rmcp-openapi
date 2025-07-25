@@ -1,0 +1,12 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "suggestions": [
+    "getPetById",
+    "getPetsByStatus"
+  ],
+  "tool_name": "getPetByID",
+  "type": "tool-not-found"
+}

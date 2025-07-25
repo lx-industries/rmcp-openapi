@@ -225,6 +225,56 @@ Example output schema for `getPetById`:
 }
 ```
 
+## Error Handling
+
+The library distinguishes between two types of errors:
+
+### Validation Errors (MCP Protocol Errors)
+These occur before tool execution and are returned as MCP protocol errors:
+- **ToolNotFound**: Requested tool doesn't exist (includes suggestions for similar tool names)
+- **InvalidParameters**: Parameter validation failed (unknown names, missing required, constraint violations)
+- **RequestConstructionError**: Failed to construct the HTTP request
+
+### Execution Errors (Tool Output Errors)
+These occur during tool execution and are returned as structured content in the tool response:
+- **HttpError**: HTTP error response from the API (4xx, 5xx status codes)
+- **NetworkError**: Network/connection failures (timeout, DNS, connection refused)
+- **ResponseParsingError**: Failed to parse the response
+
+### Error Response Format
+For tools with output schemas, execution errors are wrapped in the standard response structure:
+```json
+{
+  "status": 404,
+  "body": {
+    "error": {
+      "type": "http-error",
+      "status": 404,
+      "message": "Pet not found"
+    }
+  }
+}
+```
+
+Validation errors are returned as MCP protocol errors:
+```json
+{
+  "code": -32602,
+  "message": "Validation failed with 1 error",
+  "data": {
+    "type": "validation-errors",
+    "violations": [
+      {
+        "type": "invalid-parameter",
+        "parameter": "pet_id",
+        "suggestions": ["petId"],
+        "valid_parameters": ["petId", "status"]
+      }
+    ]
+  }
+}
+```
+
 ## Examples
 
 See the `examples/` directory for usage examples:

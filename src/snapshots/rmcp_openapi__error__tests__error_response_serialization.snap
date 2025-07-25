@@ -4,19 +4,12 @@ expression: serialized
 ---
 {
   "error": {
-    "type": "validation-errors",
-    "violations": [
-      {
-        "parameter": "test_param",
-        "suggestions": [
-          "testParam"
-        ],
-        "type": "invalid-parameter",
-        "valid_parameters": [
-          "testParam",
-          "otherParam"
-        ]
-      }
-    ]
+    "details": {
+      "error": "Invalid parameter",
+      "parameter": "test_param"
+    },
+    "message": "Bad Request",
+    "status": 400,
+    "type": "http-error"
   }
 }

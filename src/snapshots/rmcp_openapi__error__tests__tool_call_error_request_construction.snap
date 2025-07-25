@@ -1,0 +1,8 @@
+---
+source: src/error.rs
+expression: serialized
+---
+{
+  "reason": "Invalid parameter location: body",
+  "type": "request-construction-error"
+}

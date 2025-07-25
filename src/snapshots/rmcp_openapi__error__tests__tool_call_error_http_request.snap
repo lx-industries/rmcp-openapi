@@ -3,6 +3,7 @@ source: src/error.rs
 expression: serialized
 ---
 {
+  "category": "timeout",
   "message": "Connection timeout",
-  "type": "http-request-error"
+  "type": "network-error"
 }

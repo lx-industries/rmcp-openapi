@@ -4,9 +4,13 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::{debug, error, info};
 use url::Url;
 
-use crate::error::{OpenApiError, ToolCallError};
+use crate::error::{
+    NetworkErrorCategory, OpenApiError, ToolCallError, ToolCallExecutionError,
+    ToolCallValidationError,
+};
 use crate::server::ToolMetadata;
 use crate::tool_generator::{ExtractedParameters, ToolGenerator};
 
@@ -74,23 +78,49 @@ impl HttpClient {
         tool_metadata: &ToolMetadata,
         arguments: &Value,
     ) -> Result<HttpResponse, ToolCallError> {
+        debug!(
+            "Executing tool call: {} {} with arguments: {}",
+            tool_metadata.method,
+            tool_metadata.path,
+            serde_json::to_string_pretty(arguments).unwrap_or_else(|_| "invalid json".to_string())
+        );
+
         // Extract parameters from arguments
         let extracted_params = ToolGenerator::extract_parameters(tool_metadata, arguments)?;
+
+        debug!(
+            "Extracted parameters: path={:?}, query={:?}, headers={:?}, cookies={:?}, body={:?}",
+            extracted_params.path,
+            extracted_params.query,
+            extracted_params.headers,
+            extracted_params.cookies,
+            extracted_params.body
+        );
 
         // Build the URL with path parameters
         let mut url = self
             .build_url(tool_metadata, &extracted_params)
-            .map_err(|e| ToolCallError::validation_error(e.to_string()))?;
+            .map_err(|e| {
+                ToolCallError::Validation(ToolCallValidationError::RequestConstructionError {
+                    reason: e.to_string(),
+                })
+            })?;
 
         // Add query parameters with proper URL encoding
         if !extracted_params.query.is_empty() {
             Self::add_query_parameters(&mut url, &extracted_params.query);
         }
 
+        info!("Final URL: {}", url);
+
         // Create the HTTP request
         let mut request = self
             .create_request(&tool_metadata.method, &url)
-            .map_err(|e| ToolCallError::validation_error(e.to_string()))?;
+            .map_err(|e| {
+                ToolCallError::Validation(ToolCallValidationError::RequestConstructionError {
+                    reason: e.to_string(),
+                })
+            })?;
 
         // Add headers
         if !extracted_params.headers.is_empty() {
@@ -106,7 +136,12 @@ impl HttpClient {
         if !extracted_params.body.is_empty() {
             request =
                 Self::add_request_body(request, &extracted_params.body, &extracted_params.config)
-                    .map_err(|e| ToolCallError::json_error(e.to_string()))?;
+                    .map_err(|e| {
+                    ToolCallError::Execution(ToolCallExecutionError::ResponseParsingError {
+                        reason: format!("Failed to serialize request body: {e}"),
+                        raw_response: None,
+                    })
+                })?;
         }
 
         // Apply custom timeout if specified
@@ -138,35 +173,78 @@ impl HttpClient {
         let final_url = url.to_string();
 
         // Execute the request
+        debug!("Sending HTTP request...");
         let response = request.send().await.map_err(|e| {
-            // Provide more specific error information using ToolCallError constructors
-            if e.is_timeout() {
-                ToolCallError::http_request_error(format!(
-                    "Request timeout after {} seconds while calling {} {}",
-                    extracted_params.config.timeout_seconds,
-                    tool_metadata.method.to_uppercase(),
-                    final_url
-                ))
+            error!("HTTP request failed: {}", e);
+
+            // Categorize error based on reqwest's reliable error detection methods
+            let (error_msg, category) = if e.is_timeout() {
+                (
+                    format!(
+                        "Request timeout after {} seconds while calling {} {}",
+                        extracted_params.config.timeout_seconds,
+                        tool_metadata.method.to_uppercase(),
+                        final_url
+                    ),
+                    NetworkErrorCategory::Timeout,
+                )
             } else if e.is_connect() {
-                ToolCallError::http_request_error(format!(
-                    "Connection failed to {final_url} - check if the server is running and the URL is correct"
-                ))
+                (
+                    format!(
+                        "Connection failed to {final_url} - Error: {e}. Check if the server is running and the URL is correct."
+                    ),
+                    NetworkErrorCategory::Connect,
+                )
             } else if e.is_request() {
-                ToolCallError::http_request_error(format!(
-                    "Request error: {} (URL: {}, Method: {})",
-                    e,
-                    final_url,
-                    tool_metadata.method.to_uppercase()
-                ))
+                (
+                    format!(
+                        "Request error while calling {} {} - Error: {}",
+                        tool_metadata.method.to_uppercase(),
+                        final_url,
+                        e
+                    ),
+                    NetworkErrorCategory::Request,
+                )
+            } else if e.is_body() {
+                (
+                    format!(
+                        "Body error while calling {} {} - Error: {}",
+                        tool_metadata.method.to_uppercase(),
+                        final_url,
+                        e
+                    ),
+                    NetworkErrorCategory::Body,
+                )
+            } else if e.is_decode() {
+                (
+                    format!(
+                        "Response decode error from {} {} - Error: {}",
+                        tool_metadata.method.to_uppercase(),
+                        final_url,
+                        e
+                    ),
+                    NetworkErrorCategory::Decode,
+                )
             } else {
-                ToolCallError::http_request_error(format!(
-                    "HTTP request failed: {} (URL: {}, Method: {})",
-                    e,
-                    final_url,
-                    tool_metadata.method.to_uppercase()
-                ))
-            }
+                (
+                    format!(
+                        "HTTP request failed: {} (URL: {}, Method: {})",
+                        e,
+                        final_url,
+                        tool_metadata.method.to_uppercase()
+                    ),
+                    NetworkErrorCategory::Other,
+                )
+            };
+
+            error!("{}", error_msg);
+            ToolCallError::Execution(ToolCallExecutionError::NetworkError {
+                message: error_msg,
+                category,
+            })
         })?;
+
+        debug!("Response received with status: {}", response.status());
 
         // Convert response to our format with request details
         self.process_response_with_request(
@@ -176,7 +254,13 @@ impl HttpClient {
             &request_body_string,
         )
         .await
-        .map_err(|e| ToolCallError::http_request_error(e.to_string()))
+        .map_err(|e| {
+            ToolCallError::Execution(ToolCallExecutionError::HttpError {
+                status: 0,
+                message: e.to_string(),
+                details: None,
+            })
+        })
     }
 
     /// Build the complete URL with path parameters substituted

@@ -1,14 +1,29 @@
 //! Error handling for the OpenAPI MCP server.
 //!
-//! This module provides structured error types to help clients understand and potentially fix issues.
-//! Errors are returned as a typed enum with specific fields for each error type.
+//! This module provides structured error types that distinguish between validation errors
+//! (which return as MCP protocol errors) and execution errors (which appear in tool output schemas).
 //!
-//! # Error Types
+//! # Error Categories
 //!
-//! ## InvalidParameter
-//! Unknown or misspelled parameter names. Includes parameter name, suggestions for typos, and list of valid parameters.
+//! ## Validation Errors (MCP Protocol Errors)
+//! These errors occur before tool execution and are returned as MCP protocol errors (Err(ErrorData)).
+//! They do NOT have JsonSchema derive to prevent them from appearing in tool output schemas.
 //!
-//! Example:
+//! - **ToolNotFound**: Requested tool doesn't exist
+//! - **InvalidParameters**: Parameter validation failed (unknown names, missing required, constraint violations)
+//! - **RequestConstructionError**: Failed to construct the HTTP request
+//!
+//! ## Execution Errors (Tool Output Errors)
+//! These errors occur during tool execution and are returned as structured content in the tool response.
+//! They have JsonSchema derive so they can appear in tool output schemas.
+//!
+//! - **HttpError**: HTTP error response from the API (4xx, 5xx status codes)
+//! - **NetworkError**: Network/connection failures (timeout, DNS, connection refused)
+//! - **ResponseParsingError**: Failed to parse the response
+//!
+//! # Error Type Examples
+//!
+//! ## InvalidParameter (Validation Error)
 //! ```json
 //! {
 //!   "type": "invalid-parameter",
@@ -18,134 +33,72 @@
 //! }
 //! ```
 //!
-//! ## ValidationError
-//! Parameter value validation failures. Includes descriptive message, field path, actual value,
-//! expected type, and constraint details.
-//!
-//! Example for numeric constraints:
+//! ## ConstraintViolation (Validation Error)
 //! ```json
 //! {
-//!   "type": "validation-error",
+//!   "type": "constraint-violation",
+//!   "parameter": "age",
 //!   "message": "Parameter 'age' must be between 0 and 150",
 //!   "field_path": "age",
 //!   "actual_value": 200,
 //!   "expected_type": "integer",
-//!   "constraints": {
-//!     "minimum": 0,
-//!     "maximum": 150
-//!   }
+//!   "constraints": [
+//!     {"type": "minimum", "value": 0, "exclusive": false},
+//!     {"type": "maximum", "value": 150, "exclusive": false}
+//!   ]
 //! }
 //! ```
 //!
-//! Example for array constraints:
-//! ```json
-//! {
-//!   "type": "validation-error",
-//!   "message": "Array has 1 items but minimum is 2",
-//!   "field_path": "tags",
-//!   "actual_value": ["tag1"],
-//!   "expected_type": "array",
-//!   "constraints": {
-//!     "min_items": 2,
-//!     "unique_items": true
-//!   }
-//! }
-//! ```
-//!
-//! Example for const constraint:
-//! ```json
-//! {
-//!   "type": "validation-error",
-//!   "message": "\"staging\" is not equal to const \"production\"",
-//!   "field_path": "environment",
-//!   "actual_value": "staging",
-//!   "expected_type": "string",
-//!   "constraints": {
-//!     "const_value": "production"
-//!   }
-//! }
-//! ```
-//!
-//! ## MissingRequiredParameter
-//! Required parameter not provided. Includes parameter name, description, and expected type.
-//!
-//! Example:
-//! ```json
-//! {
-//!   "type": "missing-required-parameter",
-//!   "parameter": "petId",
-//!   "expected_type": "integer"
-//! }
-//! ```
-//!
-//! ## ToolNotFound
-//! Requested tool doesn't exist. Includes the tool name that was not found and suggestions for similar tool names.
-//!
-//! Example without suggestions:
-//! ```json
-//! {
-//!   "type": "tool-not-found",
-//!   "tool_name": "unknownTool",
-//!   "suggestions": []
-//! }
-//! ```
-//!
-//! Example with suggestions (e.g., typo in tool name):
-//! ```json
-//! {
-//!   "type": "tool-not-found",
-//!   "tool_name": "getPetByID",
-//!   "suggestions": ["getPetById", "getPetsByStatus"]
-//! }
-//! ```
-//!
-//! ## HttpError
-//! HTTP error responses from the API. Includes status code and error message.
-//!
-//! Example:
+//! ## HttpError (Execution Error)
 //! ```json
 //! {
 //!   "type": "http-error",
 //!   "status": 404,
-//!   "message": "Pet not found"
+//!   "message": "Pet not found",
+//!   "details": {"error": "NOT_FOUND", "pet_id": 123}
 //! }
 //! ```
 //!
-//! ## HttpRequestError
-//! Network/connection failures. Includes description of the request failure.
-//!
-//! Example:
+//! ## NetworkError (Execution Error)
 //! ```json
 //! {
-//!   "type": "http-request-error",
-//!   "message": "Connection timeout"
-//! }
-//! ```
-//!
-//! ## JsonError
-//! JSON parsing failures. Includes description of what failed to parse.
-//!
-//! Example:
-//! ```json
-//! {
-//!   "type": "json-error",
-//!   "message": "Invalid JSON in response body"
+//!   "type": "network-error",
+//!   "message": "Request timeout after 30 seconds",
+//!   "category": "timeout"
 //! }
 //! ```
 //!
 //! # Structured Error Responses
 //!
-//! For tools with output schemas, errors are wrapped in the same structure as successful responses:
+//! For tools with output schemas, execution errors are wrapped in the standard response structure:
 //! ```json
 //! {
-//!   "status": 400,
+//!   "status": 404,
 //!   "body": {
 //!     "error": {
-//!       "type": "invalid-parameter",
-//!       "parameter": "pet_id",
-//!       "suggestions": ["petId"],
-//!       "valid_parameters": ["petId", "status"]
+//!       "type": "http-error",
+//!       "status": 404,
+//!       "message": "Pet not found"
 //!     }
+//!   }
+//! }
+//! ```
+//!
+//! Validation errors are returned as MCP protocol errors:
+//! ```json
+//! {
+//!   "code": -32602,
+//!   "message": "Validation failed with 1 error",
+//!   "data": {
+//!     "type": "validation-errors",
+//!     "violations": [
+//!       {
+//!         "type": "invalid-parameter",
+//!         "parameter": "pet_id",
+//!         "suggestions": ["petId"],
+//!         "valid_parameters": ["petId", "status"]
+//!       }
+//!     ]
 //!   }
 //! }
 //! ```
@@ -320,12 +273,12 @@ pub enum OpenApiError {
     ToolCall(#[from] ToolCallError),
 }
 
-impl From<ToolCallError> for ErrorData {
-    fn from(err: ToolCallError) -> Self {
+impl From<ToolCallValidationError> for ErrorData {
+    fn from(err: ToolCallValidationError) -> Self {
         match err {
-            ToolCallError::ToolNotFound {
-                tool_name,
-                suggestions,
+            ToolCallValidationError::ToolNotFound {
+                ref tool_name,
+                ref suggestions,
             } => {
                 let data = if suggestions.is_empty() {
                     None
@@ -340,14 +293,66 @@ impl From<ToolCallError> for ErrorData {
                     data,
                 )
             }
-            ToolCallError::ValidationErrors { .. } => {
-                ErrorData::new(ErrorCode(-32602), err.to_string(), None)
+            ToolCallValidationError::InvalidParameters { ref violations } => {
+                // Include the full validation error details
+                let data = Some(json!({
+                    "type": "validation-errors",
+                    "violations": violations
+                }));
+                ErrorData::new(ErrorCode(-32602), err.to_string(), data)
             }
-            ToolCallError::HttpError { .. } | ToolCallError::HttpRequestError { .. } => {
-                ErrorData::new(ErrorCode(-32000), err.to_string(), None)
+            ToolCallValidationError::RequestConstructionError { ref reason } => {
+                // Include construction error details
+                let data = Some(json!({
+                    "type": "request-construction-error",
+                    "reason": reason
+                }));
+                ErrorData::new(ErrorCode(-32602), err.to_string(), data)
             }
-            ToolCallError::JsonError { .. } => {
-                ErrorData::new(ErrorCode(-32700), err.to_string(), None)
+        }
+    }
+}
+
+impl From<ToolCallError> for ErrorData {
+    fn from(err: ToolCallError) -> Self {
+        match err {
+            ToolCallError::Validation(validation_err) => validation_err.into(),
+            ToolCallError::Execution(execution_err) => {
+                // Execution errors should not be converted to ErrorData
+                // They should be returned as CallToolResult with is_error: true
+                // But for backward compatibility, we'll convert them
+                match execution_err {
+                    ToolCallExecutionError::HttpError {
+                        status,
+                        ref message,
+                        ..
+                    } => {
+                        let data = Some(json!({
+                            "type": "http-error",
+                            "status": status,
+                            "message": message
+                        }));
+                        ErrorData::new(ErrorCode(-32000), execution_err.to_string(), data)
+                    }
+                    ToolCallExecutionError::NetworkError {
+                        ref message,
+                        ref category,
+                    } => {
+                        let data = Some(json!({
+                            "type": "network-error",
+                            "message": message,
+                            "category": category
+                        }));
+                        ErrorData::new(ErrorCode(-32000), execution_err.to_string(), data)
+                    }
+                    ToolCallExecutionError::ResponseParsingError { ref reason, .. } => {
+                        let data = Some(json!({
+                            "type": "response-parsing-error",
+                            "reason": reason
+                        }));
+                        ErrorData::new(ErrorCode(-32700), execution_err.to_string(), data)
+                    }
+                }
             }
         }
     }
@@ -380,19 +385,31 @@ impl From<OpenApiError> for ErrorData {
 }
 
 /// Error that can occur during tool execution
-#[derive(Debug, Serialize, JsonSchema, Error)]
-#[serde(tag = "type", rename_all = "kebab-case")]
-#[schemars(tag = "type", rename_all = "kebab-case")]
+#[derive(Debug, Error, Serialize)]
+#[serde(untagged)]
 pub enum ToolCallError {
-    /// Multiple validation errors
-    #[error("Validation failed with multiple errors")]
-    #[serde(rename = "validation-errors")]
-    ValidationErrors {
-        /// List of validation errors
-        violations: Vec<ValidationError>,
-    },
+    /// Validation errors that occur before tool execution
+    #[error(transparent)]
+    Validation(#[from] ToolCallValidationError),
 
-    /// Tool not found error
+    /// Execution errors that occur during tool execution
+    #[error(transparent)]
+    Execution(#[from] ToolCallExecutionError),
+}
+
+/// Error response structure for tool execution failures
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ErrorResponse {
+    /// Error information
+    pub error: ToolCallExecutionError,
+}
+
+/// Validation errors that occur before tool execution
+/// These return as Err(ErrorData) with MCP protocol error codes
+#[derive(Debug, Error, Serialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+pub enum ToolCallValidationError {
+    /// Tool not found
     #[error("Tool '{tool_name}' not found")]
     #[serde(rename = "tool-not-found")]
     ToolNotFound {
@@ -402,6 +419,29 @@ pub enum ToolCallError {
         suggestions: Vec<String>,
     },
 
+    /// Invalid parameters (unknown names, missing required, constraints)
+    #[error("Validation failed with {} error{}", violations.len(), if violations.len() == 1 { "" } else { "s" })]
+    #[serde(rename = "validation-errors")]
+    InvalidParameters {
+        /// List of validation errors
+        violations: Vec<ValidationError>,
+    },
+
+    /// Request construction failed (JSON serialization for body)
+    #[error("Failed to construct request: {reason}")]
+    #[serde(rename = "request-construction-error")]
+    RequestConstructionError {
+        /// Description of the construction failure
+        reason: String,
+    },
+}
+
+/// Execution errors that occur during tool execution
+/// These return as Ok(CallToolResult { is_error: true })
+#[derive(Debug, Error, Serialize, JsonSchema)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+#[schemars(tag = "type", rename_all = "kebab-case")]
+pub enum ToolCallExecutionError {
     /// HTTP error response from the API
     #[error("HTTP {status} error: {message}")]
     #[serde(rename = "http-error")]
@@ -410,144 +450,49 @@ pub enum ToolCallError {
         status: u16,
         /// Error message or response body
         message: String,
-        // TODO: Future enhancement - add structured error details for actionable errors
+        /// Optional structured error details from API
+        #[serde(skip_serializing_if = "Option::is_none")]
+        details: Option<Value>,
     },
 
-    /// HTTP request failed (network, connection, timeout)
-    #[error("HTTP request failed: {message}")]
-    #[serde(rename = "http-request-error")]
-    HttpRequestError {
-        /// Description of the request failure
+    /// Network/connection failures
+    #[error("Network error: {message}")]
+    #[serde(rename = "network-error")]
+    NetworkError {
+        /// Description of the network failure
         message: String,
+        /// Error category for better handling
+        category: NetworkErrorCategory,
     },
 
-    /// JSON parsing/serialization error
-    #[error("JSON parsing error: {message}")]
-    #[serde(rename = "json-error")]
-    JsonError {
-        /// Description of the JSON error
-        message: String,
+    /// Response parsing failed
+    #[error("Failed to parse response: {reason}")]
+    #[serde(rename = "response-parsing-error")]
+    ResponseParsingError {
+        /// Description of the parsing failure
+        reason: String,
+        /// Raw response body for debugging
+        #[serde(skip_serializing_if = "Option::is_none")]
+        raw_response: Option<String>,
     },
 }
 
-impl ToolCallError {
-    /// Create a validation errors collection
-    pub fn validation_errors(violations: Vec<ValidationError>) -> Self {
-        Self::ValidationErrors { violations }
-    }
-
-    /// Create an invalid parameter error with suggestions
-    pub fn invalid_parameter(
-        parameter: String,
-        suggestions: Vec<String>,
-        valid_parameters: Vec<String>,
-    ) -> Self {
-        Self::ValidationErrors {
-            violations: vec![ValidationError::InvalidParameter {
-                parameter,
-                suggestions,
-                valid_parameters,
-            }],
-        }
-    }
-
-    /// Create a tool not found error
-    pub fn tool_not_found(tool_name: String, suggestions: Vec<String>) -> Self {
-        Self::ToolNotFound {
-            tool_name,
-            suggestions,
-        }
-    }
-
-    /// Create a validation error with only a message
-    pub fn validation_error(msg: String) -> Self {
-        Self::ValidationErrors {
-            violations: vec![ValidationError::ConstraintViolation {
-                parameter: String::new(),
-                message: msg,
-                field_path: None,
-                actual_value: None,
-                expected_type: None,
-                constraints: vec![],
-            }],
-        }
-    }
-
-    /// Create a detailed validation error
-    pub fn validation_error_detailed(
-        message: String,
-        field_path: Option<String>,
-        actual_value: Option<Value>,
-        expected_type: Option<String>,
-        constraints: Vec<ValidationConstraint>,
-    ) -> Self {
-        // Extract parameter name from field_path or use empty string
-        let parameter = field_path
-            .as_ref()
-            .map(|path| {
-                path.split('.')
-                    .next()
-                    .unwrap_or("")
-                    .trim_start_matches('/')
-                    .to_string()
-            })
-            .unwrap_or_default();
-
-        Self::ValidationErrors {
-            violations: vec![ValidationError::ConstraintViolation {
-                parameter,
-                message,
-                field_path,
-                actual_value: actual_value.map(Box::new),
-                expected_type,
-                constraints,
-            }],
-        }
-    }
-
-    /// Create an HTTP error
-    pub fn http_error(status: u16, msg: String) -> Self {
-        Self::HttpError {
-            status,
-            message: msg,
-        }
-    }
-
-    /// Create an HTTP request error
-    pub fn http_request_error(msg: String) -> Self {
-        Self::HttpRequestError { message: msg }
-    }
-
-    /// Create a JSON parsing error
-    pub fn json_error(msg: String) -> Self {
-        Self::JsonError { message: msg }
-    }
-
-    /// Create an invalid parameter location error
-    pub fn invalid_parameter_location(msg: String) -> Self {
-        Self::ValidationErrors {
-            violations: vec![ValidationError::ConstraintViolation {
-                parameter: String::new(),
-                message: format!("Invalid parameter location: {msg}"),
-                field_path: None,
-                actual_value: None,
-                expected_type: None,
-                constraints: vec![],
-            }],
-        }
-    }
-
-    /// Get a human-readable message for this error
-    pub fn message(&self) -> String {
-        self.to_string()
-    }
-}
-
-/// Error response structure for tool execution failures
+/// Network error categories for better error handling
 #[derive(Debug, Serialize, JsonSchema)]
-pub struct ErrorResponse {
-    /// Error information
-    pub error: ToolCallError,
+#[serde(rename_all = "kebab-case")]
+pub enum NetworkErrorCategory {
+    /// Request timeout
+    Timeout,
+    /// Connection error (DNS, refused, unreachable)
+    Connect,
+    /// Request construction/sending error
+    Request,
+    /// Response body error
+    Body,
+    /// Response decoding error
+    Decode,
+    /// Other network errors
+    Other,
 }
 
 #[cfg(test)]
@@ -558,11 +503,13 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_serialization_with_details() {
-        let error = ToolCallError::invalid_parameter(
-            "pet_id".to_string(),
-            vec!["petId".to_string()],
-            vec!["petId".to_string(), "timeout_seconds".to_string()],
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::InvalidParameter {
+                parameter: "pet_id".to_string(),
+                suggestions: vec!["petId".to_string()],
+                valid_parameters: vec!["petId".to_string(), "timeout_seconds".to_string()],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -570,7 +517,10 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_serialization_without_details() {
-        let error = ToolCallError::tool_not_found("unknownTool".to_string(), vec![]);
+        let error = ToolCallError::Validation(ToolCallValidationError::ToolNotFound {
+            tool_name: "unknownTool".to_string(),
+            suggestions: vec![],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -578,31 +528,28 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_serialization_with_suggestions() {
-        let error = ToolCallError::tool_not_found(
-            "getPetByID".to_string(),
-            vec!["getPetById".to_string(), "getPetsByStatus".to_string()],
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::ToolNotFound {
+            tool_name: "getPetByID".to_string(),
+            suggestions: vec!["getPetById".to_string(), "getPetsByStatus".to_string()],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
-        assert_eq!(serialized["type"], "tool-not-found");
-        assert_eq!(serialized["tool_name"], "getPetByID");
-        assert_eq!(
-            serialized["suggestions"],
-            json!(["getPetById", "getPetsByStatus"])
-        );
+        assert_json_snapshot!(serialized);
     }
 
     #[test]
     fn test_tool_call_error_multiple_suggestions() {
-        let error = ToolCallError::invalid_parameter(
-            "pet_i".to_string(),
-            vec!["petId".to_string(), "petInfo".to_string()],
-            vec![
-                "petId".to_string(),
-                "petInfo".to_string(),
-                "timeout".to_string(),
-            ],
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::InvalidParameter {
+                parameter: "pet_i".to_string(),
+                suggestions: vec!["petId".to_string(), "petInfo".to_string()],
+                valid_parameters: vec![
+                    "petId".to_string(),
+                    "petInfo".to_string(),
+                    "timeout".to_string(),
+                ],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -610,11 +557,13 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_no_suggestions() {
-        let error = ToolCallError::invalid_parameter(
-            "completely_wrong".to_string(),
-            vec![],
-            vec!["petId".to_string(), "timeout".to_string()],
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::InvalidParameter {
+                parameter: "completely_wrong".to_string(),
+                suggestions: vec![],
+                valid_parameters: vec!["petId".to_string(), "timeout".to_string()],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -622,31 +571,38 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation() {
-        let error = ToolCallError::validation_error("Missing required field".to_string());
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::MissingRequiredParameter {
+                parameter: "field".to_string(),
+                description: Some("Missing required field".to_string()),
+                expected_type: "string".to_string(),
+            }],
+        });
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
     }
 
     #[test]
     fn test_tool_call_error_validation_detailed() {
-        let constraints = vec![
-            ValidationConstraint::Minimum {
-                value: 0.0,
-                exclusive: false,
-            },
-            ValidationConstraint::Maximum {
-                value: 150.0,
-                exclusive: false,
-            },
-        ];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Parameter 'age' must be between 0 and 150".to_string(),
-            Some("age".to_string()),
-            Some(json!(200)),
-            Some("integer".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "age".to_string(),
+                message: "Parameter 'age' must be between 0 and 150".to_string(),
+                field_path: Some("age".to_string()),
+                actual_value: Some(Box::new(json!(200))),
+                expected_type: Some("integer".to_string()),
+                constraints: vec![
+                    ValidationConstraint::Minimum {
+                        value: 0.0,
+                        exclusive: false,
+                    },
+                    ValidationConstraint::Maximum {
+                        value: 150.0,
+                        exclusive: false,
+                    },
+                ],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -654,17 +610,18 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_enum() {
-        let constraints = vec![ValidationConstraint::EnumValues {
-            values: vec![json!("available"), json!("pending"), json!("sold")],
-        }];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Parameter 'status' must be one of: available, pending, sold".to_string(),
-            Some("status".to_string()),
-            Some(json!("unknown")),
-            Some("string".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "status".to_string(),
+                message: "Parameter 'status' must be one of: available, pending, sold".to_string(),
+                field_path: Some("status".to_string()),
+                actual_value: Some(Box::new(json!("unknown"))),
+                expected_type: Some("string".to_string()),
+                constraints: vec![ValidationConstraint::EnumValues {
+                    values: vec![json!("available"), json!("pending"), json!("sold")],
+                }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -672,17 +629,18 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_format() {
-        let constraints = vec![ValidationConstraint::Format {
-            format: "email".to_string(),
-        }];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Invalid email format".to_string(),
-            Some("contact.email".to_string()),
-            Some(json!("not-an-email")),
-            Some("string".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "email".to_string(),
+                message: "Invalid email format".to_string(),
+                field_path: Some("contact.email".to_string()),
+                actual_value: Some(Box::new(json!("not-an-email"))),
+                expected_type: Some("string".to_string()),
+                constraints: vec![ValidationConstraint::Format {
+                    format: "email".to_string(),
+                }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -690,39 +648,54 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_http_error() {
-        let error = ToolCallError::http_error(404, "Not found".to_string());
+        let error = ToolCallError::Execution(ToolCallExecutionError::HttpError {
+            status: 404,
+            message: "Not found".to_string(),
+            details: None,
+        });
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
     }
 
     #[test]
     fn test_tool_call_error_http_request() {
-        let error = ToolCallError::http_request_error("Connection timeout".to_string());
+        let error = ToolCallError::Execution(ToolCallExecutionError::NetworkError {
+            message: "Connection timeout".to_string(),
+            category: NetworkErrorCategory::Timeout,
+        });
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
     }
 
     #[test]
     fn test_tool_call_error_json() {
-        let error = ToolCallError::json_error("Invalid JSON".to_string());
+        let error = ToolCallError::Execution(ToolCallExecutionError::ResponseParsingError {
+            reason: "Invalid JSON".to_string(),
+            raw_response: None,
+        });
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
     }
 
     #[test]
-    fn test_tool_call_error_invalid_location() {
-        let error = ToolCallError::invalid_parameter_location("body".to_string());
+    fn test_tool_call_error_request_construction() {
+        let error = ToolCallError::Validation(ToolCallValidationError::RequestConstructionError {
+            reason: "Invalid parameter location: body".to_string(),
+        });
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
     }
 
     #[test]
     fn test_error_response_serialization() {
-        let error = ToolCallError::invalid_parameter(
-            "test_param".to_string(),
-            vec!["testParam".to_string()],
-            vec!["testParam".to_string(), "otherParam".to_string()],
-        );
+        let error = ToolCallExecutionError::HttpError {
+            status: 400,
+            message: "Bad Request".to_string(),
+            details: Some(json!({
+                "error": "Invalid parameter",
+                "parameter": "test_param"
+            })),
+        };
 
         let response = ErrorResponse { error };
         let serialized = serde_json::to_value(&response).unwrap();
@@ -731,15 +704,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_multiple_of() {
-        let constraints = vec![ValidationConstraint::MultipleOf { value: 3.0 }];
-
-        let error = ToolCallError::validation_error_detailed(
-            "10.5 is not a multiple of 3".to_string(),
-            Some("price".to_string()),
-            Some(json!(10.5)),
-            Some("number".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "price".to_string(),
+                message: "10.5 is not a multiple of 3".to_string(),
+                field_path: Some("price".to_string()),
+                actual_value: Some(Box::new(json!(10.5))),
+                expected_type: Some("number".to_string()),
+                constraints: vec![ValidationConstraint::MultipleOf { value: 3.0 }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -747,15 +721,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_min_items() {
-        let constraints = vec![ValidationConstraint::MinItems { value: 2 }];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Array has 1 items but minimum is 2".to_string(),
-            Some("tags".to_string()),
-            Some(json!(["tag1"])),
-            Some("array".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "tags".to_string(),
+                message: "Array has 1 items but minimum is 2".to_string(),
+                field_path: Some("tags".to_string()),
+                actual_value: Some(Box::new(json!(["tag1"]))),
+                expected_type: Some("array".to_string()),
+                constraints: vec![ValidationConstraint::MinItems { value: 2 }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -763,15 +738,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_max_items() {
-        let constraints = vec![ValidationConstraint::MaxItems { value: 3 }];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Array has 4 items but maximum is 3".to_string(),
-            Some("categories".to_string()),
-            Some(json!(["a", "b", "c", "d"])),
-            Some("array".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "categories".to_string(),
+                message: "Array has 4 items but maximum is 3".to_string(),
+                field_path: Some("categories".to_string()),
+                actual_value: Some(Box::new(json!(["a", "b", "c", "d"]))),
+                expected_type: Some("array".to_string()),
+                constraints: vec![ValidationConstraint::MaxItems { value: 3 }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -779,15 +755,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_unique_items() {
-        let constraints = vec![ValidationConstraint::UniqueItems];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Array items [1, 2, 2, 3] are not unique".to_string(),
-            Some("numbers".to_string()),
-            Some(json!([1, 2, 2, 3])),
-            Some("array".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "numbers".to_string(),
+                message: "Array items [1, 2, 2, 3] are not unique".to_string(),
+                field_path: Some("numbers".to_string()),
+                actual_value: Some(Box::new(json!([1, 2, 2, 3]))),
+                expected_type: Some("array".to_string()),
+                constraints: vec![ValidationConstraint::UniqueItems],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -795,15 +772,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_min_properties() {
-        let constraints = vec![ValidationConstraint::MinProperties { value: 3 }];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Object has 2 properties but minimum is 3".to_string(),
-            Some("metadata".to_string()),
-            Some(json!({"name": "test", "version": "1.0"})),
-            Some("object".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "metadata".to_string(),
+                message: "Object has 2 properties but minimum is 3".to_string(),
+                field_path: Some("metadata".to_string()),
+                actual_value: Some(Box::new(json!({"name": "test", "version": "1.0"}))),
+                expected_type: Some("object".to_string()),
+                constraints: vec![ValidationConstraint::MinProperties { value: 3 }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -811,15 +789,16 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_max_properties() {
-        let constraints = vec![ValidationConstraint::MaxProperties { value: 2 }];
-
-        let error = ToolCallError::validation_error_detailed(
-            "Object has 3 properties but maximum is 2".to_string(),
-            Some("config".to_string()),
-            Some(json!({"a": 1, "b": 2, "c": 3})),
-            Some("object".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "config".to_string(),
+                message: "Object has 3 properties but maximum is 2".to_string(),
+                field_path: Some("config".to_string()),
+                actual_value: Some(Box::new(json!({"a": 1, "b": 2, "c": 3}))),
+                expected_type: Some("object".to_string()),
+                constraints: vec![ValidationConstraint::MaxProperties { value: 2 }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
@@ -827,19 +806,66 @@ mod tests {
 
     #[test]
     fn test_tool_call_error_validation_const() {
-        let constraints = vec![ValidationConstraint::ConstValue {
-            value: json!("production"),
-        }];
-
-        let error = ToolCallError::validation_error_detailed(
-            r#""staging" is not equal to const "production""#.to_string(),
-            Some("environment".to_string()),
-            Some(json!("staging")),
-            Some("string".to_string()),
-            constraints,
-        );
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::ConstraintViolation {
+                parameter: "environment".to_string(),
+                message: r#""staging" is not equal to const "production""#.to_string(),
+                field_path: Some("environment".to_string()),
+                actual_value: Some(Box::new(json!("staging"))),
+                expected_type: Some("string".to_string()),
+                constraints: vec![ValidationConstraint::ConstValue {
+                    value: json!("production"),
+                }],
+            }],
+        });
 
         let serialized = serde_json::to_value(&error).unwrap();
         assert_json_snapshot!(serialized);
+    }
+
+    #[test]
+    fn test_error_data_conversion_preserves_details() {
+        // Test InvalidParameter error conversion
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![ValidationError::InvalidParameter {
+                parameter: "page".to_string(),
+                suggestions: vec!["page_number".to_string()],
+                valid_parameters: vec!["page_number".to_string(), "page_size".to_string()],
+            }],
+        });
+
+        let error_data: ErrorData = error.into();
+        let error_json = serde_json::to_value(&error_data).unwrap();
+
+        // Check that error details are preserved
+        assert!(error_json["data"].is_object(), "Should have data field");
+        assert_eq!(
+            error_json["data"]["type"].as_str(),
+            Some("validation-errors"),
+            "Should have validation-errors type"
+        );
+
+        // Test Network error conversion
+        let network_error = ToolCallError::Execution(ToolCallExecutionError::NetworkError {
+            message: "SSL/TLS connection failed - certificate verification error".to_string(),
+            category: NetworkErrorCategory::Connect,
+        });
+
+        let error_data: ErrorData = network_error.into();
+        let error_json = serde_json::to_value(&error_data).unwrap();
+
+        assert!(error_json["data"].is_object(), "Should have data field");
+        assert_eq!(
+            error_json["data"]["type"].as_str(),
+            Some("network-error"),
+            "Should have network-error type"
+        );
+        assert!(
+            error_json["data"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("SSL/TLS"),
+            "Should preserve error message"
+        );
     }
 }

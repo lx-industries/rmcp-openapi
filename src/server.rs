@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use url::Url;
 
-use crate::error::{OpenApiError, ToolCallError};
+use crate::error::{OpenApiError, ToolCallValidationError};
 use crate::http_client::HttpClient;
 use crate::openapi::OpenApiSpecLocation;
 use crate::tool_registry::ToolRegistry;
@@ -180,61 +180,6 @@ impl OpenApiServer {
     }
 }
 
-/// Helper function to create structured error content for tools with output schema.
-///
-/// When a tool has an `outputSchema` defined, ALL responses (including errors) must provide
-/// `structuredContent` that conforms to the schema. This ensures consistent, predictable output
-/// that LLMs can reliably parse.
-///
-/// # Arguments
-///
-/// * `error` - The OpenApiError to convert to structured content
-/// * `has_output_schema` - Whether the tool has an output schema defined
-///
-/// # Returns
-///
-/// * `Some(Value)` - A JSON value with the structure `{ status: <HTTP code>, body: { error: <message> } }`
-/// * `None` - If the tool has no output schema
-///
-/// # Error Mapping
-///
-/// - `InvalidParameter`, `Validation`, `InvalidParameterLocation` → 400 (Bad Request)
-/// - `ToolNotFound`, `FileNotFound` → 404 (Not Found)
-/// - `HttpRequest`, `Http` → 502 (Bad Gateway)
-/// - All other errors → 500 (Internal Server Error)
-fn create_structured_error_content(
-    error: &ToolCallError,
-    has_output_schema: bool,
-) -> Option<Value> {
-    if !has_output_schema {
-        return None;
-    }
-
-    // Map error types to appropriate HTTP status codes
-    let status_code = match error {
-        ToolCallError::ValidationErrors { .. } => 400,
-        ToolCallError::ToolNotFound { .. } => 404,
-        ToolCallError::HttpError { status, .. } => {
-            if *status >= 400 && *status < 500 {
-                400
-            } else {
-                502
-            }
-        }
-        ToolCallError::HttpRequestError { .. } => 502,
-        ToolCallError::JsonError { .. } => 500,
-    };
-
-    // Create structured error response with ToolCallError serialization
-    // ToolCallError serializes to { message: string, details?: object }
-    Some(json!({
-        "status": status_code,
-        "body": {
-            "error": error
-        }
-    }))
-}
-
 impl ServerHandler for OpenApiServer {
     fn get_info(&self) -> InitializeResult {
         InitializeResult {
@@ -318,29 +263,8 @@ impl ServerHandler for OpenApiServer {
                     })
                 }
                 Err(e) => {
-                    // For tools with output schema, return structured error that conforms to the schema
-                    // This ensures MCP compliance - ALL responses must match the declared outputSchema
-                    let structured_content =
-                        create_structured_error_content(&e, tool_metadata.output_schema.is_some());
-
-                    // Return error response with details
-                    Ok(CallToolResult {
-                        content: if tool_metadata.output_schema.is_some() {
-                            Some(vec![]) // Empty content when structured_content is present
-                        } else {
-                            Some(vec![Content::text(format!(
-                                "❌ Error executing tool '{}'\n\nError: {}\n\nTool details:\n- Method: {}\n- Path: {}\n- Arguments: {}",
-                                request.name,
-                                e,
-                                tool_metadata.method.to_uppercase(),
-                                tool_metadata.path,
-                                serde_json::to_string_pretty(&arguments_value)
-                                    .unwrap_or_else(|_| "Invalid JSON".to_string())
-                            ))])
-                        },
-                        structured_content,
-                        is_error: Some(true),
-                    })
+                    // Convert ToolCallError to ErrorData and return as error
+                    Err(e.into())
                 }
             }
         } else {
@@ -349,8 +273,11 @@ impl ServerHandler for OpenApiServer {
             let tool_name_refs: Vec<&str> = tool_names.iter().map(|s| s.as_str()).collect();
             let suggestions = crate::find_similar_strings(&request.name, &tool_name_refs);
 
-            // Create ToolCallError with suggestions
-            let error = ToolCallError::tool_not_found(request.name.to_string(), suggestions);
+            // Create ToolCallValidationError with suggestions
+            let error = ToolCallValidationError::ToolNotFound {
+                tool_name: request.name.to_string(),
+                suggestions,
+            };
             Err(error.into())
         }
     }
@@ -359,117 +286,7 @@ impl ServerHandler for OpenApiServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_create_structured_error_content_invalid_parameter() {
-        let error = ToolCallError::invalid_parameter(
-            "pet_id".to_string(),
-            vec!["petId".to_string()],
-            vec!["petId".to_string(), "timeout_seconds".to_string()],
-        );
-
-        // With output schema
-        let result = create_structured_error_content(&error, true);
-        assert!(result.is_some());
-
-        let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result);
-
-        // Without output schema
-        let result = create_structured_error_content(&error, false);
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_create_structured_error_content_tool_not_found() {
-        // Test without suggestions
-        let error = ToolCallError::tool_not_found("unknownTool".to_string(), vec![]);
-        let result = create_structured_error_content(&error, true);
-        let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result, @r###"
-        {
-          "body": {
-            "error": {
-              "suggestions": [],
-              "tool_name": "unknownTool",
-              "type": "tool-not-found"
-            }
-          },
-          "status": 404
-        }
-        "###);
-
-        // Test with suggestions
-        let error_with_suggestions = ToolCallError::tool_not_found(
-            "getPetByID".to_string(),
-            vec!["getPetById".to_string(), "getPetsByStatus".to_string()],
-        );
-        let result_with_suggestions =
-            create_structured_error_content(&error_with_suggestions, true);
-        let json_result_with_suggestions = result_with_suggestions.unwrap();
-        insta::assert_json_snapshot!(json_result_with_suggestions);
-    }
-
-    #[test]
-    fn test_create_structured_error_content_validation() {
-        let error = ToolCallError::validation_error("Missing required field".to_string());
-
-        let result = create_structured_error_content(&error, true);
-        assert!(result.is_some());
-
-        let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result);
-    }
-
-    #[test]
-    fn test_create_structured_error_content_http_errors() {
-        // HTTP request error
-        let error = ToolCallError::http_error(503, "Server unavailable".to_string());
-        let result = create_structured_error_content(&error, true);
-        assert!(result.is_some());
-
-        let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result);
-
-        // HTTP request failed (non-actionable error)
-        let error = ToolCallError::http_request_error("Connection timeout".to_string());
-        let result = create_structured_error_content(&error, true);
-        assert!(result.is_some());
-
-        let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result);
-    }
-
-    #[test]
-    fn test_create_structured_error_content_generic_error() {
-        let error = ToolCallError::validation_error("Internal server error".to_string());
-
-        let result = create_structured_error_content(&error, true);
-        assert!(result.is_some());
-
-        let json_result = result.unwrap();
-        insta::assert_json_snapshot!(json_result);
-    }
-
-    #[test]
-    fn test_create_structured_error_content_no_output_schema() {
-        // When has_output_schema is false, should always return None
-        let errors = vec![
-            ToolCallError::invalid_parameter(
-                "test".to_string(),
-                vec!["suggestion".to_string()],
-                vec!["valid1".to_string(), "valid2".to_string()],
-            ),
-            ToolCallError::tool_not_found("test".to_string(), vec![]),
-            ToolCallError::validation_error("test".to_string()),
-            ToolCallError::http_request_error("test".to_string()),
-        ];
-
-        for error in errors {
-            let result = create_structured_error_content(&error, false);
-            assert!(result.is_none());
-        }
-    }
+    use crate::error::ToolCallError;
 
     #[test]
     fn test_tool_not_found_error_with_suggestions() {
@@ -551,7 +368,10 @@ mod tests {
         let tool_name_refs: Vec<&str> = tool_names.iter().map(|s| s.as_str()).collect();
         let suggestions = crate::find_similar_strings("getPetByID", &tool_name_refs);
 
-        let error = ToolCallError::tool_not_found("getPetByID".to_string(), suggestions);
+        let error = ToolCallError::Validation(ToolCallValidationError::ToolNotFound {
+            tool_name: "getPetByID".to_string(),
+            suggestions,
+        });
         let error_data: ErrorData = error.into();
         let error_json = serde_json::to_value(&error_data).unwrap();
 
@@ -609,12 +429,53 @@ mod tests {
         let suggestions =
             crate::find_similar_strings("completelyUnrelatedToolName", &tool_name_refs);
 
-        let error =
-            ToolCallError::tool_not_found("completelyUnrelatedToolName".to_string(), suggestions);
+        let error = ToolCallError::Validation(ToolCallValidationError::ToolNotFound {
+            tool_name: "completelyUnrelatedToolName".to_string(),
+            suggestions,
+        });
         let error_data: ErrorData = error.into();
         let error_json = serde_json::to_value(&error_data).unwrap();
 
         // Snapshot the error to verify no suggestions
         insta::assert_json_snapshot!(error_json);
+    }
+
+    #[test]
+    fn test_validation_error_converted_to_error_data() {
+        // Test that validation errors are properly converted to ErrorData
+        let error = ToolCallError::Validation(ToolCallValidationError::InvalidParameters {
+            violations: vec![crate::error::ValidationError::InvalidParameter {
+                parameter: "page".to_string(),
+                suggestions: vec!["page_number".to_string()],
+                valid_parameters: vec!["page_number".to_string(), "page_size".to_string()],
+            }],
+        });
+
+        let error_data: ErrorData = error.into();
+        let error_json = serde_json::to_value(&error_data).unwrap();
+
+        // Verify the error has proper structure
+        assert_eq!(error_json["code"], -32602); // Invalid params error code
+        assert!(
+            error_json["message"]
+                .as_str()
+                .unwrap()
+                .contains("Validation failed")
+        );
+        assert!(error_json["data"].is_object());
+        assert_eq!(
+            error_json["data"]["type"].as_str(),
+            Some("validation-errors")
+        );
+
+        // Check that violations are preserved
+        let violations = &error_json["data"]["violations"];
+        assert!(violations.is_array());
+        assert_eq!(violations.as_array().unwrap().len(), 1);
+
+        let first_violation = &violations[0];
+        assert_eq!(first_violation["type"], "invalid-parameter");
+        assert_eq!(first_violation["parameter"], "page");
+        assert_eq!(first_violation["suggestions"], json!(["page_number"]));
     }
 }

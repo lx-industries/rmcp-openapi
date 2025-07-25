@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::error::{
-    ErrorResponse, OpenApiError, ToolCallError, ValidationConstraint, ValidationError,
+    ErrorResponse, OpenApiError, ToolCallValidationError, ValidationConstraint, ValidationError,
 };
 use crate::server::ToolMetadata;
 use oas3::spec::{
@@ -1095,9 +1095,11 @@ impl ToolGenerator {
     pub fn extract_parameters(
         tool_metadata: &ToolMetadata,
         arguments: &Value,
-    ) -> Result<ExtractedParameters, ToolCallError> {
+    ) -> Result<ExtractedParameters, ToolCallValidationError> {
         let args = arguments.as_object().ok_or_else(|| {
-            ToolCallError::validation_error("Arguments must be an object".to_string())
+            ToolCallValidationError::RequestConstructionError {
+                reason: "Arguments must be an object".to_string(),
+            }
         })?;
 
         let mut path_params = HashMap::new();
@@ -1125,8 +1127,11 @@ impl ToolGenerator {
             }
 
             // Determine parameter location from the tool metadata
-            let location = Self::get_parameter_location(tool_metadata, key)
-                .map_err(|e| ToolCallError::validation_error(e.to_string()))?;
+            let location = Self::get_parameter_location(tool_metadata, key).map_err(|e| {
+                ToolCallValidationError::RequestConstructionError {
+                    reason: e.to_string(),
+                }
+            })?;
 
             // Get the original name if it exists
             let original_name = Self::get_original_parameter_name(tool_metadata, key);
@@ -1171,9 +1176,9 @@ impl ToolGenerator {
                     body_params.insert(body_name, value.clone());
                 }
                 _ => {
-                    return Err(ToolCallError::validation_error(format!(
-                        "Unknown parameter location for parameter: {key}"
-                    )));
+                    return Err(ToolCallValidationError::RequestConstructionError {
+                        reason: format!("Unknown parameter location for parameter: {key}"),
+                    });
                 }
             }
         }
@@ -1247,7 +1252,7 @@ impl ToolGenerator {
     fn validate_parameters(
         tool_metadata: &ToolMetadata,
         arguments: &Value,
-    ) -> Result<(), ToolCallError> {
+    ) -> Result<(), ToolCallValidationError> {
         let schema = &tool_metadata.parameters;
 
         // Get required parameters from schema
@@ -1264,12 +1269,14 @@ impl ToolGenerator {
         let properties = schema
             .get("properties")
             .and_then(|p| p.as_object())
-            .ok_or_else(|| {
-                ToolCallError::validation_error("Tool schema missing properties".to_string())
+            .ok_or_else(|| ToolCallValidationError::RequestConstructionError {
+                reason: "Tool schema missing properties".to_string(),
             })?;
 
         let args = arguments.as_object().ok_or_else(|| {
-            ToolCallError::validation_error("Arguments must be an object".to_string())
+            ToolCallValidationError::RequestConstructionError {
+                reason: "Arguments must be an object".to_string(),
+            }
         })?;
 
         // Collect ALL validation errors before returning
@@ -1290,7 +1297,9 @@ impl ToolGenerator {
 
         // Return all errors if any were found
         if !all_errors.is_empty() {
-            return Err(ToolCallError::validation_errors(all_errors));
+            return Err(ToolCallValidationError::InvalidParameters {
+                violations: all_errors,
+            });
         }
 
         Ok(())
@@ -3342,6 +3351,164 @@ mod tests {
                 assert!(valid_parameters.is_empty());
             }
             _ => panic!("Expected InvalidParameter variant"),
+        }
+    }
+
+    #[test]
+    fn test_check_unknown_parameters_gltf_pagination() {
+        // Test the GLTF Live pagination scenario
+        let mut properties = serde_json::Map::new();
+        properties.insert(
+            "page_number".to_string(),
+            json!({
+                "type": "integer",
+                "x-original-name": "page[number]"
+            }),
+        );
+        properties.insert(
+            "page_size".to_string(),
+            json!({
+                "type": "integer",
+                "x-original-name": "page[size]"
+            }),
+        );
+
+        // User passes page/per_page (common pagination params)
+        let mut args = serde_json::Map::new();
+        args.insert("page".to_string(), json!(1));
+        args.insert("per_page".to_string(), json!(10));
+
+        let result = ToolGenerator::check_unknown_parameters(&args, &properties);
+        assert_eq!(result.len(), 2, "Should have 2 unknown parameters");
+
+        // Check that both parameters are flagged as invalid
+        let page_error = result
+            .iter()
+            .find(|e| {
+                if let ValidationError::InvalidParameter { parameter, .. } = e {
+                    parameter == "page"
+                } else {
+                    false
+                }
+            })
+            .expect("Should have error for 'page'");
+
+        let per_page_error = result
+            .iter()
+            .find(|e| {
+                if let ValidationError::InvalidParameter { parameter, .. } = e {
+                    parameter == "per_page"
+                } else {
+                    false
+                }
+            })
+            .expect("Should have error for 'per_page'");
+
+        // Verify suggestions are provided for 'page'
+        match page_error {
+            ValidationError::InvalidParameter {
+                suggestions,
+                valid_parameters,
+                ..
+            } => {
+                assert!(
+                    suggestions.contains(&"page_number".to_string()),
+                    "Should suggest 'page_number' for 'page'"
+                );
+                assert_eq!(valid_parameters.len(), 2);
+                assert!(valid_parameters.contains(&"page_number".to_string()));
+                assert!(valid_parameters.contains(&"page_size".to_string()));
+            }
+            _ => panic!("Expected InvalidParameter"),
+        }
+
+        // Verify error for 'per_page' (may not have suggestions due to low similarity)
+        match per_page_error {
+            ValidationError::InvalidParameter {
+                parameter,
+                suggestions,
+                valid_parameters,
+                ..
+            } => {
+                assert_eq!(parameter, "per_page");
+                assert_eq!(valid_parameters.len(), 2);
+                // per_page might not get suggestions if the similarity algorithm
+                // doesn't find it similar enough to page_size
+                if !suggestions.is_empty() {
+                    assert!(suggestions.contains(&"page_size".to_string()));
+                }
+            }
+            _ => panic!("Expected InvalidParameter"),
+        }
+    }
+
+    #[test]
+    fn test_validate_parameters_with_invalid_params() {
+        // Create a tool metadata with sanitized parameter names
+        let tool_metadata = ToolMetadata {
+            name: "listItems".to_string(),
+            title: None,
+            description: "List items".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "page_number": {
+                        "type": "integer",
+                        "x-original-name": "page[number]"
+                    },
+                    "page_size": {
+                        "type": "integer",
+                        "x-original-name": "page[size]"
+                    }
+                },
+                "required": []
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/items".to_string(),
+        };
+
+        // Pass incorrect parameter names
+        let arguments = json!({
+            "page": 1,
+            "per_page": 10
+        });
+
+        let result = ToolGenerator::validate_parameters(&tool_metadata, &arguments);
+        assert!(
+            result.is_err(),
+            "Should fail validation with unknown parameters"
+        );
+
+        let error = result.unwrap_err();
+        match error {
+            ToolCallValidationError::InvalidParameters { violations } => {
+                assert_eq!(violations.len(), 2, "Should have 2 validation errors");
+
+                // Check that both parameters are in the error
+                let has_page_error = violations.iter().any(|v| {
+                    if let ValidationError::InvalidParameter { parameter, .. } = v {
+                        parameter == "page"
+                    } else {
+                        false
+                    }
+                });
+
+                let has_per_page_error = violations.iter().any(|v| {
+                    if let ValidationError::InvalidParameter { parameter, .. } = v {
+                        parameter == "per_page"
+                    } else {
+                        false
+                    }
+                });
+
+                assert!(has_page_error, "Should have error for 'page' parameter");
+                assert!(
+                    has_per_page_error,
+                    "Should have error for 'per_page' parameter"
+                );
+            }
+            _ => panic!("Expected InvalidParameters"),
         }
     }
 

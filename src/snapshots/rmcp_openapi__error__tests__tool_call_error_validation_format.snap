@@ -16,7 +16,7 @@ expression: serialized
       "expected_type": "string",
       "field_path": "contact.email",
       "message": "Invalid email format",
-      "parameter": "contact",
+      "parameter": "email",
       "type": "constraint-violation"
     }
   ]

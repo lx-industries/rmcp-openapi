@@ -6,9 +6,10 @@ expression: serialized
   "type": "validation-errors",
   "violations": [
     {
-      "message": "Missing required field",
-      "parameter": "",
-      "type": "constraint-violation"
+      "description": "Missing required field",
+      "expected_type": "string",
+      "parameter": "field",
+      "type": "missing-required-parameter"
     }
   ]
 }
