@@ -1,0 +1,191 @@
+# Common file patterns for Rust jobs
+.rust-changes: &rust-changes
+  - "Cargo.toml"
+  - "Cargo.lock"
+  - "src/**/*"
+  - "tests/**/*"
+  - "examples/**/*"
+  - ".cargo/**/*"
+  - ".gitlab/ci/rust.gitlab-ci.yml"  # Watch the Rust CI config file
+
+# Cache configuration patterns for optimal build performance
+.cargo-registry-cache: &cargo-registry-cache
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    # https://doc.rust-lang.org/cargo/guide/cargo-home.html?highlight=CI%20cache#caching-the-cargo-home-in-ci
+    - ".cargo/.crates.toml"
+    - ".cargo/.crates2.json"
+    - ".cargo/bin/"
+    - ".cargo/registry/index/"
+    - ".cargo/registry/cache/"
+    - ".cargo/registry/src/"
+    - ".cargo/git/db/"
+  policy: pull
+
+.cargo-build-cache: &cargo-build-cache
+  key: $CI_COMMIT_REF_SLUG-$CI_JOB_NAME_SLUG
+  paths:
+    # https://doc.rust-lang.org/cargo/guide/build-cache.html
+    - "target"
+  policy: pull-push
+
+# Unified Rust job template - consolidated configuration for all Rust jobs
+.rust-template:
+  image: rust:1.88.0@sha256:af306cfa71d987911a781c37b59d7d67d934f49684058f96cf72079c3626bfe0
+  variables:
+    # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
+    # Windows (`\`) vs Linux (`/`) path separators.
+    CARGO_HOME: ".cargo"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *rust-changes
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+      changes: *rust-changes
+  before_script:
+    - rustc --version
+    - cargo --version
+  interruptible: true
+
+# Build job - compile the project
+build:
+  extends: .rust-template
+  stage: build
+  script:
+    - cargo build --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+
+# Test job - run unit tests only (excluding integration tests)
+test:
+  extends: .rust-template
+  stage: test
+  script:
+    - cargo test --verbose --lib --bins
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+
+# Clippy job - run linting
+clippy:
+  extends: .rust-template
+  stage: lint
+  before_script:
+    - !reference [.rust-template, before_script]
+    - rustup component add clippy
+    - cargo clippy --version
+  script:
+    - cargo clippy --all-targets --all-features -- -D warnings
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+
+# Format job - check code formatting
+fmt:
+  extends: .rust-template
+  stage: lint
+  before_script:
+    - !reference [.rust-template, before_script]
+    - rustup component add rustfmt
+    - cargo fmt --version
+  script:
+    - cargo fmt --all -- --check
+  cache:
+    - <<: *cargo-registry-cache
+
+# Documentation job - build and check rustdoc
+rustdoc:
+  extends: .rust-template
+  stage: docs
+  script:
+    # Build documentation with all features and check for warnings
+    - cargo doc --all-features --no-deps 2>&1 | tee doc-output.txt
+    - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
+    # Also build with private items to ensure internal documentation is complete
+    - cargo rustdoc --lib -- --document-private-items
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+  artifacts:
+    paths:
+      - target/doc
+      - doc-output.txt
+    expire_in: 1 week
+    when: always
+
+# Documentation examples job - ensure all documentation examples compile
+doc-test:
+  extends: .rust-template
+  stage: docs
+  script:
+    # Run documentation tests to ensure examples compile
+    - cargo test --doc --all-features
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+
+# Examples job - build all examples
+examples:
+  extends: .rust-template
+  stage: examples
+  script:
+    - cargo build --examples --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+
+# Integration test with JavaScript/Node.js
+integration-js:
+  extends: .rust-template
+  stage: integration
+  before_script:
+    - !reference [.rust-template, before_script]
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -fsSL https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
+    - node --version
+    - npm --version
+  script:
+    - cargo test --test test_with_js --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+  interruptible: true
+
+# Integration test with Python
+integration-python:
+  extends: .rust-template
+  stage: integration
+  before_script:
+    - !reference [.rust-template, before_script]
+    - apt-get update -qq && apt-get install -y -qq python3 python3-pip python3-venv curl
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+    - python3 --version
+    - uv --version
+  script:
+    - cargo test --test test_with_python --verbose
+  cache:
+    - <<: *cargo-registry-cache
+    - <<: *cargo-build-cache
+      policy: pull
+  dependencies:
+    - build
+  interruptible: true
