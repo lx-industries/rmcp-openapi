@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use url::Url;
 
-use crate::error::{OpenApiError, ToolCallValidationError};
+use crate::error::{OpenApiError, ToolCallError, ToolCallExecutionError, ToolCallValidationError};
 use crate::http_client::HttpClient;
 use crate::openapi::OpenApiSpecLocation;
 use crate::tool_registry::ToolRegistry;
@@ -251,13 +251,33 @@ impl ServerHandler for OpenApiServer {
                         None
                     };
 
+                    // For structured content, serialize to JSON for backwards compatibility
+                    let content = if let Some(ref structured) = structured_content {
+                        // MCP Specification: https://modelcontextprotocol.io/specification/2025-06-18/server/tools#structured-content
+                        // "For backwards compatibility, a tool that returns structured content SHOULD also
+                        // return the serialized JSON in a TextContent block."
+                        match serde_json::to_string(structured) {
+                            Ok(json_string) => Some(vec![Content::text(json_string)]),
+                            Err(e) => {
+                                // Return error if we can't serialize the structured content
+                                let error = ToolCallError::Execution(
+                                    ToolCallExecutionError::ResponseParsingError {
+                                        reason: format!(
+                                            "Failed to serialize structured content: {e}"
+                                        ),
+                                        raw_response: None,
+                                    },
+                                );
+                                return Err(error.into());
+                            }
+                        }
+                    } else {
+                        Some(vec![Content::text(response.to_mcp_content())])
+                    };
+
                     // Return successful response
                     Ok(CallToolResult {
-                        content: if tool_metadata.output_schema.is_some() {
-                            Some(vec![]) // Empty content when structured_content is present
-                        } else {
-                            Some(vec![Content::text(response.to_mcp_content())])
-                        },
+                        content,
                         structured_content,
                         is_error: Some(!response.is_success),
                     })

@@ -676,7 +676,12 @@ expression: responses
       "petId": 123
     },
     "data": {
-      "content": [],
+      "content": [
+        {
+          "text": "{\"body\":{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":123,\"name\":\"doggie\",\"photoUrls\":[\"https://example.com/photo1.jpg\"],\"status\":\"available\",\"tags\":[{\"id\":1,\"name\":\"tag1\"}]},\"status\":200}",
+          "type": "text"
+        }
+      ],
       "isError": false,
       "structuredContent": {
         "body": {
@@ -712,7 +717,12 @@ expression: responses
       ]
     },
     "data": {
-      "content": [],
+      "content": [
+        {
+          "text": "{\"body\":[{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":1,\"name\":\"doggie\",\"photoUrls\":[\"https://example.com/photo1.jpg\"],\"status\":\"available\",\"tags\":[{\"id\":1,\"name\":\"tag1\"}]},{\"category\":{\"id\":2,\"name\":\"Cats\"},\"id\":2,\"name\":\"kitty\",\"photoUrls\":[\"https://example.com/photo2.jpg\"],\"status\":\"pending\",\"tags\":[{\"id\":2,\"name\":\"tag2\"}]}],\"status\":200}",
+          "type": "text"
+        }
+      ],
       "isError": false,
       "structuredContent": {
         "body": [
@@ -768,7 +778,12 @@ expression: responses
       }
     },
     "data": {
-      "content": [],
+      "content": [
+        {
+          "text": "{\"body\":{\"category\":{\"id\":1,\"name\":\"Dogs\"},\"id\":123,\"name\":\"new doggie\",\"photoUrls\":[\"https://example.com/photo1.jpg\"],\"status\":\"available\",\"tags\":[{\"id\":1,\"name\":\"tag1\"}]},\"status\":201}",
+          "type": "text"
+        }
+      ],
       "isError": false,
       "structuredContent": {
         "body": {
@@ -801,7 +816,12 @@ expression: responses
       "petId": 999999
     },
     "data": {
-      "content": [],
+      "content": [
+        {
+          "text": "{\"body\":{\"message\":\"Pet not found\"},\"status\":404}",
+          "type": "text"
+        }
+      ],
       "isError": true,
       "structuredContent": {
         "body": {
@@ -904,7 +924,12 @@ expression: responses
       }
     },
     "data": {
-      "content": [],
+      "content": [
+        {
+          "text": "{\"body\":{\"details\":\"Name is required\",\"message\":\"Invalid input\"},\"status\":400}",
+          "type": "text"
+        }
+      ],
       "isError": true,
       "structuredContent": {
         "body": {
