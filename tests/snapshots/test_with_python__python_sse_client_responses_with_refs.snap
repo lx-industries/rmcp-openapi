@@ -872,7 +872,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed with 1 error"
+      "message": "Validation failed - parameter 'request_body': \"invalid_status_value\" is not one of [\"available\",\"pending\",\"sold\"]"
     },
     "success": false,
     "tool": "addPet",
@@ -884,7 +884,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed with 2 errors"
+      "message": "Validation failed - invalid parameters: 'pet_id' (suggestions: petId); missing parameters: 'petId' is required (expected: integer)"
     },
     "success": false,
     "tool": "getPetById",
@@ -899,7 +899,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed with 3 errors"
+      "message": "Validation failed - invalid parameters: 'limit', 'statuses' (suggestions: status); missing parameters: 'status' is required (expected: array)"
     },
     "success": false,
     "tool": "findPetsByStatus",
@@ -911,7 +911,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed with 1 error"
+      "message": "Validation failed - parameter 'petId': \"not-a-number\" is not of type \"integer\""
     },
     "success": false,
     "tool": "getPetById",
@@ -923,7 +923,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed with 1 error"
+      "message": "Validation failed - parameter 'status': \"available\" is not of type \"array\""
     },
     "success": false,
     "tool": "findPetsByStatus",
@@ -937,7 +937,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed with 1 error"
+      "message": "Validation failed - parameter 'status': \"invalid_status\" is not one of [\"available\",\"pending\",\"sold\"]"
     },
     "success": false,
     "tool": "findPetsByStatus",

@@ -113,6 +113,7 @@ use rmcp::model::{ErrorCode, ErrorData};
 use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::{Value, json};
+use std::fmt;
 use thiserror::Error;
 
 /// Individual validation constraint that was violated
@@ -239,6 +240,101 @@ pub enum ValidationError {
         #[serde(skip_serializing_if = "Vec::is_empty")]
         constraints: Vec<ValidationConstraint>,
     },
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ValidationError::InvalidParameter {
+                parameter,
+                suggestions,
+                ..
+            } => {
+                if suggestions.is_empty() {
+                    write!(f, "'{parameter}'")
+                } else {
+                    write!(f, "'{parameter}' (suggestions: {})", suggestions.join(", "))
+                }
+            }
+            ValidationError::MissingRequiredParameter {
+                parameter,
+                expected_type,
+                ..
+            } => {
+                write!(f, "'{parameter}' is required (expected: {expected_type})")
+            }
+            ValidationError::ConstraintViolation {
+                parameter, message, ..
+            } => {
+                write!(f, "'{parameter}': {message}")
+            }
+        }
+    }
+}
+
+/// Helper function to format multiple validation errors into a single message
+fn format_validation_errors(violations: &[ValidationError]) -> String {
+    match violations.len() {
+        0 => "Validation failed".to_string(),
+        1 => {
+            // For single error, we need to add context about what type of error it is
+            let error = &violations[0];
+            match error {
+                ValidationError::InvalidParameter { .. } => {
+                    format!("Validation failed - invalid parameter {error}")
+                }
+                ValidationError::MissingRequiredParameter { .. } => {
+                    format!("Validation failed - missing required parameter: {error}")
+                }
+                ValidationError::ConstraintViolation { .. } => {
+                    format!("Validation failed - parameter {error}")
+                }
+            }
+        }
+        _ => {
+            // For multiple errors, use the new format
+            let mut invalid_params = Vec::new();
+            let mut missing_params = Vec::new();
+            let mut constraint_violations = Vec::new();
+
+            // Group errors by type
+            for error in violations {
+                match error {
+                    ValidationError::InvalidParameter { .. } => {
+                        invalid_params.push(error.to_string());
+                    }
+                    ValidationError::MissingRequiredParameter { .. } => {
+                        missing_params.push(error.to_string());
+                    }
+                    ValidationError::ConstraintViolation { .. } => {
+                        constraint_violations.push(error.to_string());
+                    }
+                }
+            }
+
+            let mut parts = Vec::new();
+
+            // Format invalid parameters
+            if !invalid_params.is_empty() {
+                let params_str = invalid_params.join(", ");
+                parts.push(format!("invalid parameters: {params_str}"));
+            }
+
+            // Format missing parameters
+            if !missing_params.is_empty() {
+                let params_str = missing_params.join(", ");
+                parts.push(format!("missing parameters: {params_str}"));
+            }
+
+            // Format constraint violations
+            if !constraint_violations.is_empty() {
+                let violations_str = constraint_violations.join("; ");
+                parts.push(format!("constraint violations: {violations_str}"));
+            }
+
+            format!("Validation failed - {}", parts.join("; "))
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -420,7 +516,7 @@ pub enum ToolCallValidationError {
     },
 
     /// Invalid parameters (unknown names, missing required, constraints)
-    #[error("Validation failed with {} error{}", violations.len(), if violations.len() == 1 { "" } else { "s" })]
+    #[error("{}", format_validation_errors(violations))]
     #[serde(rename = "validation-errors")]
     InvalidParameters {
         /// List of validation errors

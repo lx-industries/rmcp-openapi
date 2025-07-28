@@ -1,0 +1,24 @@
+---
+source: src/server.rs
+expression: error_json
+---
+{
+  "code": -32602,
+  "data": {
+    "type": "validation-errors",
+    "violations": [
+      {
+        "parameter": "page",
+        "suggestions": [
+          "page_number"
+        ],
+        "type": "invalid-parameter",
+        "valid_parameters": [
+          "page_number",
+          "page_size"
+        ]
+      }
+    ]
+  },
+  "message": "Validation failed - invalid parameter 'page' (suggestions: page_number)"
+}

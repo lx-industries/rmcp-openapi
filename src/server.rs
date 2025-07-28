@@ -474,28 +474,10 @@ mod tests {
         let error_data: ErrorData = error.into();
         let error_json = serde_json::to_value(&error_data).unwrap();
 
-        // Verify the error has proper structure
+        // Verify the basic structure
         assert_eq!(error_json["code"], -32602); // Invalid params error code
-        assert!(
-            error_json["message"]
-                .as_str()
-                .unwrap()
-                .contains("Validation failed")
-        );
-        assert!(error_json["data"].is_object());
-        assert_eq!(
-            error_json["data"]["type"].as_str(),
-            Some("validation-errors")
-        );
 
-        // Check that violations are preserved
-        let violations = &error_json["data"]["violations"];
-        assert!(violations.is_array());
-        assert_eq!(violations.as_array().unwrap().len(), 1);
-
-        let first_violation = &violations[0];
-        assert_eq!(first_violation["type"], "invalid-parameter");
-        assert_eq!(first_violation["parameter"], "page");
-        assert_eq!(first_violation["suggestions"], json!(["page_number"]));
+        // Snapshot the full error to verify the new error message format
+        insta::assert_json_snapshot!(error_json);
     }
 }
