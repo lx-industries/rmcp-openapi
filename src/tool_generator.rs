@@ -211,16 +211,16 @@ impl ToolGenerator {
             )
         });
 
-        // Build description from summary and description
-        let description = Self::build_description(operation, &method, &path);
-
-        // Generate parameter schema
+        // Generate parameter schema first so we can include it in description
         let parameters = Self::generate_parameter_schema(
             &operation.parameters,
             &method,
             &operation.request_body,
             spec,
         )?;
+
+        // Build description from summary, description, and parameters
+        let description = Self::build_description(operation, &method, &path);
 
         // Extract output schema from responses (already returns wrapped Value)
         let output_schema = Self::extract_output_schema(&operation.responses, spec)?;
@@ -862,6 +862,45 @@ impl ToolGenerator {
                 "description".to_string(),
                 json!(format!("{} parameter", param.name)),
             );
+        }
+
+        // Add parameter-level example if present
+        // Priority: param.example > param.examples > schema.example
+        // Note: schema.example is already added during base schema conversion,
+        // so parameter examples will override it by being added after
+        if let Some(example) = &param.example {
+            result.insert("example".to_string(), example.clone());
+        } else if !param.examples.is_empty() {
+            // If no single example but we have multiple examples, use the first one
+            // Also store all examples for potential use in documentation
+            let mut examples_array = Vec::new();
+            for (example_name, example_ref) in &param.examples {
+                match example_ref {
+                    ObjectOrReference::Object(example_obj) => {
+                        if let Some(value) = &example_obj.value {
+                            examples_array.push(json!({
+                                "name": example_name,
+                                "value": value
+                            }));
+                        }
+                    }
+                    ObjectOrReference::Ref { .. } => {
+                        // For now, skip references in examples
+                        // Could be enhanced to resolve references
+                    }
+                }
+            }
+
+            if !examples_array.is_empty() {
+                // Use the first example's value as the main example
+                if let Some(first_example) = examples_array.first() {
+                    if let Some(value) = first_example.get("value") {
+                        result.insert("example".to_string(), value.clone());
+                    }
+                }
+                // Store all examples for documentation purposes
+                result.insert("x-examples".to_string(), json!(examples_array));
+            }
         }
 
         // Create annotations instead of adding them to the JSON
