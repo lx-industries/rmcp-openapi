@@ -973,43 +973,19 @@ impl ToolGenerator {
             return None;
         }
 
-        // Format examples based on count and type
         if examples.len() == 1 {
-            let example_str = match &examples[0] {
-                Value::String(s) => format!("\"{s}\""),
-                Value::Number(n) => n.to_string(),
-                Value::Bool(b) => b.to_string(),
-                Value::Null => "null".to_string(),
-                Value::Array(arr) => {
-                    // For arrays, show a compact representation
-                    if arr.len() <= 3 {
-                        serde_json::to_string(&examples[0]).unwrap_or_else(|_| "[...]".to_string())
-                    } else {
-                        "[...]".to_string()
-                    }
-                }
-                Value::Object(_) => {
-                    // For objects, just indicate it's an object
-                    "{...}".to_string()
-                }
-            };
-            Some(format!("Example: {example_str}"))
+            let example_str =
+                serde_json::to_string(&examples[0]).unwrap_or_else(|_| "null".to_string());
+            Some(format!("Example: `{example_str}`"))
         } else {
-            // Multiple examples - show up to 3
-            let formatted_examples: Vec<String> = examples
-                .iter()
-                .take(3)
-                .map(|ex| match ex {
-                    Value::String(s) => format!("\"{s}\""),
-                    Value::Number(n) => n.to_string(),
-                    Value::Bool(b) => b.to_string(),
-                    Value::Null => "null".to_string(),
-                    Value::Array(_) => "[...]".to_string(),
-                    Value::Object(_) => "{...}".to_string(),
-                })
-                .collect();
-
-            Some(format!("Examples: {}", formatted_examples.join(", ")))
+            let mut result = String::from("Examples:\n");
+            for ex in examples {
+                let json_str = serde_json::to_string(ex).unwrap_or_else(|_| "null".to_string());
+                result.push_str(&format!("- `{json_str}`\n"));
+            }
+            // Remove trailing newline
+            result.pop();
+            Some(result)
         }
     }
 
@@ -3723,7 +3699,7 @@ mod tests {
             ToolGenerator::convert_parameter_schema(&param_with_example, ParameterIn::Query, &spec)
                 .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
-        assert_eq!(description, "Filter by status. Example: \"active\"");
+        assert_eq!(description, "Filter by status. Example: `\"active\"`");
 
         // Test parameter with multiple examples
         let mut examples_map = std::collections::BTreeMap::new();
@@ -3769,9 +3745,9 @@ mod tests {
         )
         .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
-        assert!(description.starts_with("Filter by status. Examples: "));
-        assert!(description.contains("\"pending\""));
-        assert!(description.contains("\"completed\""));
+        assert!(description.starts_with("Filter by status. Examples:\n"));
+        assert!(description.contains("`\"pending\"`"));
+        assert!(description.contains("`\"completed\"`"));
 
         // Test parameter with no description but with example
         let param_no_desc = Parameter {
@@ -3798,7 +3774,7 @@ mod tests {
             ToolGenerator::convert_parameter_schema(&param_no_desc, ParameterIn::Query, &spec)
                 .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
-        assert_eq!(description, "limit parameter. Example: 100");
+        assert_eq!(description, "limit parameter. Example: `100`");
     }
 
     #[test]
@@ -3806,35 +3782,35 @@ mod tests {
         // Test single string example
         let examples = vec![json!("active")];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: \"active\"".to_string()));
+        assert_eq!(result, Some("Example: `\"active\"`".to_string()));
 
         // Test single number example
         let examples = vec![json!(42)];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: 42".to_string()));
+        assert_eq!(result, Some("Example: `42`".to_string()));
 
         // Test single boolean example
         let examples = vec![json!(true)];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: true".to_string()));
+        assert_eq!(result, Some("Example: `true`".to_string()));
 
         // Test multiple examples
         let examples = vec![json!("active"), json!("pending"), json!("completed")];
         let result = ToolGenerator::format_examples_for_description(&examples);
         assert_eq!(
             result,
-            Some("Examples: \"active\", \"pending\", \"completed\"".to_string())
+            Some("Examples:\n- `\"active\"`\n- `\"pending\"`\n- `\"completed\"`".to_string())
         );
 
         // Test array example
         let examples = vec![json!(["a", "b", "c"])];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: [\"a\",\"b\",\"c\"]".to_string()));
+        assert_eq!(result, Some("Example: `[\"a\",\"b\",\"c\"]`".to_string()));
 
         // Test object example
         let examples = vec![json!({"key": "value"})];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: {...}".to_string()));
+        assert_eq!(result, Some("Example: `{\"key\":\"value\"}`".to_string()));
 
         // Test empty examples
         let examples = vec![];
@@ -3844,67 +3820,79 @@ mod tests {
         // Test null example
         let examples = vec![json!(null)];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: null".to_string()));
+        assert_eq!(result, Some("Example: `null`".to_string()));
 
         // Test mixed type examples
         let examples = vec![json!("text"), json!(123), json!(true)];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Examples: \"text\", 123, true".to_string()));
+        assert_eq!(
+            result,
+            Some("Examples:\n- `\"text\"`\n- `123`\n- `true`".to_string())
+        );
 
         // Test long array (should be truncated)
         let examples = vec![json!(["a", "b", "c", "d", "e", "f"])];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: [...]".to_string()));
+        assert_eq!(
+            result,
+            Some("Example: `[\"a\",\"b\",\"c\",\"d\",\"e\",\"f\"]`".to_string())
+        );
 
         // Test short array (should show full content)
         let examples = vec![json!([1, 2])];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: [1,2]".to_string()));
+        assert_eq!(result, Some("Example: `[1,2]`".to_string()));
 
         // Test nested object
         let examples = vec![json!({"user": {"name": "John", "age": 30}})];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: {...}".to_string()));
+        assert_eq!(
+            result,
+            Some("Example: `{\"user\":{\"age\":30,\"name\":\"John\"}}`".to_string())
+        );
 
         // Test more than 3 examples (should only show first 3)
         let examples = vec![json!("a"), json!("b"), json!("c"), json!("d"), json!("e")];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Examples: \"a\", \"b\", \"c\"".to_string()));
+        assert_eq!(
+            result,
+            Some("Examples:\n- `\"a\"`\n- `\"b\"`\n- `\"c\"`\n- `\"d\"`\n- `\"e\"`".to_string())
+        );
 
         // Test float number
         let examples = vec![json!(3.5)];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: 3.5".to_string()));
+        assert_eq!(result, Some("Example: `3.5`".to_string()));
 
         // Test negative number
         let examples = vec![json!(-42)];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: -42".to_string()));
+        assert_eq!(result, Some("Example: `-42`".to_string()));
 
         // Test false boolean
         let examples = vec![json!(false)];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: false".to_string()));
+        assert_eq!(result, Some("Example: `false`".to_string()));
 
         // Test string with special characters
         let examples = vec![json!("hello \"world\"")];
         let result = ToolGenerator::format_examples_for_description(&examples);
         // The format function just wraps strings in quotes, it doesn't escape them
-        assert_eq!(result, Some(r#"Example: "hello "world"""#.to_string()));
+        assert_eq!(result, Some(r#"Example: `"hello \"world\""`"#.to_string()));
 
         // Test empty string
         let examples = vec![json!("")];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: \"\"".to_string()));
+        assert_eq!(result, Some("Example: `\"\"`".to_string()));
 
         // Test empty array
         let examples = vec![json!([])];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: []".to_string()));
+        assert_eq!(result, Some("Example: `[]`".to_string()));
 
         // Test empty object
         let examples = vec![json!({})];
         let result = ToolGenerator::format_examples_for_description(&examples);
-        assert_eq!(result, Some("Example: {...}".to_string()));
+        assert_eq!(result, Some("Example: `{}`".to_string()));
     }
 }
