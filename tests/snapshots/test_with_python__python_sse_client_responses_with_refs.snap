@@ -872,7 +872,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed - parameter 'request_body': \"invalid_status_value\" is not one of [\"available\",\"pending\",\"sold\"]"
+      "message": "Validation failed - parameter 'request_body': \"invalid_status_value\" is not one of \"available\", \"pending\" or \"sold\""
     },
     "success": false,
     "tool": "addPet",
@@ -937,7 +937,7 @@ expression: responses
     },
     "error": {
       "code": "unknown",
-      "message": "Validation failed - parameter 'status': \"invalid_status\" is not one of [\"available\",\"pending\",\"sold\"]"
+      "message": "Validation failed - parameter 'status': \"invalid_status\" is not one of \"available\", \"pending\" or \"sold\""
     },
     "success": false,
     "tool": "findPetsByStatus",

@@ -20,7 +20,7 @@ expression: error_json
       ],
       "expected_type": "object",
       "field_path": "request_body/status",
-      "message": "\"invalid\" is not one of [\"available\",\"pending\",\"sold\"]",
+      "message": "\"invalid\" is not one of \"available\", \"pending\" or \"sold\"",
       "parameter": "request_body",
       "type": "constraint-violation"
     }

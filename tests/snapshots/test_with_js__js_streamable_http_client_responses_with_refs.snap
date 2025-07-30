@@ -842,7 +842,7 @@ expression: responses
     },
     "error": {
       "code": -32602,
-      "message": "MCP error -32602: Validation failed - parameter 'request_body': \"invalid_status_value\" is not one of [\"available\",\"pending\",\"sold\"]"
+      "message": "MCP error -32602: Validation failed - parameter 'request_body': \"invalid_status_value\" is not one of \"available\", \"pending\" or \"sold\""
     },
     "success": false,
     "tool": "addPet",
@@ -907,7 +907,7 @@ expression: responses
     },
     "error": {
       "code": -32602,
-      "message": "MCP error -32602: Validation failed - parameter 'status': \"invalid_status\" is not one of [\"available\",\"pending\",\"sold\"]"
+      "message": "MCP error -32602: Validation failed - parameter 'status': \"invalid_status\" is not one of \"available\", \"pending\" or \"sold\""
     },
     "success": false,
     "tool": "findPetsByStatus",
