@@ -854,15 +854,55 @@ impl ToolGenerator {
             }
         };
 
-        // Add or override description
-        if let Some(desc) = &param.description {
-            result.insert("description".to_string(), json!(desc));
-        } else if !result.contains_key("description") {
-            result.insert(
-                "description".to_string(),
-                json!(format!("{} parameter", param.name)),
-            );
+        // Collect examples from various sources
+        let mut collected_examples = Vec::new();
+
+        // First, check for parameter-level examples
+        if let Some(example) = &param.example {
+            collected_examples.push(example.clone());
+        } else if !param.examples.is_empty() {
+            // Collect from examples map
+            for example_ref in param.examples.values() {
+                match example_ref {
+                    ObjectOrReference::Object(example_obj) => {
+                        if let Some(value) = &example_obj.value {
+                            collected_examples.push(value.clone());
+                        }
+                    }
+                    ObjectOrReference::Ref { .. } => {
+                        // Skip references in examples for now
+                    }
+                }
+            }
+        } else if let Some(Value::String(ex_str)) = result.get("example") {
+            // If there's an example from the schema, collect it
+            collected_examples.push(json!(ex_str));
+        } else if let Some(ex) = result.get("example") {
+            collected_examples.push(ex.clone());
         }
+
+        // Build description with examples
+        let base_description = param
+            .description
+            .as_ref()
+            .map(|d| d.to_string())
+            .or_else(|| {
+                result
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .map(|d| d.to_string())
+            })
+            .unwrap_or_else(|| format!("{} parameter", param.name));
+
+        let description_with_examples = if let Some(examples_str) =
+            Self::format_examples_for_description(&collected_examples)
+        {
+            format!("{base_description}. {examples_str}")
+        } else {
+            base_description
+        };
+
+        result.insert("description".to_string(), json!(description_with_examples));
 
         // Add parameter-level example if present
         // Priority: param.example > param.examples > schema.example
@@ -924,6 +964,52 @@ impl ToolGenerator {
                 Value::Object(obj)
             }
             _ => schema,
+        }
+    }
+
+    /// Format examples for inclusion in parameter descriptions
+    fn format_examples_for_description(examples: &[Value]) -> Option<String> {
+        if examples.is_empty() {
+            return None;
+        }
+
+        // Format examples based on count and type
+        if examples.len() == 1 {
+            let example_str = match &examples[0] {
+                Value::String(s) => format!("\"{s}\""),
+                Value::Number(n) => n.to_string(),
+                Value::Bool(b) => b.to_string(),
+                Value::Null => "null".to_string(),
+                Value::Array(arr) => {
+                    // For arrays, show a compact representation
+                    if arr.len() <= 3 {
+                        serde_json::to_string(&examples[0]).unwrap_or_else(|_| "[...]".to_string())
+                    } else {
+                        "[...]".to_string()
+                    }
+                }
+                Value::Object(_) => {
+                    // For objects, just indicate it's an object
+                    "{...}".to_string()
+                }
+            };
+            Some(format!("Example: {example_str}"))
+        } else {
+            // Multiple examples - show up to 3
+            let formatted_examples: Vec<String> = examples
+                .iter()
+                .take(3)
+                .map(|ex| match ex {
+                    Value::String(s) => format!("\"{s}\""),
+                    Value::Number(n) => n.to_string(),
+                    Value::Bool(b) => b.to_string(),
+                    Value::Null => "null".to_string(),
+                    Value::Array(_) => "[...]".to_string(),
+                    Value::Object(_) => "{...}".to_string(),
+                })
+                .collect();
+
+            Some(format!("Examples: {}", formatted_examples.join(", ")))
         }
     }
 
@@ -3606,5 +3692,219 @@ mod tests {
 
         // Cookie should use original name
         assert_eq!(extracted.cookies.get("session[id]"), Some(&json!("abc123")));
+    }
+
+    #[test]
+    fn test_parameter_description_with_examples() {
+        let spec = create_test_spec();
+
+        // Test parameter with single example
+        let param_with_example = Parameter {
+            name: "status".to_string(),
+            location: ParameterIn::Query,
+            description: Some("Filter by status".to_string()),
+            required: Some(false),
+            deprecated: Some(false),
+            allow_empty_value: Some(false),
+            style: None,
+            explode: None,
+            allow_reserved: Some(false),
+            schema: Some(ObjectOrReference::Object(ObjectSchema {
+                schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                ..Default::default()
+            })),
+            example: Some(json!("active")),
+            examples: Default::default(),
+            content: None,
+            extensions: Default::default(),
+        };
+
+        let (schema, _) =
+            ToolGenerator::convert_parameter_schema(&param_with_example, ParameterIn::Query, &spec)
+                .unwrap();
+        let description = schema.get("description").unwrap().as_str().unwrap();
+        assert_eq!(description, "Filter by status. Example: \"active\"");
+
+        // Test parameter with multiple examples
+        let mut examples_map = std::collections::BTreeMap::new();
+        examples_map.insert(
+            "example1".to_string(),
+            ObjectOrReference::Object(oas3::spec::Example {
+                value: Some(json!("pending")),
+                ..Default::default()
+            }),
+        );
+        examples_map.insert(
+            "example2".to_string(),
+            ObjectOrReference::Object(oas3::spec::Example {
+                value: Some(json!("completed")),
+                ..Default::default()
+            }),
+        );
+
+        let param_with_examples = Parameter {
+            name: "status".to_string(),
+            location: ParameterIn::Query,
+            description: Some("Filter by status".to_string()),
+            required: Some(false),
+            deprecated: Some(false),
+            allow_empty_value: Some(false),
+            style: None,
+            explode: None,
+            allow_reserved: Some(false),
+            schema: Some(ObjectOrReference::Object(ObjectSchema {
+                schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                ..Default::default()
+            })),
+            example: None,
+            examples: examples_map,
+            content: None,
+            extensions: Default::default(),
+        };
+
+        let (schema, _) = ToolGenerator::convert_parameter_schema(
+            &param_with_examples,
+            ParameterIn::Query,
+            &spec,
+        )
+        .unwrap();
+        let description = schema.get("description").unwrap().as_str().unwrap();
+        assert!(description.starts_with("Filter by status. Examples: "));
+        assert!(description.contains("\"pending\""));
+        assert!(description.contains("\"completed\""));
+
+        // Test parameter with no description but with example
+        let param_no_desc = Parameter {
+            name: "limit".to_string(),
+            location: ParameterIn::Query,
+            description: None,
+            required: Some(false),
+            deprecated: Some(false),
+            allow_empty_value: Some(false),
+            style: None,
+            explode: None,
+            allow_reserved: Some(false),
+            schema: Some(ObjectOrReference::Object(ObjectSchema {
+                schema_type: Some(SchemaTypeSet::Single(SchemaType::Integer)),
+                ..Default::default()
+            })),
+            example: Some(json!(100)),
+            examples: Default::default(),
+            content: None,
+            extensions: Default::default(),
+        };
+
+        let (schema, _) =
+            ToolGenerator::convert_parameter_schema(&param_no_desc, ParameterIn::Query, &spec)
+                .unwrap();
+        let description = schema.get("description").unwrap().as_str().unwrap();
+        assert_eq!(description, "limit parameter. Example: 100");
+    }
+
+    #[test]
+    fn test_format_examples_for_description() {
+        // Test single string example
+        let examples = vec![json!("active")];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: \"active\"".to_string()));
+
+        // Test single number example
+        let examples = vec![json!(42)];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: 42".to_string()));
+
+        // Test single boolean example
+        let examples = vec![json!(true)];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: true".to_string()));
+
+        // Test multiple examples
+        let examples = vec![json!("active"), json!("pending"), json!("completed")];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(
+            result,
+            Some("Examples: \"active\", \"pending\", \"completed\"".to_string())
+        );
+
+        // Test array example
+        let examples = vec![json!(["a", "b", "c"])];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: [\"a\",\"b\",\"c\"]".to_string()));
+
+        // Test object example
+        let examples = vec![json!({"key": "value"})];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: {...}".to_string()));
+
+        // Test empty examples
+        let examples = vec![];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, None);
+
+        // Test null example
+        let examples = vec![json!(null)];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: null".to_string()));
+
+        // Test mixed type examples
+        let examples = vec![json!("text"), json!(123), json!(true)];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Examples: \"text\", 123, true".to_string()));
+
+        // Test long array (should be truncated)
+        let examples = vec![json!(["a", "b", "c", "d", "e", "f"])];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: [...]".to_string()));
+
+        // Test short array (should show full content)
+        let examples = vec![json!([1, 2])];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: [1,2]".to_string()));
+
+        // Test nested object
+        let examples = vec![json!({"user": {"name": "John", "age": 30}})];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: {...}".to_string()));
+
+        // Test more than 3 examples (should only show first 3)
+        let examples = vec![json!("a"), json!("b"), json!("c"), json!("d"), json!("e")];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Examples: \"a\", \"b\", \"c\"".to_string()));
+
+        // Test float number
+        let examples = vec![json!(3.5)];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: 3.5".to_string()));
+
+        // Test negative number
+        let examples = vec![json!(-42)];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: -42".to_string()));
+
+        // Test false boolean
+        let examples = vec![json!(false)];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: false".to_string()));
+
+        // Test string with special characters
+        let examples = vec![json!("hello \"world\"")];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        // The format function just wraps strings in quotes, it doesn't escape them
+        assert_eq!(result, Some(r#"Example: "hello "world"""#.to_string()));
+
+        // Test empty string
+        let examples = vec![json!("")];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: \"\"".to_string()));
+
+        // Test empty array
+        let examples = vec![json!([])];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: []".to_string()));
+
+        // Test empty object
+        let examples = vec![json!({})];
+        let result = ToolGenerator::format_examples_for_description(&examples);
+        assert_eq!(result, Some("Example: {...}".to_string()));
     }
 }
