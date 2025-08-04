@@ -1,3 +1,23 @@
+## [0.5.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.4.0...v0.5.0) (2025-08-04)
+
+
+### Features
+
+* add OpenAPI parameter example fields to MCP tool schemas ([5818243](https://gitlab.com/lx-industries/rmcp-openapi/commit/5818243f4c55c5d051bc8bfaa75a9a20c9500726)), closes [#39](https://gitlab.com/lx-industries/rmcp-openapi/issues/39)
+* improve format_examples_for_description() to preserve example fidelity ([8eee272](https://gitlab.com/lx-industries/rmcp-openapi/commit/8eee272b821d34e53059aa525bd39e2e21772e0a))
+* improve validation error messages with Display trait and better formatting ([2ef5213](https://gitlab.com/lx-industries/rmcp-openapi/commit/2ef521388d41b386c735848e7156463f594cdb13)), closes [#38](https://gitlab.com/lx-industries/rmcp-openapi/issues/38)
+* include parameter examples in descriptions for better MCP tool usability ([18d18a0](https://gitlab.com/lx-industries/rmcp-openapi/commit/18d18a003643089eea028722a2305a668aaf39dc)), closes [#40](https://gitlab.com/lx-industries/rmcp-openapi/issues/40)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate clap to v4.5.42 ([024d514](https://gitlab.com/lx-industries/rmcp-openapi/commit/024d51407ef4c1babf68c8f7d33d5cacb8c5b66f))
+* **deps:** update rust crate jsonschema to 0.31.0 ([6846b8d](https://gitlab.com/lx-industries/rmcp-openapi/commit/6846b8dac507586a1aeafb942cc96d063f86f112))
+* **deps:** update rust crate jsonschema to 0.32.0 ([8cb1ed1](https://gitlab.com/lx-industries/rmcp-openapi/commit/8cb1ed156804b51a9d1235c5137270837fc10dac))
+* **deps:** update rust crate jsonschema to v0.32.1 ([2d5b9a1](https://gitlab.com/lx-industries/rmcp-openapi/commit/2d5b9a1af301ede6a390e394a6e925d1bb5e3b1c))
+* **deps:** update rust crate serde_json to v1.0.142 ([85957c0](https://gitlab.com/lx-industries/rmcp-openapi/commit/85957c0c9e9ab1b86ab8492995adc62f457f3dbd))
+* **deps:** update rust crate tokio to v1.47.1 ([cdec188](https://gitlab.com/lx-industries/rmcp-openapi/commit/cdec1887141e92a5ff47cd3fbb80fb0d1e8391a6))
+
 ## [0.4.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.3.2...v0.4.0) (2025-07-28)
 
 
