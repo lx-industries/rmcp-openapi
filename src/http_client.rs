@@ -1,4 +1,4 @@
-use reqwest::header;
+use reqwest::header::{self, HeaderMap};
 use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -19,6 +19,7 @@ use crate::tool_generator::{ExtractedParameters, ToolGenerator};
 pub struct HttpClient {
     client: Arc<Client>,
     base_url: Option<Url>,
+    default_headers: HeaderMap,
 }
 
 impl HttpClient {
@@ -37,6 +38,7 @@ impl HttpClient {
         Self {
             client: Arc::new(client),
             base_url: None,
+            default_headers: HeaderMap::new(),
         }
     }
 
@@ -55,6 +57,7 @@ impl HttpClient {
         Self {
             client: Arc::new(client),
             base_url: None,
+            default_headers: HeaderMap::new(),
         }
     }
 
@@ -66,6 +69,13 @@ impl HttpClient {
     pub fn with_base_url(mut self, base_url: Url) -> Result<Self, OpenApiError> {
         self.base_url = Some(base_url);
         Ok(self)
+    }
+
+    /// Set default headers for all requests
+    #[must_use]
+    pub fn with_default_headers(mut self, default_headers: HeaderMap) -> Self {
+        self.default_headers = default_headers;
+        self
     }
 
     /// Execute an `OpenAPI` tool call
@@ -122,7 +132,13 @@ impl HttpClient {
                 })
             })?;
 
-        // Add headers
+        // Add headers: first default headers, then request-specific headers (which take precedence)
+        if !self.default_headers.is_empty() {
+            // Use the HeaderMap directly with reqwest
+            request = Self::add_headers_from_map(request, &self.default_headers);
+        }
+
+        // Add request-specific headers (these override default headers)
         if !extracted_params.headers.is_empty() {
             request = Self::add_headers(request, &extracted_params.headers);
         }
@@ -351,6 +367,15 @@ impl HttpClient {
                 }
             }
         }
+    }
+
+    /// Add headers to the request from HeaderMap
+    fn add_headers_from_map(mut request: RequestBuilder, headers: &HeaderMap) -> RequestBuilder {
+        for (key, value) in headers {
+            // HeaderName and HeaderValue are already validated, pass them directly to reqwest
+            request = request.header(key, value);
+        }
+        request
     }
 
     /// Add headers to the request

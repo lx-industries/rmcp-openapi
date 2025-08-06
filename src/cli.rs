@@ -24,6 +24,10 @@ pub struct Cli {
     /// Address to bind the MCP server to
     #[arg(long, default_value = "127.0.0.1")]
     pub bind_address: String,
+
+    /// HTTP headers to add to all requests (format: "name: value")
+    #[arg(long = "header", action = clap::ArgAction::Append, help = "HTTP headers to add to all requests in 'name: value' format (can be used multiple times)")]
+    pub headers: Vec<String>,
 }
 
 impl Cli {

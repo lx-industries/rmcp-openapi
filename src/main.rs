@@ -27,10 +27,30 @@ async fn run() -> Result<(), OpenApiError> {
     }
 
     // Create OpenApi server
-    let mut server = if let Some(base_url) = config.base_url.as_ref() {
-        OpenApiServer::with_base_url(config.spec_location.clone(), base_url.clone())?
-    } else {
-        OpenApiServer::new(config.spec_location.clone())
+    let mut server = match (config.base_url.as_ref(), !config.default_headers.is_empty()) {
+        (Some(base_url), true) => {
+            // Both base URL and headers
+            OpenApiServer::with_base_url_and_headers(
+                config.spec_location.clone(),
+                base_url.clone(),
+                config.default_headers.clone(),
+            )?
+        }
+        (Some(base_url), false) => {
+            // Only base URL
+            OpenApiServer::with_base_url(config.spec_location.clone(), base_url.clone())?
+        }
+        (None, true) => {
+            // Only headers
+            OpenApiServer::with_default_headers(
+                config.spec_location.clone(),
+                config.default_headers.clone(),
+            )
+        }
+        (None, false) => {
+            // Neither
+            OpenApiServer::new(config.spec_location.clone())
+        }
     };
 
     // Load OpenAPI specification

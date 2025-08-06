@@ -337,8 +337,31 @@ fn format_validation_errors(violations: &[ValidationError]) -> String {
     }
 }
 
+/// CLI-specific errors for command-line argument parsing and validation
+#[derive(Debug, Error)]
+pub enum CliError {
+    #[error("Invalid header format in '{header}': expected 'name: value' format")]
+    InvalidHeaderFormat { header: String },
+
+    #[error("Invalid header name in '{header}': {source}")]
+    InvalidHeaderName {
+        header: String,
+        #[source]
+        source: http::header::InvalidHeaderName,
+    },
+
+    #[error("Invalid header value in '{header}': {source}")]
+    InvalidHeaderValue {
+        header: String,
+        #[source]
+        source: http::header::InvalidHeaderValue,
+    },
+}
+
 #[derive(Debug, Error)]
 pub enum OpenApiError {
+    #[error("CLI error: {0}")]
+    Cli(#[from] CliError),
     #[error("Environment variable error: {0}")]
     EnvVar(#[from] std::env::VarError),
     #[error("IO error: {0}")]

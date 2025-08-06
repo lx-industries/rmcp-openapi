@@ -1788,6 +1788,7 @@ dependencies = [
  "anyhow",
  "axum",
  "clap",
+ "http",
  "indexmap",
  "insta",
  "jsonschema",

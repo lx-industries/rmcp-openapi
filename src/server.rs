@@ -8,6 +8,8 @@ use rmcp::{
     service::RequestContext,
 };
 use serde_json::{Value, json};
+
+use reqwest::header::HeaderMap;
 use std::sync::Arc;
 use url::Url;
 
@@ -116,6 +118,42 @@ impl OpenApiServer {
             http_client,
             base_url: Some(base_url),
         })
+    }
+
+    /// Create a new server with both base URL and default headers
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the base URL is invalid
+    pub fn with_base_url_and_headers(
+        spec_location: OpenApiSpecLocation,
+        base_url: Url,
+        default_headers: HeaderMap,
+    ) -> Result<Self, OpenApiError> {
+        let http_client = HttpClient::new()
+            .with_base_url(base_url.clone())?
+            .with_default_headers(default_headers);
+        Ok(Self {
+            spec_location,
+            registry: Arc::new(ToolRegistry::new()),
+            http_client,
+            base_url: Some(base_url),
+        })
+    }
+
+    /// Create a new server with default headers but no base URL
+    #[must_use]
+    pub fn with_default_headers(
+        spec_location: OpenApiSpecLocation,
+        default_headers: HeaderMap,
+    ) -> Self {
+        let http_client = HttpClient::new().with_default_headers(default_headers);
+        Self {
+            spec_location,
+            registry: Arc::new(ToolRegistry::new()),
+            http_client,
+            base_url: None,
+        }
     }
 
     /// Load the `OpenAPI` specification from the configured location
