@@ -1,3 +1,12 @@
+## [0.5.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.5.0...v0.5.1) (2025-08-06)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to v22.18.0 ([099a32a](https://gitlab.com/lx-industries/rmcp-openapi/commit/099a32aa9e858fec76d8afaf523a2c12f95b20eb))
+* **deps:** update rust crate rmcp to 0.4.0 ([cf641d7](https://gitlab.com/lx-industries/rmcp-openapi/commit/cf641d7cd1f88f068461dfd3b10cf99d9e96815c))
+* **deps:** update rust crate tokio-util to v0.7.16 ([d0029c4](https://gitlab.com/lx-industries/rmcp-openapi/commit/d0029c4fe8f85cd80cc89f0f59afc8c2b2cd410f))
+
 ## [0.5.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.4.0...v0.5.0) (2025-08-04)
 
 
