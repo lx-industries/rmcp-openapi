@@ -23,6 +23,10 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
+    /// Create the user agent string for HTTP requests
+    fn create_user_agent() -> String {
+        format!("rmcp-openapi-server/{}", env!("CARGO_PKG_VERSION"))
+    }
     /// Create a new HTTP client
     ///
     /// # Panics
@@ -30,7 +34,9 @@ impl HttpClient {
     /// Panics if the HTTP client cannot be created
     #[must_use]
     pub fn new() -> Self {
+        let user_agent = Self::create_user_agent();
         let client = Client::builder()
+            .user_agent(&user_agent)
             .timeout(Duration::from_secs(30))
             .build()
             .expect("Failed to create HTTP client");
@@ -49,7 +55,9 @@ impl HttpClient {
     /// Panics if the HTTP client cannot be created
     #[must_use]
     pub fn with_timeout(timeout_seconds: u64) -> Self {
+        let user_agent = Self::create_user_agent();
         let client = Client::builder()
+            .user_agent(&user_agent)
             .timeout(Duration::from_secs(timeout_seconds))
             .build()
             .expect("Failed to create HTTP client");
