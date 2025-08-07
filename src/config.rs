@@ -13,6 +13,7 @@ pub struct Config {
     pub bind_address: String,
     pub default_headers: HeaderMap,
     pub tags: Option<Vec<String>>,
+    pub methods: Option<Vec<reqwest::Method>>,
 }
 
 impl Config {
@@ -73,6 +74,7 @@ impl Config {
             bind_address: cli.bind_address,
             default_headers,
             tags: cli.tags,
+            methods: cli.methods,
         })
     }
 }
@@ -99,6 +101,7 @@ mod tests {
                 "User-Agent: TestAgent/1.0".to_string(),
             ],
             tags: None,
+            methods: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -147,6 +150,7 @@ mod tests {
                 "X-Custom  :  value with spaces  ".to_string(),
             ],
             tags: None,
+            methods: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -178,6 +182,7 @@ mod tests {
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["InvalidHeaderNoEquals".to_string()],
             tags: None,
+            methods: None,
         };
 
         let result = Config::from_cli(cli);
@@ -198,6 +203,7 @@ mod tests {
             bind_address: "127.0.0.1".to_string(),
             headers: vec![": value".to_string()],
             tags: None,
+            methods: None,
         };
 
         let result = Config::from_cli(cli);
@@ -218,6 +224,7 @@ mod tests {
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["X-Empty-Header:".to_string()],
             tags: None,
+            methods: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -242,6 +249,7 @@ mod tests {
             bind_address: "127.0.0.1".to_string(),
             headers: vec![],
             tags: None,
+            methods: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -258,6 +266,7 @@ mod tests {
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Invalid Header Name: value".to_string()],
             tags: None,
+            methods: None,
         };
 
         let result = Config::from_cli(cli);
@@ -278,6 +287,7 @@ mod tests {
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Valid-Header: invalid\x00value".to_string()],
             tags: None,
+            methods: None,
         };
 
         let result = Config::from_cli(cli);

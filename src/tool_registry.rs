@@ -34,12 +34,13 @@ impl ToolRegistry {
         &mut self,
         spec: OpenApiSpec,
         tag_filter: Option<&[String]>,
+        method_filter: Option<&[reqwest::Method]>,
     ) -> Result<usize, OpenApiError> {
         // Clear existing tools
         self.clear();
 
         // Convert operations to tool metadata
-        let tools_metadata = spec.to_tool_metadata(tag_filter)?;
+        let tools_metadata = spec.to_tool_metadata(tag_filter, method_filter)?;
         let mut registered_count = 0;
 
         // Register each tool

@@ -25,6 +25,7 @@ pub struct OpenApiServer {
     pub http_client: HttpClient,
     pub base_url: Option<Url>,
     pub tag_filter: Option<Vec<String>>,
+    pub method_filter: Option<Vec<reqwest::Method>>,
 }
 
 /// Internal metadata for tools generated from OpenAPI operations.
@@ -101,6 +102,7 @@ impl OpenApiServer {
             http_client: HttpClient::new(),
             base_url: None,
             tag_filter: None,
+            method_filter: None,
         }
     }
 
@@ -120,6 +122,7 @@ impl OpenApiServer {
             http_client,
             base_url: Some(base_url),
             tag_filter: None,
+            method_filter: None,
         })
     }
 
@@ -142,6 +145,7 @@ impl OpenApiServer {
             http_client,
             base_url: Some(base_url),
             tag_filter: None,
+            method_filter: None,
         })
     }
 
@@ -158,6 +162,7 @@ impl OpenApiServer {
             http_client,
             base_url: None,
             tag_filter: None,
+            method_filter: None,
         }
     }
 
@@ -181,7 +186,11 @@ impl OpenApiServer {
         // During initialization, we should have exclusive access to the Arc
         let registry = Arc::get_mut(&mut self.registry)
             .ok_or_else(|| OpenApiError::McpError("Registry is already shared".to_string()))?;
-        let registered_count = registry.register_from_spec(spec, self.tag_filter.as_deref())?;
+        let registered_count = registry.register_from_spec(
+            spec,
+            self.tag_filter.as_deref(),
+            self.method_filter.as_deref(),
+        )?;
 
         println!("Loaded {registered_count} tools from OpenAPI spec");
         println!("Registry stats: {}", self.registry.get_stats().summary());
@@ -217,6 +226,13 @@ impl OpenApiServer {
     #[must_use]
     pub fn with_tags(mut self, tags: Option<Vec<String>>) -> Self {
         self.tag_filter = tags;
+        self
+    }
+
+    /// Set method filter for this server instance
+    #[must_use]
+    pub fn with_methods(mut self, methods: Option<Vec<reqwest::Method>>) -> Self {
+        self.method_filter = methods;
         self
     }
 

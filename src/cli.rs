@@ -37,6 +37,15 @@ pub struct Cli {
         help = "Only include operations with these tags (comma-separated, normalized to kebab-case)"
     )]
     pub tags: Option<Vec<String>>,
+
+    /// Filter operations by HTTP methods (comma-separated)
+    #[arg(
+        long,
+        num_args(1..),
+        value_delimiter = ',',
+        help = "Only include operations with these HTTP methods (comma-separated: GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS,TRACE)"
+    )]
+    pub methods: Option<Vec<reqwest::Method>>,
 }
 
 impl Cli {
