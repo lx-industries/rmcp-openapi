@@ -264,6 +264,7 @@ expression: responses
                   "type": "string"
                 },
                 "type": "array",
+                "x-parameter-explode": true,
                 "x-parameter-location": "query",
                 "x-parameter-required": true
               },
@@ -480,6 +481,7 @@ expression: responses
                 "format": "int64",
                 "minimum": 1,
                 "type": "integer",
+                "x-parameter-explode": true,
                 "x-parameter-location": "path",
                 "x-parameter-required": true
               }

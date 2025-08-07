@@ -12,7 +12,7 @@ use crate::error::{
     ToolCallValidationError,
 };
 use crate::server::ToolMetadata;
-use crate::tool_generator::{ExtractedParameters, ToolGenerator};
+use crate::tool_generator::{ExtractedParameters, QueryParameter, ToolGenerator};
 
 /// HTTP client for executing `OpenAPI` requests
 #[derive(Clone)]
@@ -349,27 +349,42 @@ impl HttpClient {
     }
 
     /// Add query parameters to the request using proper URL encoding
-    fn add_query_parameters(url: &mut Url, query_params: &HashMap<String, Value>) {
+    fn add_query_parameters(url: &mut Url, query_params: &HashMap<String, QueryParameter>) {
         {
             let mut query_pairs = url.query_pairs_mut();
-            for (key, value) in query_params {
-                if let Value::Array(arr) = value {
-                    // Handle array parameters - add each value as a separate query parameter
-                    for item in arr {
-                        let item_str = match item {
-                            Value::String(s) => s.clone(),
-                            Value::Number(n) => n.to_string(),
-                            Value::Bool(b) => b.to_string(),
-                            _ => item.to_string(),
-                        };
-                        query_pairs.append_pair(key, &item_str);
+            for (key, query_param) in query_params {
+                if let Value::Array(arr) = &query_param.value {
+                    if query_param.explode {
+                        // explode=true: Handle array parameters - add each value as a separate query parameter
+                        for item in arr {
+                            let item_str = match item {
+                                Value::String(s) => s.clone(),
+                                Value::Number(n) => n.to_string(),
+                                Value::Bool(b) => b.to_string(),
+                                _ => item.to_string(),
+                            };
+                            query_pairs.append_pair(key, &item_str);
+                        }
+                    } else {
+                        // explode=false: Join array values with commas
+                        let array_values: Vec<String> = arr
+                            .iter()
+                            .map(|item| match item {
+                                Value::String(s) => s.clone(),
+                                Value::Number(n) => n.to_string(),
+                                Value::Bool(b) => b.to_string(),
+                                _ => item.to_string(),
+                            })
+                            .collect();
+                        let comma_separated = array_values.join(",");
+                        query_pairs.append_pair(key, &comma_separated);
                     }
                 } else {
-                    let value_str = match value {
+                    let value_str = match &query_param.value {
                         Value::String(s) => s.clone(),
                         Value::Number(n) => n.to_string(),
                         Value::Bool(b) => b.to_string(),
-                        _ => value.to_string(),
+                        _ => query_param.value.to_string(),
                     };
                     query_pairs.append_pair(key, &value_str);
                 }
@@ -835,11 +850,26 @@ mod tests {
 
         // Test various query parameter values that need encoding
         let mut query_params = HashMap::new();
-        query_params.insert("q".to_string(), json!("hello world")); // space
-        query_params.insert("category".to_string(), json!("pets&dogs")); // ampersand
-        query_params.insert("special".to_string(), json!("foo=bar")); // equals
-        query_params.insert("unicode".to_string(), json!("café")); // unicode
-        query_params.insert("percent".to_string(), json!("100%")); // percent
+        query_params.insert(
+            "q".to_string(),
+            QueryParameter::new(json!("hello world"), true),
+        ); // space
+        query_params.insert(
+            "category".to_string(),
+            QueryParameter::new(json!("pets&dogs"), true),
+        ); // ampersand
+        query_params.insert(
+            "special".to_string(),
+            QueryParameter::new(json!("foo=bar"), true),
+        ); // equals
+        query_params.insert(
+            "unicode".to_string(),
+            QueryParameter::new(json!("café"), true),
+        ); // unicode
+        query_params.insert(
+            "percent".to_string(),
+            QueryParameter::new(json!("100%"), true),
+        ); // percent
 
         let extracted_params = ExtractedParameters {
             path: HashMap::new(),
@@ -880,8 +910,14 @@ mod tests {
         };
 
         let mut query_params = HashMap::new();
-        query_params.insert("status".to_string(), json!(["available", "pending"]));
-        query_params.insert("tags".to_string(), json!(["red & blue", "fast=car"]));
+        query_params.insert(
+            "status".to_string(),
+            QueryParameter::new(json!(["available", "pending"]), true),
+        );
+        query_params.insert(
+            "tags".to_string(),
+            QueryParameter::new(json!(["red & blue", "fast=car"]), true),
+        );
 
         let extracted_params = ExtractedParameters {
             path: HashMap::new(),
@@ -977,5 +1013,81 @@ mod tests {
         // Both should produce the same normalized URL
         assert_eq!(url1.to_string(), "https://api.example.com/pets");
         assert_eq!(url2.to_string(), "https://api.example.com/pets");
+    }
+
+    #[test]
+    fn test_explode_array_parameters() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        let tool_metadata = crate::server::ToolMetadata {
+            name: "test".to_string(),
+            title: None,
+            description: "test".to_string(),
+            parameters: json!({}),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/search".to_string(),
+        };
+
+        // Test explode=true (should generate separate parameters)
+        let mut query_params_exploded = HashMap::new();
+        query_params_exploded.insert(
+            "include".to_string(),
+            QueryParameter::new(json!(["asset", "scenes"]), true),
+        );
+
+        let extracted_params_exploded = ExtractedParameters {
+            path: HashMap::new(),
+            query: query_params_exploded,
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let mut url_exploded = client
+            .build_url(&tool_metadata, &extracted_params_exploded)
+            .unwrap();
+        HttpClient::add_query_parameters(&mut url_exploded, &extracted_params_exploded.query);
+        let url_exploded_string = url_exploded.to_string();
+
+        // Test explode=false (should generate comma-separated values)
+        let mut query_params_not_exploded = HashMap::new();
+        query_params_not_exploded.insert(
+            "include".to_string(),
+            QueryParameter::new(json!(["asset", "scenes"]), false),
+        );
+
+        let extracted_params_not_exploded = ExtractedParameters {
+            path: HashMap::new(),
+            query: query_params_not_exploded,
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let mut url_not_exploded = client
+            .build_url(&tool_metadata, &extracted_params_not_exploded)
+            .unwrap();
+        HttpClient::add_query_parameters(
+            &mut url_not_exploded,
+            &extracted_params_not_exploded.query,
+        );
+        let url_not_exploded_string = url_not_exploded.to_string();
+
+        // Verify explode=true generates separate parameters
+        assert!(url_exploded_string.contains("include=asset"));
+        assert!(url_exploded_string.contains("include=scenes"));
+
+        // Verify explode=false generates comma-separated values
+        assert!(url_not_exploded_string.contains("include=asset%2Cscenes")); // comma is URL-encoded as %2C
+
+        // Make sure they're different
+        assert_ne!(url_exploded_string, url_not_exploded_string);
+
+        println!("Exploded URL: {url_exploded_string}");
+        println!("Non-exploded URL: {url_not_exploded_string}");
     }
 }

@@ -8,8 +8,8 @@ use crate::error::{
 };
 use crate::server::ToolMetadata;
 use oas3::spec::{
-    BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn, RequestBody,
-    Response, Schema, SchemaType, SchemaTypeSet, Spec,
+    BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn,
+    ParameterStyle, RequestBody, Response, Schema, SchemaType, SchemaTypeSet, Spec,
 };
 
 // Annotation key constants
@@ -18,6 +18,7 @@ const X_PARAMETER_LOCATION: &str = "x-parameter-location";
 const X_PARAMETER_REQUIRED: &str = "x-parameter-required";
 const X_CONTENT_TYPE: &str = "x-content-type";
 const X_ORIGINAL_NAME: &str = "x-original-name";
+const X_PARAMETER_EXPLODE: &str = "x-parameter-explode";
 
 /// Location type that extends ParameterIn with Body variant
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -57,6 +58,8 @@ pub enum Annotation {
     ContentType(String),
     /// Original name before sanitization
     OriginalName(String),
+    /// Parameter explode setting for arrays/objects
+    Explode(bool),
 }
 
 /// Collection of annotations that can be applied to schema objects
@@ -97,6 +100,12 @@ impl Annotations {
             .push(Annotation::OriginalName(original_name));
         self
     }
+
+    /// Add an explode annotation
+    pub fn with_explode(mut self, explode: bool) -> Self {
+        self.annotations.push(Annotation::Explode(explode));
+        self
+    }
 }
 
 impl Serialize for Annotations {
@@ -134,6 +143,9 @@ impl Serialize for Annotations {
                 }
                 Annotation::OriginalName(original_name) => {
                     map.serialize_entry(X_ORIGINAL_NAME, original_name)?;
+                }
+                Annotation::Explode(explode) => {
+                    map.serialize_entry(X_PARAMETER_EXPLODE, explode)?;
                 }
             }
         }
@@ -944,9 +956,23 @@ impl ToolGenerator {
         }
 
         // Create annotations instead of adding them to the JSON
-        let annotations = Annotations::new()
+        let mut annotations = Annotations::new()
             .with_location(Location::Parameter(location))
             .with_required(param.required.unwrap_or(false));
+
+        // Add explode annotation if present
+        if let Some(explode) = param.explode {
+            annotations = annotations.with_explode(explode);
+        } else {
+            // Default explode behavior based on OpenAPI spec:
+            // - form style defaults to true
+            // - other styles default to false
+            let default_explode = match &param.style {
+                Some(ParameterStyle::Form) | None => true, // form is default style
+                _ => false,
+            };
+            annotations = annotations.with_explode(default_explode);
+        }
 
         Ok((Value::Object(result), annotations))
     }
@@ -1242,8 +1268,9 @@ impl ToolGenerator {
                     path_params.insert(original_name.unwrap_or_else(|| key.clone()), value.clone());
                 }
                 "query" => {
-                    query_params
-                        .insert(original_name.unwrap_or_else(|| key.clone()), value.clone());
+                    let param_name = original_name.unwrap_or_else(|| key.clone());
+                    let explode = Self::get_parameter_explode(tool_metadata, key);
+                    query_params.insert(param_name, QueryParameter::new(value.clone(), explode));
                 }
                 "header" => {
                     // Use original name if available, otherwise remove "header_" prefix
@@ -1312,6 +1339,18 @@ impl ToolGenerator {
             .and_then(|schema| schema.get(X_ORIGINAL_NAME))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
+    }
+
+    /// Get parameter explode setting from tool metadata
+    fn get_parameter_explode(tool_metadata: &ToolMetadata, param_name: &str) -> bool {
+        tool_metadata
+            .parameters
+            .get("properties")
+            .and_then(|p| p.as_object())
+            .and_then(|props| props.get(param_name))
+            .and_then(|schema| schema.get(X_PARAMETER_EXPLODE))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true) // Default to true (OpenAPI default for form style)
     }
 
     /// Get parameter location from tool metadata
@@ -1828,11 +1867,24 @@ fn inline_refs(schema: &mut Value, definitions: &Value) {
     }
 }
 
+/// Query parameter with explode information
+#[derive(Debug, Clone)]
+pub struct QueryParameter {
+    pub value: Value,
+    pub explode: bool,
+}
+
+impl QueryParameter {
+    pub fn new(value: Value, explode: bool) -> Self {
+        Self { value, explode }
+    }
+}
+
 /// Extracted parameters from MCP tool call
 #[derive(Debug, Clone)]
 pub struct ExtractedParameters {
     pub path: HashMap<String, Value>,
-    pub query: HashMap<String, Value>,
+    pub query: HashMap<String, QueryParameter>,
     pub headers: HashMap<String, Value>,
     pub cookies: HashMap<String, Value>,
     pub body: HashMap<String, Value>,
@@ -3318,7 +3370,10 @@ mod tests {
         assert_eq!(extracted.path.get("user(id)"), Some(&json!("123")));
 
         // Query parameter should use original name
-        assert_eq!(extracted.query.get("page size"), Some(&json!(10)));
+        assert_eq!(
+            extracted.query.get("page size").map(|q| &q.value),
+            Some(&json!(10))
+        );
 
         // Header parameter should use original name (without prefix)
         assert_eq!(extracted.headers.get("auth-token!"), Some(&json!("secret")));
