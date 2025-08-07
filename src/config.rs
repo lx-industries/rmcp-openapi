@@ -12,6 +12,7 @@ pub struct Config {
     pub port: u16,
     pub bind_address: String,
     pub default_headers: HeaderMap,
+    pub tags: Option<Vec<String>>,
 }
 
 impl Config {
@@ -71,6 +72,7 @@ impl Config {
             port: cli.port,
             bind_address: cli.bind_address,
             default_headers,
+            tags: cli.tags,
         })
     }
 }
@@ -96,6 +98,7 @@ mod tests {
                 "Content-Type: application/json".to_string(),
                 "User-Agent: TestAgent/1.0".to_string(),
             ],
+            tags: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -143,6 +146,7 @@ mod tests {
                 " Authorization : Bearer token123 ".to_string(),
                 "X-Custom  :  value with spaces  ".to_string(),
             ],
+            tags: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -173,6 +177,7 @@ mod tests {
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["InvalidHeaderNoEquals".to_string()],
+            tags: None,
         };
 
         let result = Config::from_cli(cli);
@@ -192,6 +197,7 @@ mod tests {
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![": value".to_string()],
+            tags: None,
         };
 
         let result = Config::from_cli(cli);
@@ -211,6 +217,7 @@ mod tests {
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["X-Empty-Header:".to_string()],
+            tags: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -234,6 +241,7 @@ mod tests {
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![],
+            tags: None,
         };
 
         let config = Config::from_cli(cli).unwrap();
@@ -249,6 +257,7 @@ mod tests {
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Invalid Header Name: value".to_string()],
+            tags: None,
         };
 
         let result = Config::from_cli(cli);
@@ -268,6 +277,7 @@ mod tests {
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Valid-Header: invalid\x00value".to_string()],
+            tags: None,
         };
 
         let result = Config::from_cli(cli);

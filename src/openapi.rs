@@ -87,7 +87,10 @@ impl OpenApiSpec {
     }
 
     /// Convert all operations to MCP tool metadata
-    pub fn to_tool_metadata(&self) -> Result<Vec<ToolMetadata>, OpenApiError> {
+    pub fn to_tool_metadata(
+        &self,
+        tag_filter: Option<&[String]>,
+    ) -> Result<Vec<ToolMetadata>, OpenApiError> {
         let mut tools = Vec::new();
 
         if let Some(paths) = &self.spec.paths {
@@ -106,6 +109,17 @@ impl OpenApiSpec {
 
                 for (method, operation_ref) in operations {
                     if let Some(operation) = operation_ref {
+                        // Filter by tags if specified
+                        if let Some(filter_tags) = tag_filter {
+                            if !operation.tags.is_empty() {
+                                if !operation.tags.iter().any(|tag| filter_tags.contains(tag)) {
+                                    continue; // Skip this operation
+                                }
+                            } else {
+                                continue; // Skip operations without tags when filtering
+                            }
+                        }
+
                         let tool_metadata = ToolGenerator::generate_tool_metadata(
                             operation,
                             method.to_string(),
@@ -190,5 +204,220 @@ impl OpenApiSpec {
         }
 
         operation_ids
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn create_test_spec_with_tags() -> OpenApiSpec {
+        let spec_json = json!({
+            "openapi": "3.0.3",
+            "info": {
+                "title": "Test API",
+                "version": "1.0.0"
+            },
+            "paths": {
+                "/pets": {
+                    "get": {
+                        "operationId": "listPets",
+                        "tags": ["pet", "list"],
+                        "responses": {
+                            "200": {
+                                "description": "List of pets"
+                            }
+                        }
+                    },
+                    "post": {
+                        "operationId": "createPet",
+                        "tags": ["pet"],
+                        "responses": {
+                            "201": {
+                                "description": "Pet created"
+                            }
+                        }
+                    }
+                },
+                "/users": {
+                    "get": {
+                        "operationId": "listUsers",
+                        "tags": ["user"],
+                        "responses": {
+                            "200": {
+                                "description": "List of users"
+                            }
+                        }
+                    }
+                },
+                "/admin": {
+                    "get": {
+                        "operationId": "adminPanel",
+                        "tags": ["admin", "management"],
+                        "responses": {
+                            "200": {
+                                "description": "Admin panel"
+                            }
+                        }
+                    }
+                },
+                "/public": {
+                    "get": {
+                        "operationId": "publicEndpoint",
+                        "responses": {
+                            "200": {
+                                "description": "Public endpoint with no tags"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        OpenApiSpec::from_value(spec_json).expect("Failed to create test spec")
+    }
+
+    #[test]
+    fn test_tag_filtering_no_filter() {
+        let spec = create_test_spec_with_tags();
+        let tools = spec
+            .to_tool_metadata(None)
+            .expect("Failed to generate tools");
+
+        // All operations should be included
+        assert_eq!(tools.len(), 5);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"listPets"));
+        assert!(tool_names.contains(&"createPet"));
+        assert!(tool_names.contains(&"listUsers"));
+        assert!(tool_names.contains(&"adminPanel"));
+        assert!(tool_names.contains(&"publicEndpoint"));
+    }
+
+    #[test]
+    fn test_tag_filtering_single_tag() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags = vec!["pet".to_string()];
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Only pet operations should be included
+        assert_eq!(tools.len(), 2);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"listPets"));
+        assert!(tool_names.contains(&"createPet"));
+        assert!(!tool_names.contains(&"listUsers"));
+        assert!(!tool_names.contains(&"adminPanel"));
+        assert!(!tool_names.contains(&"publicEndpoint"));
+    }
+
+    #[test]
+    fn test_tag_filtering_multiple_tags() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags = vec!["pet".to_string(), "user".to_string()];
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Pet and user operations should be included
+        assert_eq!(tools.len(), 3);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"listPets"));
+        assert!(tool_names.contains(&"createPet"));
+        assert!(tool_names.contains(&"listUsers"));
+        assert!(!tool_names.contains(&"adminPanel"));
+        assert!(!tool_names.contains(&"publicEndpoint"));
+    }
+
+    #[test]
+    fn test_tag_filtering_or_logic() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags = vec!["list".to_string()]; // listPets has both "pet" and "list" tags
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Only operations with "list" tag should be included
+        assert_eq!(tools.len(), 1);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"listPets")); // Has both "pet" and "list" tags
+        assert!(!tool_names.contains(&"createPet")); // Only has "pet" tag
+    }
+
+    #[test]
+    fn test_tag_filtering_no_matching_tags() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags = vec!["nonexistent".to_string()];
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // No operations should be included
+        assert_eq!(tools.len(), 0);
+    }
+
+    #[test]
+    fn test_tag_filtering_excludes_operations_without_tags() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags = vec!["admin".to_string()];
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Only admin operations should be included, public endpoint (no tags) should be excluded
+        assert_eq!(tools.len(), 1);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"adminPanel"));
+        assert!(!tool_names.contains(&"publicEndpoint")); // No tags, should be excluded
+    }
+
+    #[test]
+    fn test_tag_filtering_case_sensitive() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags = vec!["Pet".to_string()]; // Capital P
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Should not match "pet" (lowercase)
+        assert_eq!(tools.len(), 0);
+    }
+
+    #[test]
+    fn test_tag_filtering_empty_filter_list() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags: Vec<String> = vec![];
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Empty filter should exclude all operations
+        assert_eq!(tools.len(), 0);
+    }
+
+    #[test]
+    fn test_tag_filtering_complex_scenario() {
+        let spec = create_test_spec_with_tags();
+        let filter_tags = vec!["management".to_string(), "list".to_string()];
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Should include adminPanel (has "management") and listPets (has "list")
+        assert_eq!(tools.len(), 2);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"adminPanel"));
+        assert!(tool_names.contains(&"listPets"));
+        assert!(!tool_names.contains(&"createPet"));
+        assert!(!tool_names.contains(&"listUsers"));
+        assert!(!tool_names.contains(&"publicEndpoint"));
     }
 }

@@ -30,12 +30,16 @@ impl ToolRegistry {
     /// # Errors
     ///
     /// Returns an error if any tool fails to be generated or registered
-    pub fn register_from_spec(&mut self, spec: OpenApiSpec) -> Result<usize, OpenApiError> {
+    pub fn register_from_spec(
+        &mut self,
+        spec: OpenApiSpec,
+        tag_filter: Option<&[String]>,
+    ) -> Result<usize, OpenApiError> {
         // Clear existing tools
         self.clear();
 
         // Convert operations to tool metadata
-        let tools_metadata = spec.to_tool_metadata()?;
+        let tools_metadata = spec.to_tool_metadata(tag_filter)?;
         let mut registered_count = 0;
 
         // Register each tool

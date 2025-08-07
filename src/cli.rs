@@ -28,6 +28,15 @@ pub struct Cli {
     /// HTTP headers to add to all requests (format: "name: value")
     #[arg(long = "header", action = clap::ArgAction::Append, help = "HTTP headers to add to all requests in 'name: value' format (can be used multiple times)")]
     pub headers: Vec<String>,
+
+    /// Filter operations by tags (comma-separated)
+    #[arg(
+        long,
+        num_args(1..),
+        value_delimiter = ',',
+        help = "Only include operations with these tags (comma-separated)"
+    )]
+    pub tags: Option<Vec<String>>,
 }
 
 impl Cli {

@@ -51,7 +51,8 @@ async fn run() -> Result<(), OpenApiError> {
             // Neither
             OpenApiServer::new(config.spec_location.clone())
         }
-    };
+    }
+    .with_tags(config.tags.clone());
 
     // Load OpenAPI specification
     eprintln!(
