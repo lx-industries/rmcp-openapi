@@ -31,6 +31,13 @@ pub(crate) fn find_similar_strings(unknown: &str, known_strings: &[&str]) -> Vec
     candidates.into_iter().map(|(_, name)| name).collect()
 }
 
+/// Normalize tag strings to kebab-case for consistent filtering
+/// Converts any case format (camelCase, PascalCase, snake_case, etc.) to kebab-case
+pub(crate) fn normalize_tag(tag: &str) -> String {
+    use heck::ToKebabCase;
+    tag.to_kebab_case()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -60,5 +67,55 @@ mod tests {
         let known = vec!["name", "email"];
         let suggestions = find_similar_strings("namee", &known);
         assert_eq!(suggestions, vec!["name"]);
+    }
+
+    #[test]
+    fn test_normalize_tag() {
+        // Test camelCase conversion
+        assert_eq!(normalize_tag("userManagement"), "user-management");
+        assert_eq!(normalize_tag("getUsers"), "get-users");
+
+        // Test PascalCase conversion
+        assert_eq!(normalize_tag("UserManagement"), "user-management");
+        assert_eq!(normalize_tag("APIKey"), "api-key");
+
+        // Test snake_case conversion
+        assert_eq!(normalize_tag("user_management"), "user-management");
+        assert_eq!(normalize_tag("get_users"), "get-users");
+
+        // Test SCREAMING_SNAKE_CASE conversion
+        assert_eq!(normalize_tag("USER_MANAGEMENT"), "user-management");
+        assert_eq!(normalize_tag("API_KEY"), "api-key");
+
+        // Test already kebab-case
+        assert_eq!(normalize_tag("user-management"), "user-management");
+        assert_eq!(normalize_tag("api-key"), "api-key");
+
+        // Test single words
+        assert_eq!(normalize_tag("users"), "users");
+        assert_eq!(normalize_tag("API"), "api");
+
+        // Test empty string
+        assert_eq!(normalize_tag(""), "");
+
+        // Test edge cases
+        assert_eq!(normalize_tag("XMLHttpRequest"), "xml-http-request");
+        assert_eq!(normalize_tag("HTTPSConnection"), "https-connection");
+
+        // Test whitespace (heck handles spaces and trimming automatically)
+        assert_eq!(normalize_tag("user management"), "user-management");
+        assert_eq!(normalize_tag(" user "), "user"); // Leading/trailing spaces are trimmed
+
+        // Test multiple separators - heck handles these well
+        assert_eq!(normalize_tag("user__management"), "user-management");
+        assert_eq!(normalize_tag("user---management"), "user-management");
+
+        // Test special characters - heck handles these
+        assert_eq!(normalize_tag("user123Management"), "user123-management");
+        assert_eq!(normalize_tag("user@management"), "user-management"); // @ gets removed
+
+        // Test numbers and mixed content
+        assert_eq!(normalize_tag("v2ApiEndpoint"), "v2-api-endpoint");
+        assert_eq!(normalize_tag("HTML5Parser"), "html5-parser");
     }
 }

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::error::OpenApiError;
+use crate::normalize_tag;
 use crate::server::ToolMetadata;
 use crate::tool_generator::ToolGenerator;
 use oas3::Spec;
@@ -109,10 +110,19 @@ impl OpenApiSpec {
 
                 for (method, operation_ref) in operations {
                     if let Some(operation) = operation_ref {
-                        // Filter by tags if specified
+                        // Filter by tags if specified (with kebab-case normalization)
                         if let Some(filter_tags) = tag_filter {
                             if !operation.tags.is_empty() {
-                                if !operation.tags.iter().any(|tag| filter_tags.contains(tag)) {
+                                // Normalize both filter tags and operation tags before comparison
+                                let normalized_filter_tags: Vec<String> =
+                                    filter_tags.iter().map(|tag| normalize_tag(tag)).collect();
+
+                                let has_matching_tag = operation.tags.iter().any(|operation_tag| {
+                                    let normalized_operation_tag = normalize_tag(operation_tag);
+                                    normalized_filter_tags.contains(&normalized_operation_tag)
+                                });
+
+                                if !has_matching_tag {
                                     continue; // Skip this operation
                                 }
                             } else {
@@ -278,6 +288,86 @@ mod tests {
         OpenApiSpec::from_value(spec_json).expect("Failed to create test spec")
     }
 
+    fn create_test_spec_with_mixed_case_tags() -> OpenApiSpec {
+        let spec_json = json!({
+            "openapi": "3.0.3",
+            "info": {
+                "title": "Test API with Mixed Case Tags",
+                "version": "1.0.0"
+            },
+            "paths": {
+                "/camel": {
+                    "get": {
+                        "operationId": "camelCaseOperation",
+                        "tags": ["userManagement"],
+                        "responses": {
+                            "200": {
+                                "description": "camelCase tag"
+                            }
+                        }
+                    }
+                },
+                "/pascal": {
+                    "get": {
+                        "operationId": "pascalCaseOperation",
+                        "tags": ["UserManagement"],
+                        "responses": {
+                            "200": {
+                                "description": "PascalCase tag"
+                            }
+                        }
+                    }
+                },
+                "/snake": {
+                    "get": {
+                        "operationId": "snakeCaseOperation",
+                        "tags": ["user_management"],
+                        "responses": {
+                            "200": {
+                                "description": "snake_case tag"
+                            }
+                        }
+                    }
+                },
+                "/screaming": {
+                    "get": {
+                        "operationId": "screamingCaseOperation",
+                        "tags": ["USER_MANAGEMENT"],
+                        "responses": {
+                            "200": {
+                                "description": "SCREAMING_SNAKE_CASE tag"
+                            }
+                        }
+                    }
+                },
+                "/kebab": {
+                    "get": {
+                        "operationId": "kebabCaseOperation",
+                        "tags": ["user-management"],
+                        "responses": {
+                            "200": {
+                                "description": "kebab-case tag"
+                            }
+                        }
+                    }
+                },
+                "/mixed": {
+                    "get": {
+                        "operationId": "mixedCaseOperation",
+                        "tags": ["XMLHttpRequest", "HTTPSConnection", "APIKey"],
+                        "responses": {
+                            "200": {
+                                "description": "Mixed case with acronyms"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        OpenApiSpec::from_value(spec_json).expect("Failed to create test spec")
+    }
+
     #[test]
     fn test_tag_filtering_no_filter() {
         let spec = create_test_spec_with_tags();
@@ -379,15 +469,92 @@ mod tests {
     }
 
     #[test]
-    fn test_tag_filtering_case_sensitive() {
-        let spec = create_test_spec_with_tags();
-        let filter_tags = vec!["Pet".to_string()]; // Capital P
+    fn test_tag_normalization_all_cases_match() {
+        let spec = create_test_spec_with_mixed_case_tags();
+        let filter_tags = vec!["user-management".to_string()]; // kebab-case filter
         let tools = spec
             .to_tool_metadata(Some(&filter_tags))
             .expect("Failed to generate tools");
 
-        // Should not match "pet" (lowercase)
-        assert_eq!(tools.len(), 0);
+        // All userManagement variants should match user-management filter
+        assert_eq!(tools.len(), 5);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"camelCaseOperation")); // userManagement
+        assert!(tool_names.contains(&"pascalCaseOperation")); // UserManagement
+        assert!(tool_names.contains(&"snakeCaseOperation")); // user_management
+        assert!(tool_names.contains(&"screamingCaseOperation")); // USER_MANAGEMENT
+        assert!(tool_names.contains(&"kebabCaseOperation")); // user-management
+        assert!(!tool_names.contains(&"mixedCaseOperation")); // Different tags
+    }
+
+    #[test]
+    fn test_tag_normalization_camel_case_filter() {
+        let spec = create_test_spec_with_mixed_case_tags();
+        let filter_tags = vec!["userManagement".to_string()]; // camelCase filter
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // All userManagement variants should match camelCase filter
+        assert_eq!(tools.len(), 5);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"camelCaseOperation"));
+        assert!(tool_names.contains(&"pascalCaseOperation"));
+        assert!(tool_names.contains(&"snakeCaseOperation"));
+        assert!(tool_names.contains(&"screamingCaseOperation"));
+        assert!(tool_names.contains(&"kebabCaseOperation"));
+    }
+
+    #[test]
+    fn test_tag_normalization_snake_case_filter() {
+        let spec = create_test_spec_with_mixed_case_tags();
+        let filter_tags = vec!["user_management".to_string()]; // snake_case filter
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // All userManagement variants should match snake_case filter
+        assert_eq!(tools.len(), 5);
+    }
+
+    #[test]
+    fn test_tag_normalization_acronyms() {
+        let spec = create_test_spec_with_mixed_case_tags();
+        let filter_tags = vec!["xml-http-request".to_string()]; // kebab-case filter for acronym
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Should match XMLHttpRequest tag
+        assert_eq!(tools.len(), 1);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"mixedCaseOperation"));
+    }
+
+    #[test]
+    fn test_tag_normalization_multiple_mixed_filters() {
+        let spec = create_test_spec_with_mixed_case_tags();
+        let filter_tags = vec![
+            "user-management".to_string(), // kebab-case
+            "HTTPSConnection".to_string(), // PascalCase with acronym
+        ];
+        let tools = spec
+            .to_tool_metadata(Some(&filter_tags))
+            .expect("Failed to generate tools");
+
+        // Should match all userManagement variants + mixedCaseOperation (for HTTPSConnection)
+        assert_eq!(tools.len(), 6);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"camelCaseOperation"));
+        assert!(tool_names.contains(&"pascalCaseOperation"));
+        assert!(tool_names.contains(&"snakeCaseOperation"));
+        assert!(tool_names.contains(&"screamingCaseOperation"));
+        assert!(tool_names.contains(&"kebabCaseOperation"));
+        assert!(tool_names.contains(&"mixedCaseOperation"));
     }
 
     #[test]

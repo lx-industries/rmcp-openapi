@@ -34,7 +34,7 @@ pub struct Cli {
         long,
         num_args(1..),
         value_delimiter = ',',
-        help = "Only include operations with these tags (comma-separated)"
+        help = "Only include operations with these tags (comma-separated, normalized to kebab-case)"
     )]
     pub tags: Option<Vec<String>>,
 }
