@@ -1,3 +1,21 @@
+## [0.6.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.5.1...v0.6.0) (2025-08-07)
+
+
+### Features
+
+* add --header CLI option for authentication support ([0f83763](https://gitlab.com/lx-industries/rmcp-openapi/commit/0f837634f99c72a9e0f97f5d8259632044948ef9)), closes [#43](https://gitlab.com/lx-industries/rmcp-openapi/issues/43)
+* add --methods CLI option for filtering OpenAPI operations by HTTP methods ([03669db](https://gitlab.com/lx-industries/rmcp-openapi/commit/03669db938d248d224c821f802dce6443d6a8e71)), closes [#50](https://gitlab.com/lx-industries/rmcp-openapi/issues/50)
+* add --tags CLI flag for filtering OpenAPI operations by tags ([f441235](https://gitlab.com/lx-industries/rmcp-openapi/commit/f4412358d2959102f8deb0a3f1140832db703b53)), closes [#48](https://gitlab.com/lx-industries/rmcp-openapi/issues/48)
+* add user-agent header with dynamic version ([1de7c7b](https://gitlab.com/lx-industries/rmcp-openapi/commit/1de7c7bd25405bf09c11ae6cac730b5f184f3c5a)), closes [#47](https://gitlab.com/lx-industries/rmcp-openapi/issues/47)
+* implement kebab-case normalization for --tags CLI option ([56bf100](https://gitlab.com/lx-industries/rmcp-openapi/commit/56bf1003100d7b4166276c54d01c143fd52e416c)), closes [#49](https://gitlab.com/lx-industries/rmcp-openapi/issues/49)
+* implement OpenAPI explode property support for array query parameters ([319b8c0](https://gitlab.com/lx-industries/rmcp-openapi/commit/319b8c0d7c4905dfc9e526b6466e2b8130c47c7b))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate clap to v4.5.43 ([17cbad2](https://gitlab.com/lx-industries/rmcp-openapi/commit/17cbad23f0ac394cc316151bf41383abcf631e5d))
+* **deps:** update rust crate rmcp to v0.4.1 ([1907130](https://gitlab.com/lx-industries/rmcp-openapi/commit/19071304b642695532d911cb32e09314e53bcfdd))
+
 ## [0.5.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.5.0...v0.5.1) (2025-08-06)
 
 
