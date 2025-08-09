@@ -327,12 +327,12 @@ impl ToolGenerator {
                     ];
 
                     for media_type_str in json_media_types {
-                        if let Some(media_type) = content.get(media_type_str) {
-                            if let Some(schema_or_ref) = &media_type.schema {
-                                // Wrap the schema with success/error structure
-                                let wrapped_schema = Self::wrap_output_schema(schema_or_ref, spec)?;
-                                return Ok(Some(wrapped_schema));
-                            }
+                        if let Some(media_type) = content.get(media_type_str)
+                            && let Some(schema_or_ref) = &media_type.schema
+                        {
+                            // Wrap the schema with success/error structure
+                            let wrapped_schema = Self::wrap_output_schema(schema_or_ref, spec)?;
+                            return Ok(Some(wrapped_schema));
                         }
                     }
 
@@ -487,29 +487,28 @@ impl ToolGenerator {
         }
 
         // Handle additionalProperties for object schemas
-        if let Some(schema_type) = &obj_schema.schema_type {
-            if matches!(schema_type, SchemaTypeSet::Single(SchemaType::Object)) {
-                // Handle additional_properties based on the OpenAPI schema
-                match &obj_schema.additional_properties {
-                    None => {
-                        // In OpenAPI 3.0, the default for additionalProperties is true
-                        schema_obj.insert("additionalProperties".to_string(), json!(true));
-                    }
-                    Some(Schema::Boolean(BooleanSchema(value))) => {
-                        // Explicit boolean value
-                        schema_obj.insert("additionalProperties".to_string(), json!(value));
-                    }
-                    Some(Schema::Object(schema_ref)) => {
-                        // Additional properties must match this schema
-                        let mut visited = HashSet::new();
-                        let additional_props_schema = Self::convert_schema_to_json_schema(
-                            &Schema::Object(schema_ref.clone()),
-                            spec,
-                            &mut visited,
-                        )?;
-                        schema_obj
-                            .insert("additionalProperties".to_string(), additional_props_schema);
-                    }
+        if let Some(schema_type) = &obj_schema.schema_type
+            && matches!(schema_type, SchemaTypeSet::Single(SchemaType::Object))
+        {
+            // Handle additional_properties based on the OpenAPI schema
+            match &obj_schema.additional_properties {
+                None => {
+                    // In OpenAPI 3.0, the default for additionalProperties is true
+                    schema_obj.insert("additionalProperties".to_string(), json!(true));
+                }
+                Some(Schema::Boolean(BooleanSchema(value))) => {
+                    // Explicit boolean value
+                    schema_obj.insert("additionalProperties".to_string(), json!(value));
+                }
+                Some(Schema::Object(schema_ref)) => {
+                    // Additional properties must match this schema
+                    let mut visited = HashSet::new();
+                    let additional_props_schema = Self::convert_schema_to_json_schema(
+                        &Schema::Object(schema_ref.clone()),
+                        spec,
+                        &mut visited,
+                    )?;
+                    schema_obj.insert("additionalProperties".to_string(), additional_props_schema);
                 }
             }
         }
@@ -780,16 +779,15 @@ impl ToolGenerator {
         }
 
         // Add request body parameter if defined in the OpenAPI spec
-        if let Some(request_body) = request_body {
-            if let Some((body_schema, annotations, is_required)) =
+        if let Some(request_body) = request_body
+            && let Some((body_schema, annotations, is_required)) =
                 Self::convert_request_body_to_json_schema(request_body, spec)?
-            {
-                let body_schema_with_annotations =
-                    Self::apply_annotations_to_schema(body_schema, annotations);
-                properties.insert("request_body".to_string(), body_schema_with_annotations);
-                if is_required {
-                    required.push("request_body".to_string());
-                }
+        {
+            let body_schema_with_annotations =
+                Self::apply_annotations_to_schema(body_schema, annotations);
+            properties.insert("request_body".to_string(), body_schema_with_annotations);
+            if is_required {
+                required.push("request_body".to_string());
             }
         }
 
@@ -945,10 +943,10 @@ impl ToolGenerator {
 
             if !examples_array.is_empty() {
                 // Use the first example's value as the main example
-                if let Some(first_example) = examples_array.first() {
-                    if let Some(value) = first_example.get("value") {
-                        result.insert("example".to_string(), value.clone());
-                    }
+                if let Some(first_example) = examples_array.first()
+                    && let Some(value) = first_example.get("value")
+                {
+                    result.insert("example".to_string(), value.clone());
                 }
                 // Store all examples for documentation purposes
                 result.insert("x-examples".to_string(), json!(examples_array));
@@ -1366,13 +1364,12 @@ impl ToolGenerator {
                 OpenApiError::ToolGeneration("Invalid tool parameters schema".to_string())
             })?;
 
-        if let Some(param_schema) = properties.get(param_name) {
-            if let Some(location) = param_schema
+        if let Some(param_schema) = properties.get(param_name)
+            && let Some(location) = param_schema
                 .get(X_PARAMETER_LOCATION)
                 .and_then(|v| v.as_str())
-            {
-                return Ok(location.to_string());
-            }
+        {
+            return Ok(location.to_string());
         }
 
         // Fallback: infer from parameter name prefix
@@ -1833,22 +1830,22 @@ fn inline_refs(schema: &mut Value, definitions: &Value) {
     match schema {
         Value::Object(obj) => {
             // Check if this object has a $ref
-            if let Some(ref_value) = obj.get("$ref").cloned() {
-                if let Some(ref_str) = ref_value.as_str() {
-                    // Extract the definition name from the ref
-                    let def_name = ref_str
-                        .strip_prefix("#/$defs/")
-                        .or_else(|| ref_str.strip_prefix("#/definitions/"));
+            if let Some(ref_value) = obj.get("$ref").cloned()
+                && let Some(ref_str) = ref_value.as_str()
+            {
+                // Extract the definition name from the ref
+                let def_name = ref_str
+                    .strip_prefix("#/$defs/")
+                    .or_else(|| ref_str.strip_prefix("#/definitions/"));
 
-                    if let Some(name) = def_name {
-                        if let Some(definition) = definitions.get(name) {
-                            // Replace the entire object with the definition
-                            *schema = definition.clone();
-                            // Continue to inline any refs in the definition
-                            inline_refs(schema, definitions);
-                            return;
-                        }
-                    }
+                if let Some(name) = def_name
+                    && let Some(definition) = definitions.get(name)
+                {
+                    // Replace the entire object with the definition
+                    *schema = definition.clone();
+                    // Continue to inline any refs in the definition
+                    inline_refs(schema, definitions);
+                    return;
                 }
             }
 

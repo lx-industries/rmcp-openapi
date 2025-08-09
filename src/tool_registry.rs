@@ -247,12 +247,12 @@ impl ToolRegistry {
         }
 
         // Validate required field if present
-        if let Some(required) = schema_obj.get("required") {
-            if !required.is_array() {
-                return Err(OpenApiError::Validation(format!(
-                    "Tool '{tool_name}' required field must be an array"
-                )));
-            }
+        if let Some(required) = schema_obj.get("required")
+            && !required.is_array()
+        {
+            return Err(OpenApiError::Validation(format!(
+                "Tool '{tool_name}' required field must be an array"
+            )));
         }
 
         // Check HTTP method is valid

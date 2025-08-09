@@ -661,20 +661,21 @@ impl HttpResponse {
             result.push_str(url);
             result.push('\n');
 
-            if let Some(body) = request_body {
-                if !body.is_empty() && body != "{}" {
-                    result.push_str("\nRequest Body:\n");
-                    if let Ok(parsed) = serde_json::from_str::<Value>(body) {
-                        if let Ok(pretty) = serde_json::to_string_pretty(&parsed) {
-                            result.push_str(&pretty);
-                        } else {
-                            result.push_str(body);
-                        }
+            if let Some(body) = request_body
+                && !body.is_empty()
+                && body != "{}"
+            {
+                result.push_str("\nRequest Body:\n");
+                if let Ok(parsed) = serde_json::from_str::<Value>(body) {
+                    if let Ok(pretty) = serde_json::to_string_pretty(&parsed) {
+                        result.push_str(&pretty);
                     } else {
                         result.push_str(body);
                     }
-                    result.push('\n');
+                } else {
+                    result.push_str(body);
                 }
+                result.push('\n');
             }
         }
 

@@ -112,10 +112,10 @@ impl OpenApiSpec {
                 for (method, operation_ref) in operations {
                     if let Some(operation) = operation_ref {
                         // Filter by methods if specified
-                        if let Some(filter_methods) = method_filter {
-                            if !filter_methods.contains(&method) {
-                                continue; // Skip this operation
-                            }
+                        if let Some(filter_methods) = method_filter
+                            && !filter_methods.contains(&method)
+                        {
+                            continue; // Skip this operation
                         }
 
                         // Filter by tags if specified (with kebab-case normalization)
