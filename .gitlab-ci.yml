@@ -26,7 +26,7 @@ workflow:
 
 # Semantic release job template - common setup for semantic-release jobs
 .semantic-release-template: &semantic-release-template
-  image: rust:1.89.0@sha256:c50cd6e20c46b0b36730b5eb27289744e4bb8f32abc90d8c64ca09decf4f55ba
+  image: rust:1.89.0@sha256:5fa1490d5cd16725196511190baad604ddebedcd6e52f1036de46a1a75c85bce
   before_script:
     # Install Node.js in Rust image
     - apt-get update -qq && apt-get install -y -qq curl
