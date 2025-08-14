@@ -1,6 +1,6 @@
 use crate::error::OpenApiError;
 use crate::openapi::OpenApiSpec;
-use crate::server::ToolMetadata;
+use crate::tool::ToolMetadata;
 use std::collections::HashMap;
 
 /// Registry for managing dynamically generated MCP tools from `OpenAPI` operations

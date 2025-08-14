@@ -11,7 +11,7 @@ use crate::error::{
     NetworkErrorCategory, OpenApiError, ToolCallError, ToolCallExecutionError,
     ToolCallValidationError,
 };
-use crate::server::ToolMetadata;
+use crate::tool::ToolMetadata;
 use crate::tool_generator::{ExtractedParameters, QueryParameter, ToolGenerator};
 
 /// HTTP client for executing `OpenAPI` requests
@@ -761,7 +761,7 @@ mod tests {
         let base_url = Url::parse("https://api.example.com").unwrap();
         let client = HttpClient::new().with_base_url(base_url).unwrap();
 
-        let tool_metadata = crate::server::ToolMetadata {
+        let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),
@@ -791,7 +791,7 @@ mod tests {
     fn test_build_url_without_base_url() {
         let client = HttpClient::new();
 
-        let tool_metadata = crate::server::ToolMetadata {
+        let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),
@@ -814,7 +814,7 @@ mod tests {
         assert_eq!(url.to_string(), "https://api.example.com/pets/123");
 
         // Test error case: relative path without base URL
-        let tool_metadata_relative = crate::server::ToolMetadata {
+        let tool_metadata_relative = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),
@@ -839,7 +839,7 @@ mod tests {
         let base_url = Url::parse("https://api.example.com").unwrap();
         let client = HttpClient::new().with_base_url(base_url).unwrap();
 
-        let tool_metadata = crate::server::ToolMetadata {
+        let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),
@@ -900,7 +900,7 @@ mod tests {
         let base_url = Url::parse("https://api.example.com").unwrap();
         let client = HttpClient::new().with_base_url(base_url).unwrap();
 
-        let tool_metadata = crate::server::ToolMetadata {
+        let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),
@@ -946,7 +946,7 @@ mod tests {
         let base_url = Url::parse("https://api.example.com").unwrap();
         let client = HttpClient::new().with_base_url(base_url).unwrap();
 
-        let tool_metadata = crate::server::ToolMetadata {
+        let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),
@@ -985,7 +985,7 @@ mod tests {
         let base_url2 = Url::parse("https://api.example.com").unwrap();
         let client2 = HttpClient::new().with_base_url(base_url2).unwrap();
 
-        let tool_metadata = crate::server::ToolMetadata {
+        let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),
@@ -1021,7 +1021,7 @@ mod tests {
         let base_url = Url::parse("https://api.example.com").unwrap();
         let client = HttpClient::new().with_base_url(base_url).unwrap();
 
-        let tool_metadata = crate::server::ToolMetadata {
+        let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
             description: "test".to_string(),

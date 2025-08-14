@@ -4,7 +4,7 @@ mod config;
 use cli::Cli;
 use config::Config;
 use rmcp::transport::SseServer;
-use rmcp_openapi::{OpenApiError, OpenApiServer};
+use rmcp_openapi::{OpenApiError, server::OpenApiServer};
 use std::process;
 use tokio::signal;
 
@@ -65,7 +65,7 @@ async fn run() -> Result<(), OpenApiError> {
 
     if config.verbose {
         eprintln!("Available tools: {}", server.get_tool_names().join(", "));
-        eprintln!("Registry stats: {}", server.get_registry_stats().summary());
+        eprintln!("Tool stats: {}", server.get_tool_stats());
     }
 
     // Validate the registry

@@ -1,0 +1,125 @@
+use super::ToolMetadata;
+use crate::error::OpenApiError;
+use crate::http_client::HttpClient;
+use reqwest::header::HeaderMap;
+use rmcp::model::{CallToolResult, Tool};
+use serde_json::Value;
+use url::Url;
+
+/// Self-contained OpenAPI tool with embedded HTTP client
+#[derive(Clone)]
+pub struct OpenApiTool {
+    pub metadata: ToolMetadata,
+    http_client: HttpClient,
+}
+
+impl OpenApiTool {
+    /// Create OpenAPI tool with HTTP configuration
+    pub fn new(
+        metadata: ToolMetadata,
+        base_url: Option<Url>,
+        default_headers: Option<HeaderMap>,
+    ) -> Result<Self, OpenApiError> {
+        let mut http_client = HttpClient::new();
+
+        if let Some(url) = base_url {
+            http_client = http_client.with_base_url(url)?;
+        }
+
+        if let Some(headers) = default_headers {
+            http_client = http_client.with_default_headers(headers);
+        }
+
+        Ok(Self {
+            metadata,
+            http_client,
+        })
+    }
+
+    /// Execute tool and return MCP-compliant result
+    pub async fn call(
+        &self,
+        arguments: &Value,
+    ) -> Result<CallToolResult, crate::error::ToolCallError> {
+        use rmcp::model::Content;
+        use serde_json::json;
+
+        // Execute the HTTP request using the embedded HTTP client
+        match self
+            .http_client
+            .execute_tool_call(&self.metadata, arguments)
+            .await
+        {
+            Ok(response) => {
+                // Check if the tool has an output schema
+                let structured_content = if self.metadata.output_schema.is_some() {
+                    // Try to parse the response body as JSON
+                    match response.json() {
+                        Ok(json_value) => {
+                            // Wrap the response in our standard HTTP response structure
+                            Some(json!({
+                                "status": response.status_code,
+                                "body": json_value
+                            }))
+                        }
+                        Err(_) => None, // If parsing fails, fall back to text content
+                    }
+                } else {
+                    None
+                };
+
+                // For structured content, serialize to JSON for backwards compatibility
+                let content = if let Some(ref structured) = structured_content {
+                    // MCP Specification: https://modelcontextprotocol.io/specification/2025-06-18/server/tools#structured-content
+                    // "For backwards compatibility, a tool that returns structured content SHOULD also
+                    // return the serialized JSON in a TextContent block."
+                    match serde_json::to_string(structured) {
+                        Ok(json_string) => Some(vec![Content::text(json_string)]),
+                        Err(e) => {
+                            // Return error if we can't serialize the structured content
+                            let error = crate::error::ToolCallError::Execution(
+                                crate::error::ToolCallExecutionError::ResponseParsingError {
+                                    reason: format!("Failed to serialize structured content: {e}"),
+                                    raw_response: None,
+                                },
+                            );
+                            return Err(error);
+                        }
+                    }
+                } else {
+                    Some(vec![Content::text(response.to_mcp_content())])
+                };
+
+                // Return successful response
+                Ok(CallToolResult {
+                    content,
+                    structured_content,
+                    is_error: Some(!response.is_success),
+                })
+            }
+            Err(e) => {
+                // Return ToolCallError directly
+                Err(e)
+            }
+        }
+    }
+
+    /// Execute tool and return raw HTTP response
+    pub async fn execute(
+        &self,
+        arguments: &Value,
+    ) -> Result<crate::http_client::HttpResponse, crate::error::ToolCallError> {
+        // Execute the HTTP request using the embedded HTTP client
+        // Return the raw HttpResponse without MCP formatting
+        self.http_client
+            .execute_tool_call(&self.metadata, arguments)
+            .await
+    }
+}
+
+/// MCP compliance - Convert OpenApiTool to rmcp::model::Tool
+impl From<&OpenApiTool> for Tool {
+    fn from(openapi_tool: &OpenApiTool) -> Self {
+        (&openapi_tool.metadata).into()
+    }
+}

@@ -10,17 +10,17 @@ pub async fn create_petstore_server(base_url: Option<Url>) -> anyhow::Result<Ope
     // Using petstore-openapi-norefs.json until issue #18 is implemented
     let spec_content = include_str!("../assets/petstore-openapi-norefs.json");
 
-    let spec_url = Url::parse("test://petstore")?;
+    // Parse the embedded spec as JSON value
+    let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
+    
     let mut server = if let Some(url) = base_url {
-        OpenApiServer::with_base_url(spec_url, url)?
+        OpenApiServer::with_base_url(OpenApiSpecLocation::Json(json_value.clone()), url)?
     } else {
-        OpenApiServer::new(spec_url)
+        OpenApiServer::new(OpenApiSpecLocation::Json(json_value))
     };
 
-    // Parse and register the spec
-    let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
-    let spec = OpenApiSpec::from_value(json_value)?;
-    server.register_spec(spec)?;
+    // Load the OpenAPI specification using the new API
+    server.load_openapi_spec().await?;
 
     Ok(server)
 }
@@ -38,17 +38,22 @@ pub async fn start_sse_server_with_petstore(
         .with_service(move || {
             // Using petstore-openapi-norefs.json until issue #18 is implemented
             let spec_content = include_str!("../assets/petstore-openapi-norefs.json");
-            let spec_url = Url::parse("test://petstore").unwrap();
+            
+            // Parse the embedded spec as JSON value
+            let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
+            
             let mut server = if let Some(ref url) = base_url {
-                OpenApiServer::with_base_url(spec_url, url.clone()).unwrap()
+                OpenApiServer::with_base_url(OpenApiSpecLocation::Json(json_value.clone()), url.clone()).unwrap()
             } else {
-                OpenApiServer::new(spec_url)
+                OpenApiServer::new(OpenApiSpecLocation::Json(json_value))
             };
 
-            // Parse and register the spec
-            let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
-            let spec = OpenApiSpec::from_value(json_value).unwrap();
-            server.register_spec(spec).unwrap();
+            // Load the OpenAPI specification using the new API
+            tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    server.load_openapi_spec().await.unwrap();
+                })
+            });
 
             server
         });

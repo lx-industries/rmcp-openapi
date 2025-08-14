@@ -1,5 +1,5 @@
 use rmcp::transport::SseServer;
-use rmcp_openapi::OpenApiServer;
+use rmcp_openapi::server::OpenApiServer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use url::Url;
 
@@ -20,14 +20,26 @@ fn create_petstore_mcp_server_with_spec(
         "assets/petstore-openapi.json" => include_str!("assets/petstore-openapi.json"),
         _ => panic!("Unsupported spec path: {spec_path}"),
     };
-    let spec_url = Url::parse("test://petstore")?;
-    let mut server =
-        OpenApiServer::with_base_url(rmcp_openapi::OpenApiSpecLocation::Url(spec_url), base_url)?;
 
-    // Parse the embedded spec
+    // Parse the embedded spec as JSON value and create tools directly
     let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
-    let spec = rmcp_openapi::openapi::OpenApiSpec::from_value(json_value).unwrap();
-    server.register_spec(spec).unwrap();
+    let spec = rmcp_openapi::openapi::OpenApiSpec::from_value(json_value)?;
+
+    // Generate OpenApiTool instances directly (synchronously)
+    let tools = spec.to_openapi_tools(
+        None, // tag_filter
+        None, // method_filter
+        Some(base_url.clone()),
+        None, // default_headers
+    )?;
+
+    let mut server = OpenApiServer::with_base_url(
+        rmcp_openapi::OpenApiSpecLocation::Json(serde_json::Value::Null), // Dummy value since we set tools directly
+        base_url,
+    )?;
+
+    // Set tools directly
+    server.tools = tools;
 
     Ok(server)
 }

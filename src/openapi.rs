@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use crate::error::OpenApiError;
 use crate::normalize_tag;
-use crate::server::ToolMetadata;
+use crate::tool::ToolMetadata;
 use crate::tool_generator::ToolGenerator;
 use oas3::Spec;
 use reqwest::Method;
@@ -15,6 +15,7 @@ use url::Url;
 pub enum OpenApiSpecLocation {
     File(PathBuf),
     Url(Url),
+    Json(serde_json::Value),
 }
 
 impl FromStr for OpenApiSpecLocation {
@@ -42,6 +43,7 @@ impl OpenApiSpecLocation {
                 .await
             }
             OpenApiSpecLocation::Url(url) => OpenApiSpec::from_url(url).await,
+            OpenApiSpecLocation::Json(value) => OpenApiSpec::from_value(value.clone()),
         }
     }
 }
@@ -51,6 +53,7 @@ impl fmt::Display for OpenApiSpecLocation {
         match self {
             OpenApiSpecLocation::File(path) => write!(f, "{}", path.display()),
             OpenApiSpecLocation::Url(url) => write!(f, "{url}"),
+            OpenApiSpecLocation::Json(_) => write!(f, "<inline JSON>"),
         }
     }
 }
@@ -151,6 +154,29 @@ impl OpenApiSpec {
         }
 
         Ok(tools)
+    }
+
+    /// Convert all operations to OpenApiTool instances with HTTP configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any operations cannot be converted or OpenApiTool instances cannot be created
+    pub fn to_openapi_tools(
+        &self,
+        tag_filter: Option<&[String]>,
+        method_filter: Option<&[reqwest::Method]>,
+        base_url: Option<url::Url>,
+        default_headers: Option<reqwest::header::HeaderMap>,
+    ) -> Result<Vec<crate::tool::OpenApiTool>, OpenApiError> {
+        // First generate the tool metadata using existing method
+        let tools_metadata = self.to_tool_metadata(tag_filter, method_filter)?;
+
+        // Then convert to OpenApiTool instances
+        crate::tool_generator::ToolGenerator::generate_openapi_tools(
+            tools_metadata,
+            base_url,
+            default_headers,
+        )
     }
 
     /// Get operation by operation ID

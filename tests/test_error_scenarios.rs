@@ -1,6 +1,6 @@
 use insta::assert_json_snapshot;
 use rmcp_openapi::error::{ToolCallError, ToolCallValidationError, ValidationError};
-use rmcp_openapi::{HttpClient, OpenApiServer, ToolGenerator};
+use rmcp_openapi::{HttpClient, ToolGenerator, server::OpenApiServer};
 use serde_json::json;
 use std::env;
 use url::Url;
@@ -27,8 +27,7 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("getPetById")
+            .get_tool_metadata("getPetById")
             .expect("getPetById tool should be registered");
 
         let arguments = json!({
@@ -49,8 +48,7 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("getPetById")
+            .get_tool_metadata("getPetById")
             .expect("getPetById tool should be registered");
 
         let arguments = json!({
@@ -78,8 +76,7 @@ async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("addPet")
+        .get_tool_metadata("addPet")
         .expect("addPet tool should be registered");
 
     // Test with invalid enum value - should fail validation before HTTP request
@@ -120,8 +117,7 @@ async fn test_http_500_server_error() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     let arguments = json!({
@@ -154,8 +150,7 @@ async fn test_network_connection_error() -> anyhow::Result<()> {
         .with_base_url(Url::parse("http://invalid-host-that-does-not-exist.com")?)?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     let arguments = json!({
@@ -183,8 +178,7 @@ async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     // Call without required 'petId' parameter
@@ -226,8 +220,7 @@ async fn test_type_validation_error() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     // Pass string instead of integer for petId
@@ -259,8 +252,7 @@ async fn test_array_type_validation_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("findPetsByStatus")
+        .get_tool_metadata("findPetsByStatus")
         .expect("findPetsByStatus tool should be registered");
 
     // Pass string instead of array
@@ -292,8 +284,7 @@ async fn test_enum_validation_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("findPetsByStatus")
+        .get_tool_metadata("findPetsByStatus")
         .expect("findPetsByStatus tool should be registered");
 
     // Pass invalid enum value
@@ -327,8 +318,7 @@ async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("findPetsByStatus")
+            .get_tool_metadata("findPetsByStatus")
             .expect("findPetsByStatus tool should be registered");
 
         // Pass valid status value to test parameter passing
@@ -350,8 +340,7 @@ async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("findPetsByStatus")
+            .get_tool_metadata("findPetsByStatus")
             .expect("findPetsByStatus tool should be registered");
 
         let arguments = json!({
@@ -387,8 +376,7 @@ async fn test_non_json_response_handling() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     let arguments = json!({
@@ -428,8 +416,7 @@ async fn test_malformed_json_response_handling() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     let arguments = json!({
@@ -471,8 +458,7 @@ async fn test_empty_response_handling() -> anyhow::Result<()> {
     // For this test, we'll manually create a DELETE request since deletePet might not be in our spec
     // Instead, let's test with a tool that exists and simulate 204 response
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     // Override the mock to respond to GET instead
@@ -535,8 +521,7 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     let arguments = json!({
@@ -569,8 +554,7 @@ async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("addPet")
+        .get_tool_metadata("addPet")
         .expect("addPet tool should be registered");
 
     // Pass integer instead of string for name
@@ -629,7 +613,7 @@ async fn test_tool_not_found_with_suggestions() -> anyhow::Result<()> {
     let suggestions: Vec<String> = suggestions
         .into_iter()
         .take(3)
-        .map(|(_, name)| name)
+        .map(|(_, name)| name.to_string())
         .collect();
 
     // Create the error with suggestions
@@ -669,7 +653,7 @@ async fn test_tool_not_found_multiple_suggestions() -> anyhow::Result<()> {
     let suggestions: Vec<String> = suggestions
         .into_iter()
         .take(3)
-        .map(|(_, name)| name)
+        .map(|(_, name)| name.to_string())
         .collect();
 
     // Create the error with suggestions
@@ -689,14 +673,17 @@ async fn test_tool_not_found_multiple_suggestions() -> anyhow::Result<()> {
 async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     // Using petstore-openapi-norefs.json until issue #18 is implemented
     let spec_content = include_str!("assets/petstore-openapi-norefs.json");
-    let spec_url = Url::parse("test://petstore")?;
-    let mut server =
-        OpenApiServer::with_base_url(rmcp_openapi::OpenApiSpecLocation::Url(spec_url), base_url)?;
 
-    // Parse the embedded spec
+    // Parse the embedded spec as JSON value
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
-    let spec = rmcp_openapi::openapi::OpenApiSpec::from_value(json_value)?;
-    server.register_spec(spec)?;
+
+    let mut server = OpenApiServer::with_base_url(
+        rmcp_openapi::OpenApiSpecLocation::Json(json_value),
+        base_url,
+    )?;
+
+    // Load the OpenAPI specification using the new API
+    server.load_openapi_spec().await?;
 
     Ok(server)
 }

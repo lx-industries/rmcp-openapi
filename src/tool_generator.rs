@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use crate::error::{
     ErrorResponse, OpenApiError, ToolCallValidationError, ValidationConstraint, ValidationError,
 };
-use crate::server::ToolMetadata;
+use crate::tool::ToolMetadata;
 use oas3::spec::{
     BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn,
     ParameterStyle, RequestBody, Response, Schema, SchemaType, SchemaTypeSet, Spec,
@@ -246,6 +246,27 @@ impl ToolGenerator {
             method,
             path,
         })
+    }
+
+    /// Generate OpenApiTool instances from tool metadata with HTTP configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any OpenApiTool cannot be created
+    pub fn generate_openapi_tools(
+        tools_metadata: Vec<ToolMetadata>,
+        base_url: Option<url::Url>,
+        default_headers: Option<reqwest::header::HeaderMap>,
+    ) -> Result<Vec<crate::tool::OpenApiTool>, OpenApiError> {
+        let mut openapi_tools = Vec::with_capacity(tools_metadata.len());
+
+        for metadata in tools_metadata {
+            let tool =
+                crate::tool::OpenApiTool::new(metadata, base_url.clone(), default_headers.clone())?;
+            openapi_tools.push(tool);
+        }
+
+        Ok(openapi_tools)
     }
 
     /// Build a comprehensive description for the tool

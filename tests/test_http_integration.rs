@@ -1,4 +1,4 @@
-use rmcp_openapi::{HttpClient, OpenApiServer};
+use rmcp_openapi::{HttpClient, server::OpenApiServer};
 use serde_json::json;
 use std::env;
 use url::Url;
@@ -27,8 +27,7 @@ async fn test_get_pet_by_id_path_parameter() -> anyhow::Result<()> {
 
         // Find a tool named "getPetById"
         let tool_metadata = server
-            .registry
-            .get_tool("getPetById")
+            .get_tool_metadata("getPetById")
             .expect("getPetById tool should be registered");
 
         let arguments = json!({
@@ -51,8 +50,7 @@ async fn test_get_pet_by_id_path_parameter() -> anyhow::Result<()> {
 
         // Find a tool named "getPetById"
         let tool_metadata = server
-            .registry
-            .get_tool("getPetById")
+            .get_tool_metadata("getPetById")
             .expect("getPetById tool should be registered");
 
         let arguments = json!({
@@ -86,8 +84,7 @@ async fn test_get_pet_by_id_not_found() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("getPetById")
+            .get_tool_metadata("getPetById")
             .expect("getPetById tool should be registered");
 
         let arguments = json!({
@@ -107,8 +104,7 @@ async fn test_get_pet_by_id_not_found() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("getPetById")
+            .get_tool_metadata("getPetById")
             .expect("getPetById tool should be registered");
 
         let arguments = json!({
@@ -140,8 +136,7 @@ async fn test_find_pets_by_status_query_parameter() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("findPetsByStatus")
+            .get_tool_metadata("findPetsByStatus")
             .expect("findPetsByStatus tool should be registered");
 
         let arguments = json!({
@@ -163,8 +158,7 @@ async fn test_find_pets_by_status_query_parameter() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("findPetsByStatus")
+            .get_tool_metadata("findPetsByStatus")
             .expect("findPetsByStatus tool should be registered");
 
         let arguments = json!({
@@ -205,8 +199,7 @@ async fn test_find_pets_by_multiple_status_query_parameter() -> anyhow::Result<(
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("findPetsByStatus")
+            .get_tool_metadata("findPetsByStatus")
             .expect("findPetsByStatus tool should be registered");
 
         let arguments = json!({
@@ -233,8 +226,7 @@ async fn test_find_pets_by_multiple_status_query_parameter() -> anyhow::Result<(
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("findPetsByStatus")
+            .get_tool_metadata("findPetsByStatus")
             .expect("findPetsByStatus tool should be registered");
 
         let arguments = json!({
@@ -276,8 +268,7 @@ async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("addPet")
+            .get_tool_metadata("addPet")
             .expect("addPet tool should be registered");
 
         let arguments = json!({
@@ -304,8 +295,7 @@ async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
-            .registry
-            .get_tool("addPet")
+            .get_tool_metadata("addPet")
             .expect("addPet tool should be registered");
 
         let arguments = json!({
@@ -340,7 +330,7 @@ async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
 async fn test_available_tools() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
 
-    let tool_names = server.registry.get_tool_names();
+    let tool_names = server.get_tool_names();
     println!("Available tools: {tool_names:?}");
 
     // Basic assertion that we have some tools
@@ -355,14 +345,17 @@ async fn test_available_tools() -> anyhow::Result<()> {
 async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
     // Using petstore-openapi-norefs.json until issue #18 is implemented
     let spec_content = include_str!("assets/petstore-openapi-norefs.json");
-    let spec_url = Url::parse("test://petstore")?;
-    let mut server =
-        OpenApiServer::with_base_url(rmcp_openapi::OpenApiSpecLocation::Url(spec_url), base_url)?;
 
-    // Parse the embedded spec
+    // Parse the embedded spec as JSON value
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
-    let spec = rmcp_openapi::openapi::OpenApiSpec::from_value(json_value)?;
-    server.register_spec(spec)?;
+
+    let mut server = OpenApiServer::with_base_url(
+        rmcp_openapi::OpenApiSpecLocation::Json(json_value),
+        base_url,
+    )?;
+
+    // Load the OpenAPI specification using the new API
+    server.load_openapi_spec().await?;
 
     Ok(server)
 }
@@ -375,8 +368,7 @@ async fn test_url_construction_with_path_parameters() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("getPetById")
+        .get_tool_metadata("getPetById")
         .expect("getPetById tool should be registered");
 
     let arguments = json!({
@@ -411,8 +403,7 @@ async fn test_content_type_header_for_json() -> anyhow::Result<()> {
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
-        .registry
-        .get_tool("addPet")
+        .get_tool_metadata("addPet")
         .expect("addPet tool should be registered");
 
     let arguments = json!({
