@@ -1,3 +1,22 @@
+## [0.7.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.6.1...v0.7.0) (2025-08-18)
+
+
+### Features
+
+* expose OpenAPI endpoints as individual MCP tools ([47a1b34](https://gitlab.com/lx-industries/rmcp-openapi/commit/47a1b34850cb03fa248575f43a90d86d9ff11f80))
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 3266bc9 ([dacf99a](https://gitlab.com/lx-industries/rmcp-openapi/commit/dacf99adfe212aabb37ae7f86712304521e62440))
+* **deps:** update node.js to 5cc5271 ([6228e61](https://gitlab.com/lx-industries/rmcp-openapi/commit/6228e61d40ec66c7fbc6402269a13f4f35464022))
+* **deps:** update rust crate anyhow to v1.0.99 ([f5b9ee6](https://gitlab.com/lx-industries/rmcp-openapi/commit/f5b9ee6ffc0c4e8d36eb1e5ea4b4e378c316329a))
+* **deps:** update rust crate clap to v4.5.45 ([afc6801](https://gitlab.com/lx-industries/rmcp-openapi/commit/afc6801d9f7dac995c523f3d8b0d52626065b0e5))
+* **deps:** update rust crate reqwest to v0.12.23 ([46996cc](https://gitlab.com/lx-industries/rmcp-openapi/commit/46996cc9812396584f8046f2938a10ec2e1fddd4))
+* **deps:** update rust:1.89.0 docker digest to 5fa1490 ([9c784cc](https://gitlab.com/lx-industries/rmcp-openapi/commit/9c784cc3f426fa08eeb8a3e8328ed6c6e9dc1968))
+* **deps:** update rust:1.89.0 docker digest to ded0544 ([cc8d08f](https://gitlab.com/lx-industries/rmcp-openapi/commit/cc8d08f6b071b91e644fefb6b3ebe541805c8efb))
+* **deps:** update rust:1.89.0 docker digest to e090f7b ([792cc9c](https://gitlab.com/lx-industries/rmcp-openapi/commit/792cc9cfc12d1ca2e6ef4dfe90e44eb4c773d8b4))
+
 ## [0.6.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.6.0...v0.6.1) (2025-08-11)
 
 
