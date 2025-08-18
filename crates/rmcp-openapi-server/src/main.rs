@@ -7,11 +7,12 @@ use rmcp::transport::SseServer;
 use rmcp_openapi::{Error, Server};
 use std::process;
 use tokio::signal;
+use tracing::{debug, error, info, info_span};
 
 #[tokio::main]
 async fn main() {
     if let Err(e) = run().await {
-        eprintln!("Error: {e}");
+        error!("Application error: {}", e);
         process::exit(1);
     }
 }
@@ -21,10 +22,15 @@ async fn run() -> Result<(), Error> {
     let cli = Cli::parse_args();
     let config = Config::from_cli(cli)?;
 
-    // Set up logging if verbose mode is enabled
-    if config.verbose {
-        setup_logging();
-    }
+    // Set up structured logging
+    setup_logging();
+
+    let span = info_span!(
+        "server_initialization",
+        bind_address = %config.bind_address,
+        port = config.port,
+    );
+    let _enter = span.enter();
 
     // Create server using the builder pattern
     let mut server = Server::builder()
@@ -38,23 +44,33 @@ async fn run() -> Result<(), Error> {
         .build();
 
     // Load OpenAPI specification
-    eprintln!(
-        "Loading OpenAPI specification from: {}",
-        config.spec_location
+    info!(
+        spec_location = %config.spec_location,
+        "Loading OpenAPI specification"
     );
     server.load_openapi_spec().await?;
-    eprintln!("Successfully loaded {} tools", server.tool_count());
+    info!(
+        tool_count = server.tool_count(),
+        "Successfully loaded tools from OpenAPI specification"
+    );
 
-    if config.verbose {
-        eprintln!("Available tools: {}", server.get_tool_names().join(", "));
-        eprintln!("Tool stats: {}", server.get_tool_stats());
-    }
+    debug!(
+        tools = %server.get_tool_names().join(", "),
+        "Available tools"
+    );
+    debug!(
+        stats = %server.get_tool_stats(),
+        "Tool statistics"
+    );
 
     // Validate the registry
     server.validate_registry()?;
 
     let bind_addr = format!("{}:{}", config.bind_address, config.port);
-    eprintln!("OpenAPI MCP Server starting on http://{bind_addr}");
+    info!(
+        bind_address = %bind_addr,
+        "OpenAPI MCP Server starting"
+    );
 
     // Set up MCP server with SSE transport
     let cancellation_token = SseServer::serve(
@@ -69,31 +85,29 @@ async fn run() -> Result<(), Error> {
         server.clone()
     });
 
-    eprintln!("Server ready! Connect MCP clients to: http://{bind_addr}/sse");
+    info!(
+        connection_url = %format!("http://{bind_addr}/sse"),
+        "Server ready for MCP client connections"
+    );
 
     // Wait for shutdown signal
     signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
-    eprintln!("\nShutdown signal received, stopping server...");
+    info!("Shutdown signal received, stopping server");
 
     // Cancel the server
     cancellation_token.cancel();
-    eprintln!("Server stopped gracefully.");
+    info!("Server stopped gracefully");
 
     Ok(())
 }
 
 fn setup_logging() {
-    use std::env;
+    // Initialize tracing subscriber for structured logging using RMCP_OPENAPI_LOG
+    let env_filter = tracing_subscriber::EnvFilter::try_from_env("RMCP_OPENAPI_LOG")
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
 
-    // Set log level if not already set
-    if env::var("RUST_LOG").is_err() {
-        unsafe {
-            env::set_var("RUST_LOG", "info");
-        }
-    }
-
-    // Initialize tracing subscriber for structured logging
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(env_filter)
+        .with_target(true) // Include the target (module path) in logs
         .init();
 }

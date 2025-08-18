@@ -16,6 +16,7 @@ use url::Url;
 use crate::error::Error;
 use crate::spec::SpecLocation;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
+use tracing::{debug, info, info_span, warn};
 
 #[derive(Clone, Builder)]
 pub struct Server {
@@ -79,6 +80,12 @@ impl Server {
     ///
     /// Returns an error if the spec cannot be loaded or tools cannot be generated
     pub async fn load_openapi_spec(&mut self) -> Result<(), Error> {
+        let span = info_span!(
+            "tool_registration",
+            spec_location = %self.spec_location
+        );
+        let _enter = span.enter();
+
         // Load the OpenAPI specification
         let spec = self.spec_location.load_spec().await?;
 
@@ -92,9 +99,9 @@ impl Server {
 
         self.tool_collection = ToolCollection::from_tools(tools);
 
-        println!(
-            "Loaded {} tools from OpenAPI spec",
-            self.tool_collection.len()
+        info!(
+            tool_count = self.tool_collection.len(),
+            "Loaded tools from OpenAPI spec"
         );
 
         Ok(())
@@ -186,8 +193,18 @@ impl ServerHandler for Server {
         _request: Option<PaginatedRequestParam>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
+        let span = info_span!("list_tools", tool_count = self.tool_collection.len());
+        let _enter = span.enter();
+
+        debug!("Processing MCP list_tools request");
+
         // Delegate to tool collection for MCP tool conversion
         let tools = self.tool_collection.to_mcp_tools();
+
+        info!(
+            returned_tools = tools.len(),
+            "MCP list_tools request completed successfully"
+        );
 
         Ok(ListToolsResult {
             tools,
@@ -200,6 +217,18 @@ impl ServerHandler for Server {
         request: CallToolRequestParam,
         _context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        let span = info_span!(
+            "call_tool",
+            tool_name = %request.name
+        );
+        let _enter = span.enter();
+
+        debug!(
+            tool_name = %request.name,
+            has_arguments = !request.arguments.as_ref().unwrap_or(&serde_json::Map::new()).is_empty(),
+            "Processing MCP call_tool request"
+        );
+
         let arguments = request.arguments.unwrap_or_default();
         let arguments_value = Value::Object(arguments);
 
@@ -209,8 +238,21 @@ impl ServerHandler for Server {
             .call_tool(&request.name, &arguments_value)
             .await
         {
-            Ok(result) => Ok(result),
+            Ok(result) => {
+                info!(
+                    tool_name = %request.name,
+                    success = true,
+                    "MCP call_tool request completed successfully"
+                );
+                Ok(result)
+            }
             Err(e) => {
+                warn!(
+                    tool_name = %request.name,
+                    success = false,
+                    error = %e,
+                    "MCP call_tool request failed"
+                );
                 // Convert ToolCallError to ErrorData and return as error
                 Err(e.into())
             }

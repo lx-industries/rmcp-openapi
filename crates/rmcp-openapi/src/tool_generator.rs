@@ -11,6 +11,7 @@ use oas3::spec::{
     BooleanSchema, ObjectOrReference, ObjectSchema, Operation, Parameter, ParameterIn,
     ParameterStyle, RequestBody, Response, Schema, SchemaType, SchemaTypeSet, Spec,
 };
+use tracing::{trace, warn};
 
 // Annotation key constants
 const X_LOCATION: &str = "x-location";
@@ -707,7 +708,10 @@ impl ToolGenerator {
                     // Try to resolve parameter reference
                     // Note: Parameter references are rare and not supported yet in this implementation
                     // For now, we'll continue to skip them but log a warning
-                    eprintln!("Warning: Parameter reference not resolved: {ref_path}");
+                    warn!(
+                        reference_path = %ref_path,
+                        "Parameter reference not resolved"
+                    );
                     continue;
                 }
             };
@@ -1247,6 +1251,12 @@ impl ToolGenerator {
             }
         })?;
 
+        trace!(
+            tool_name = %tool_metadata.name,
+            raw_arguments = ?arguments,
+            "Starting parameter extraction"
+        );
+
         let mut path_params = HashMap::new();
         let mut query_params = HashMap::new();
         let mut header_params = HashMap::new();
@@ -1337,6 +1347,12 @@ impl ToolGenerator {
             body: body_params,
             config,
         };
+
+        trace!(
+            tool_name = %tool_metadata.name,
+            extracted_parameters = ?extracted,
+            "Parameter extraction completed"
+        );
 
         // Validate parameters against tool metadata using the original arguments
         Self::validate_parameters(tool_metadata, arguments)?;

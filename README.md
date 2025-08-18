@@ -292,6 +292,63 @@ Validation errors are returned as MCP protocol errors:
 }
 ```
 
+## Logging Configuration
+
+The server uses structured logging with the `tracing` crate for comprehensive observability and debugging.
+
+### Log Levels
+
+Set the log level using the `RMCP_OPENAPI_LOG` environment variable:
+
+```bash
+# Info level (default for normal operation)
+RMCP_OPENAPI_LOG=info rmcp-openapi-server https://petstore.swagger.io/v2/swagger.json
+
+# Debug level (detailed operation info)
+RMCP_OPENAPI_LOG=debug rmcp-openapi-server https://petstore.swagger.io/v2/swagger.json
+
+# Trace level (very detailed debugging)
+RMCP_OPENAPI_LOG=trace rmcp-openapi-server https://petstore.swagger.io/v2/swagger.json
+
+# Or use the --verbose flag for debug level
+rmcp-openapi-server --verbose https://petstore.swagger.io/v2/swagger.json
+```
+
+### Log Level Details
+
+- **`error`**: Critical errors that need attention
+- **`warn`**: Potential issues or warnings
+- **`info`**: Important operational events (server startup, tool registration, HTTP request completion)
+- **`debug`**: General debugging information (parameter extraction, tool lookup)
+- **`trace`**: Very detailed debugging (detailed parameter parsing)
+
+**Note**: Request and response bodies are never logged for security reasons.
+
+### Structured Logging Format
+
+Logs include structured fields for easy parsing and filtering:
+
+```
+2025-08-19T10:30:45.123Z INFO rmcp_openapi_server::main: OpenAPI MCP Server starting bind_address="127.0.0.1:8080"
+2025-08-19T10:30:45.125Z INFO rmcp_openapi::server: Loaded tools from OpenAPI spec tool_count=12
+2025-08-19T10:30:45.130Z INFO http_request{tool_name="getPetById" method="GET" path="/pet/{petId}"}: rmcp_openapi::http_client: HTTP request completed status=200 elapsed_ms=45
+```
+
+### Module-Specific Logging
+
+You can control logging for specific modules:
+
+```bash
+# Only HTTP client debug logs
+RMCP_OPENAPI_LOG=rmcp_openapi::http_client=debug rmcp-openapi-server spec.json
+
+# Only server info logs, everything else warn
+RMCP_OPENAPI_LOG=warn,rmcp_openapi::server=info rmcp-openapi-server spec.json
+
+# Debug parameter extraction and tool generation
+RMCP_OPENAPI_LOG=info,rmcp_openapi::tool_generator=debug rmcp-openapi-server spec.json
+```
+
 ## Examples
 
 See the `examples/` directory for usage examples:

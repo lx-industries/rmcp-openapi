@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, info_span};
 use url::Url;
 
 use crate::error::{
@@ -95,6 +95,14 @@ impl HttpClient {
         tool_metadata: &ToolMetadata,
         arguments: &Value,
     ) -> Result<HttpResponse, ToolCallError> {
+        let span = info_span!(
+            "http_request",
+            operation_id = %tool_metadata.name,
+            method = %tool_metadata.method,
+            path = %tool_metadata.path
+        );
+        let _enter = span.enter();
+
         debug!(
             "Executing tool call: {} {} with arguments: {}",
             tool_metadata.method,
@@ -106,12 +114,11 @@ impl HttpClient {
         let extracted_params = ToolGenerator::extract_parameters(tool_metadata, arguments)?;
 
         debug!(
-            "Extracted parameters: path={:?}, query={:?}, headers={:?}, cookies={:?}, body={:?}",
+            "Extracted parameters: path={:?}, query={:?}, headers={:?}, cookies={:?}",
             extracted_params.path,
             extracted_params.query,
             extracted_params.headers,
-            extracted_params.cookies,
-            extracted_params.body
+            extracted_params.cookies
         );
 
         // Build the URL with path parameters
@@ -197,8 +204,15 @@ impl HttpClient {
 
         // Execute the request
         debug!("Sending HTTP request...");
+        let start_time = std::time::Instant::now();
         let response = request.send().await.map_err(|e| {
-            error!("HTTP request failed: {}", e);
+            error!(
+                operation_id = %tool_metadata.name,
+                method = %tool_metadata.method,
+                url = %final_url,
+                error = %e,
+                "HTTP request failed"
+            );
 
             // Categorize error based on reqwest's reliable error detection methods
             let (error_msg, category) = if e.is_timeout() {
@@ -260,13 +274,21 @@ impl HttpClient {
                 )
             };
 
-            error!("{}", error_msg);
             ToolCallError::Execution(ToolCallExecutionError::NetworkError {
                 message: error_msg,
                 category,
             })
         })?;
 
+        let elapsed = start_time.elapsed();
+        info!(
+            operation_id = %tool_metadata.name,
+            method = %tool_metadata.method,
+            url = %final_url,
+            status = response.status().as_u16(),
+            elapsed_ms = elapsed.as_millis(),
+            "HTTP request completed"
+        );
         debug!("Response received with status: {}", response.status());
 
         // Convert response to our format with request details

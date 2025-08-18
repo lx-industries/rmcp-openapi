@@ -8,7 +8,6 @@ use url::Url;
 pub struct Config {
     pub spec_location: SpecLocation,
     pub base_url: Option<Url>,
-    pub verbose: bool,
     pub port: u16,
     pub bind_address: String,
     pub default_headers: HeaderMap,
@@ -69,7 +68,6 @@ impl Config {
         Ok(Config {
             spec_location: cli.spec,
             base_url,
-            verbose: cli.verbose,
             port: cli.port,
             bind_address: cli.bind_address,
             default_headers,
@@ -91,7 +89,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![
@@ -142,7 +139,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![
@@ -177,7 +173,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["InvalidHeaderNoEquals".to_string()],
@@ -198,7 +193,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![": value".to_string()],
@@ -219,7 +213,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["X-Empty-Header:".to_string()],
@@ -244,7 +237,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![],
@@ -261,7 +253,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Invalid Header Name: value".to_string()],
@@ -282,7 +273,6 @@ mod tests {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
-            verbose: false,
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Valid-Header: invalid\x00value".to_string()],

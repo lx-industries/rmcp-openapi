@@ -13,10 +13,6 @@ pub struct Cli {
     #[arg(long)]
     pub base_url: Option<String>,
 
-    /// Enable verbose logging
-    #[arg(long, short = 'v')]
-    pub verbose: bool,
-
     /// Port to bind the MCP server to
     #[arg(long, short = 'p', default_value = "8080")]
     pub port: u16,

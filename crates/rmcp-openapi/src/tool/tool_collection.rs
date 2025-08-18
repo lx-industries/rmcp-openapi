@@ -2,6 +2,7 @@ use super::Tool;
 use crate::error::{ToolCallError, ToolCallValidationError};
 use rmcp::model::{CallToolResult, Tool as McpTool};
 use serde_json::Value;
+use tracing::debug_span;
 
 /// Collection of tools with built-in validation and lookup capabilities
 ///
@@ -72,6 +73,13 @@ impl ToolCollection {
         tool_name: &str,
         arguments: &Value,
     ) -> Result<CallToolResult, ToolCallError> {
+        let span = debug_span!(
+            "tool_execution",
+            tool_name = %tool_name,
+            total_tools = self.tools.len()
+        );
+        let _enter = span.enter();
+
         // First validate that the tool exists
         if let Some(tool) = self.get_tool(tool_name) {
             // Tool exists, delegate to the tool's call method
