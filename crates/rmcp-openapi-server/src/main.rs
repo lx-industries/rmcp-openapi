@@ -4,7 +4,7 @@ mod config;
 use cli::Cli;
 use config::Config;
 use rmcp::transport::SseServer;
-use rmcp_openapi::{OpenApiError, server::OpenApiServer};
+use rmcp_openapi::{Error, Server};
 use std::process;
 use tokio::signal;
 
@@ -16,7 +16,7 @@ async fn main() {
     }
 }
 
-async fn run() -> Result<(), OpenApiError> {
+async fn run() -> Result<(), Error> {
     // Parse command line arguments
     let cli = Cli::parse_args();
     let config = Config::from_cli(cli)?;
@@ -26,34 +26,16 @@ async fn run() -> Result<(), OpenApiError> {
         setup_logging();
     }
 
-    // Create OpenApi server
-    let mut server = match (config.base_url.as_ref(), !config.default_headers.is_empty()) {
-        (Some(base_url), true) => {
-            // Both base URL and headers
-            OpenApiServer::with_base_url_and_headers(
-                config.spec_location.clone(),
-                base_url.clone(),
-                config.default_headers.clone(),
-            )?
-        }
-        (Some(base_url), false) => {
-            // Only base URL
-            OpenApiServer::with_base_url(config.spec_location.clone(), base_url.clone())?
-        }
-        (None, true) => {
-            // Only headers
-            OpenApiServer::with_default_headers(
-                config.spec_location.clone(),
-                config.default_headers.clone(),
-            )
-        }
-        (None, false) => {
-            // Neither
-            OpenApiServer::new(config.spec_location.clone())
-        }
-    }
-    .with_tags(config.tags.clone())
-    .with_methods(config.methods.clone());
+    // Create server using the builder pattern
+    let mut server = Server::builder()
+        .spec_location(config.spec_location.clone())
+        .maybe_tag_filter(config.tags.clone())
+        .maybe_method_filter(config.methods.clone())
+        .maybe_base_url(config.base_url.clone())
+        .maybe_default_headers(
+            (!config.default_headers.is_empty()).then_some(config.default_headers.clone()),
+        )
+        .build();
 
     // Load OpenAPI specification
     eprintln!(
@@ -78,10 +60,10 @@ async fn run() -> Result<(), OpenApiError> {
     let cancellation_token = SseServer::serve(
         bind_addr
             .parse()
-            .map_err(|e| OpenApiError::InvalidUrl(format!("Invalid bind address: {e}")))?,
+            .map_err(|e| Error::InvalidUrl(format!("Invalid bind address: {e}")))?,
     )
     .await
-    .map_err(|e| OpenApiError::McpError(format!("Failed to start SSE server: {e}")))?
+    .map_err(|e| Error::McpError(format!("Failed to start SSE server: {e}")))?
     .with_service(move || {
         // Clone the already loaded server
         server.clone()

@@ -1,25 +1,30 @@
-use super::ToolMetadata;
-use crate::error::OpenApiError;
+pub mod metadata;
+pub mod tool_collection;
+
+pub use metadata::ToolMetadata;
+pub use tool_collection::ToolCollection;
+
+use crate::error::Error;
 use crate::http_client::HttpClient;
 use reqwest::header::HeaderMap;
-use rmcp::model::{CallToolResult, Tool};
+use rmcp::model::{CallToolResult, Tool as McpTool};
 use serde_json::Value;
 use url::Url;
 
-/// Self-contained OpenAPI tool with embedded HTTP client
+/// Self-contained tool with embedded HTTP client
 #[derive(Clone)]
-pub struct OpenApiTool {
+pub struct Tool {
     pub metadata: ToolMetadata,
     http_client: HttpClient,
 }
 
-impl OpenApiTool {
-    /// Create OpenAPI tool with HTTP configuration
+impl Tool {
+    /// Create tool with HTTP configuration
     pub fn new(
         metadata: ToolMetadata,
         base_url: Option<Url>,
         default_headers: Option<HeaderMap>,
-    ) -> Result<Self, OpenApiError> {
+    ) -> Result<Self, Error> {
         let mut http_client = HttpClient::new();
 
         if let Some(url) = base_url {
@@ -117,9 +122,9 @@ impl OpenApiTool {
     }
 }
 
-/// MCP compliance - Convert OpenApiTool to rmcp::model::Tool
-impl From<&OpenApiTool> for Tool {
-    fn from(openapi_tool: &OpenApiTool) -> Self {
-        (&openapi_tool.metadata).into()
+/// MCP compliance - Convert Tool to rmcp::model::Tool
+impl From<&Tool> for McpTool {
+    fn from(tool: &Tool) -> Self {
+        (&tool.metadata).into()
     }
 }

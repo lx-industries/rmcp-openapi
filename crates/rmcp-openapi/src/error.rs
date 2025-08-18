@@ -116,6 +116,24 @@ use serde_json::{Value, json};
 use std::fmt;
 use thiserror::Error;
 
+/// Find similar strings using Jaro distance algorithm
+/// Used for parameter and tool name suggestions in errors
+fn find_similar_strings(unknown: &str, known_strings: &[&str]) -> Vec<String> {
+    use strsim::jaro;
+
+    let mut candidates = Vec::new();
+    for string in known_strings {
+        let confidence = jaro(unknown, string);
+        if confidence > 0.7 {
+            candidates.push((confidence, string.to_string()));
+        }
+    }
+
+    // Sort by confidence (highest first)
+    candidates.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    candidates.into_iter().map(|(_, name)| name).collect()
+}
+
 /// Individual validation constraint that was violated
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "kebab-case")]
@@ -359,7 +377,7 @@ pub enum CliError {
 }
 
 #[derive(Debug, Error)]
-pub enum OpenApiError {
+pub enum Error {
     #[error("CLI error: {0}")]
     Cli(#[from] CliError),
     #[error("Environment variable error: {0}")]
@@ -477,27 +495,27 @@ impl From<ToolCallError> for ErrorData {
     }
 }
 
-impl From<OpenApiError> for ErrorData {
-    fn from(err: OpenApiError) -> Self {
+impl From<Error> for ErrorData {
+    fn from(err: Error) -> Self {
         match err {
-            OpenApiError::Spec(msg) => ErrorData::new(
+            Error::Spec(msg) => ErrorData::new(
                 ErrorCode(-32700),
                 format!("OpenAPI spec error: {msg}"),
                 None,
             ),
-            OpenApiError::Validation(msg) => {
+            Error::Validation(msg) => {
                 ErrorData::new(ErrorCode(-32602), format!("Validation error: {msg}"), None)
             }
-            OpenApiError::HttpRequest(e) => {
+            Error::HttpRequest(e) => {
                 ErrorData::new(ErrorCode(-32000), format!("HTTP request failed: {e}"), None)
             }
-            OpenApiError::Http(msg) => {
+            Error::Http(msg) => {
                 ErrorData::new(ErrorCode(-32000), format!("HTTP error: {msg}"), None)
             }
-            OpenApiError::Json(e) => {
+            Error::Json(e) => {
                 ErrorData::new(ErrorCode(-32700), format!("JSON parsing error: {e}"), None)
             }
-            OpenApiError::ToolCall(e) => e.into(),
+            Error::ToolCall(e) => e.into(),
             _ => ErrorData::new(ErrorCode(-32000), err.to_string(), None),
         }
     }
@@ -594,6 +612,30 @@ pub enum ToolCallExecutionError {
         #[serde(skip_serializing_if = "Option::is_none")]
         raw_response: Option<String>,
     },
+}
+
+impl ToolCallValidationError {
+    /// Create a ToolNotFound error with suggestions based on available tools
+    pub fn tool_not_found(tool_name: String, available_tools: &[&str]) -> Self {
+        let suggestions = find_similar_strings(&tool_name, available_tools);
+        Self::ToolNotFound {
+            tool_name,
+            suggestions,
+        }
+    }
+}
+
+impl ValidationError {
+    /// Create an InvalidParameter error with suggestions based on valid parameters
+    pub fn invalid_parameter(parameter: String, valid_parameters: &[String]) -> Self {
+        let valid_params_refs: Vec<&str> = valid_parameters.iter().map(|s| s.as_str()).collect();
+        let suggestions = find_similar_strings(&parameter, &valid_params_refs);
+        Self::InvalidParameter {
+            parameter,
+            suggestions,
+            valid_parameters: valid_parameters.to_vec(),
+        }
+    }
 }
 
 /// Network error categories for better error handling
@@ -986,5 +1028,32 @@ mod tests {
                 .contains("SSL/TLS"),
             "Should preserve error message"
         );
+    }
+
+    #[test]
+    fn test_find_similar_strings() {
+        // Test basic similarity
+        let known = vec!["page_size", "user_id", "status"];
+        let suggestions = find_similar_strings("page_sixe", &known);
+        assert_eq!(suggestions, vec!["page_size"]);
+
+        // Test no suggestions for very different string
+        let suggestions = find_similar_strings("xyz123", &known);
+        assert!(suggestions.is_empty());
+
+        // Test transposed characters
+        let known = vec!["limit", "offset"];
+        let suggestions = find_similar_strings("lmiit", &known);
+        assert_eq!(suggestions, vec!["limit"]);
+
+        // Test missing character
+        let known = vec!["project_id", "merge_request_id"];
+        let suggestions = find_similar_strings("projct_id", &known);
+        assert_eq!(suggestions, vec!["project_id"]);
+
+        // Test extra character
+        let known = vec!["name", "email"];
+        let suggestions = find_similar_strings("namee", &known);
+        assert_eq!(suggestions, vec!["name"]);
     }
 }

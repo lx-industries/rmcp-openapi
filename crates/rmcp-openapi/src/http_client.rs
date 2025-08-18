@@ -8,8 +8,7 @@ use tracing::{debug, error, info};
 use url::Url;
 
 use crate::error::{
-    NetworkErrorCategory, OpenApiError, ToolCallError, ToolCallExecutionError,
-    ToolCallValidationError,
+    Error, NetworkErrorCategory, ToolCallError, ToolCallExecutionError, ToolCallValidationError,
 };
 use crate::tool::ToolMetadata;
 use crate::tool_generator::{ExtractedParameters, QueryParameter, ToolGenerator};
@@ -74,7 +73,7 @@ impl HttpClient {
     /// # Errors
     ///
     /// Returns an error if the base URL is invalid
-    pub fn with_base_url(mut self, base_url: Url) -> Result<Self, OpenApiError> {
+    pub fn with_base_url(mut self, base_url: Url) -> Result<Self, Error> {
         self.base_url = Some(base_url);
         Ok(self)
     }
@@ -292,7 +291,7 @@ impl HttpClient {
         &self,
         tool_metadata: &ToolMetadata,
         extracted_params: &ExtractedParameters,
-    ) -> Result<Url, OpenApiError> {
+    ) -> Result<Url, Error> {
         let mut path = tool_metadata.path.clone();
 
         // Substitute path parameters
@@ -310,17 +309,16 @@ impl HttpClient {
         // Combine with base URL if available
         if let Some(base_url) = &self.base_url {
             base_url.join(&path).map_err(|e| {
-                OpenApiError::Http(format!(
+                Error::Http(format!(
                     "Failed to join URL '{base_url}' with path '{path}': {e}"
                 ))
             })
         } else {
             // Assume the path is already a complete URL
             if path.starts_with("http") {
-                Url::parse(&path)
-                    .map_err(|e| OpenApiError::Http(format!("Invalid URL '{path}': {e}")))
+                Url::parse(&path).map_err(|e| Error::Http(format!("Invalid URL '{path}': {e}")))
             } else {
-                Err(OpenApiError::Http(
+                Err(Error::Http(
                     "No base URL configured and path is not a complete URL".to_string(),
                 ))
             }
@@ -328,7 +326,7 @@ impl HttpClient {
     }
 
     /// Create a new HTTP request with the specified method and URL
-    fn create_request(&self, method: &str, url: &Url) -> Result<RequestBuilder, OpenApiError> {
+    fn create_request(&self, method: &str, url: &Url) -> Result<RequestBuilder, Error> {
         let http_method = method.to_uppercase();
         let method = match http_method.as_str() {
             "GET" => Method::GET,
@@ -339,7 +337,7 @@ impl HttpClient {
             "HEAD" => Method::HEAD,
             "OPTIONS" => Method::OPTIONS,
             _ => {
-                return Err(OpenApiError::Http(format!(
+                return Err(Error::Http(format!(
                     "Unsupported HTTP method: {http_method}"
                 )));
             }
@@ -448,7 +446,7 @@ impl HttpClient {
         mut request: RequestBuilder,
         body: &HashMap<String, Value>,
         config: &crate::tool_generator::RequestConfig,
-    ) -> Result<RequestBuilder, OpenApiError> {
+    ) -> Result<RequestBuilder, Error> {
         if body.is_empty() {
             return Ok(request);
         }
@@ -464,7 +462,7 @@ impl HttpClient {
                     // Use the request_body directly if it's the only parameter
                     let body_value = &body["request_body"];
                     let json_string = serde_json::to_string(body_value).map_err(|e| {
-                        OpenApiError::Http(format!("Failed to serialize request body: {e}"))
+                        Error::Http(format!("Failed to serialize request body: {e}"))
                     })?;
                     request = request.body(json_string);
                 } else {
@@ -472,7 +470,7 @@ impl HttpClient {
                     let body_object =
                         Value::Object(body.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
                     let json_string = serde_json::to_string(&body_object).map_err(|e| {
-                        OpenApiError::Http(format!("Failed to serialize request body: {e}"))
+                        Error::Http(format!("Failed to serialize request body: {e}"))
                     })?;
                     request = request.body(json_string);
                 }
@@ -497,9 +495,8 @@ impl HttpClient {
                 // For other content types, try to serialize as JSON
                 let body_object =
                     Value::Object(body.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
-                let json_string = serde_json::to_string(&body_object).map_err(|e| {
-                    OpenApiError::Http(format!("Failed to serialize request body: {e}"))
-                })?;
+                let json_string = serde_json::to_string(&body_object)
+                    .map_err(|e| Error::Http(format!("Failed to serialize request body: {e}")))?;
                 request = request.body(json_string);
             }
         }
@@ -514,7 +511,7 @@ impl HttpClient {
         method: &str,
         url: &str,
         request_body: &str,
-    ) -> Result<HttpResponse, OpenApiError> {
+    ) -> Result<HttpResponse, Error> {
         let status = response.status();
         let headers = response
             .headers()
@@ -530,7 +527,7 @@ impl HttpClient {
         let body = response
             .text()
             .await
-            .map_err(|e| OpenApiError::Http(format!("Failed to read response body: {e}")))?;
+            .map_err(|e| Error::Http(format!("Failed to read response body: {e}")))?;
 
         let is_success = status.is_success();
         let status_code = status.as_u16();
@@ -612,9 +609,9 @@ impl HttpResponse {
     /// # Errors
     ///
     /// Returns an error if the body is not valid JSON
-    pub fn json(&self) -> Result<Value, OpenApiError> {
+    pub fn json(&self) -> Result<Value, Error> {
         serde_json::from_str(&self.body)
-            .map_err(|e| OpenApiError::Http(format!("Failed to parse response as JSON: {e}")))
+            .map_err(|e| Error::Http(format!("Failed to parse response as JSON: {e}")))
     }
 
     /// Get a formatted response summary for MCP

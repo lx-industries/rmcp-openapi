@@ -2,58 +2,59 @@ use std::fmt;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::error::OpenApiError;
+use crate::error::Error;
 use crate::normalize_tag;
 use crate::tool::ToolMetadata;
 use crate::tool_generator::ToolGenerator;
-use oas3::Spec;
+use oas3::Spec as Oas3Spec;
 use reqwest::Method;
 use serde_json::Value;
 use url::Url;
 
 #[derive(Debug, Clone)]
-pub enum OpenApiSpecLocation {
+pub enum SpecLocation {
     File(PathBuf),
     Url(Url),
     Json(serde_json::Value),
 }
 
-impl FromStr for OpenApiSpecLocation {
-    type Err = OpenApiError;
+impl FromStr for SpecLocation {
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with("http://") || s.starts_with("https://") {
-            let url =
-                Url::parse(s).map_err(|e| OpenApiError::InvalidUrl(format!("Invalid URL: {e}")))?;
-            Ok(OpenApiSpecLocation::Url(url))
+            let url = Url::parse(s).map_err(|e| Error::InvalidUrl(format!("Invalid URL: {e}")))?;
+            Ok(SpecLocation::Url(url))
         } else {
             let path = PathBuf::from(s);
-            Ok(OpenApiSpecLocation::File(path))
+            Ok(SpecLocation::File(path))
         }
     }
 }
 
-impl OpenApiSpecLocation {
-    pub async fn load_spec(&self) -> Result<OpenApiSpec, OpenApiError> {
+impl SpecLocation {
+    pub async fn load_spec(&self) -> Result<Spec, Error> {
         match self {
-            OpenApiSpecLocation::File(path) => {
-                OpenApiSpec::from_file(path.to_str().ok_or_else(|| {
-                    OpenApiError::InvalidPath("Invalid file path encoding".to_string())
-                })?)
+            SpecLocation::File(path) => {
+                Spec::from_file(
+                    path.to_str().ok_or_else(|| {
+                        Error::InvalidPath("Invalid file path encoding".to_string())
+                    })?,
+                )
                 .await
             }
-            OpenApiSpecLocation::Url(url) => OpenApiSpec::from_url(url).await,
-            OpenApiSpecLocation::Json(value) => OpenApiSpec::from_value(value.clone()),
+            SpecLocation::Url(url) => Spec::from_url(url).await,
+            SpecLocation::Json(value) => Spec::from_value(value.clone()),
         }
     }
 }
 
-impl fmt::Display for OpenApiSpecLocation {
+impl fmt::Display for SpecLocation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            OpenApiSpecLocation::File(path) => write!(f, "{}", path.display()),
-            OpenApiSpecLocation::Url(url) => write!(f, "{url}"),
-            OpenApiSpecLocation::Json(_) => write!(f, "<inline JSON>"),
+            SpecLocation::File(path) => write!(f, "{}", path.display()),
+            SpecLocation::Url(url) => write!(f, "{url}"),
+            SpecLocation::Json(_) => write!(f, "<inline JSON>"),
         }
     }
 }
@@ -61,33 +62,33 @@ impl fmt::Display for OpenApiSpecLocation {
 /// OpenAPI specification wrapper that provides convenience methods
 /// for working with oas3::Spec
 #[derive(Debug, Clone)]
-pub struct OpenApiSpec {
-    pub spec: Spec,
+pub struct Spec {
+    pub spec: Oas3Spec,
 }
 
-impl OpenApiSpec {
+impl Spec {
     /// Load and parse an OpenAPI specification from a URL
-    pub async fn from_url(url: &Url) -> Result<Self, OpenApiError> {
+    pub async fn from_url(url: &Url) -> Result<Self, Error> {
         let client = reqwest::Client::new();
         let response = client.get(url.clone()).send().await?;
         let text = response.text().await?;
-        let spec: Spec = serde_json::from_str(&text)?;
+        let spec: Oas3Spec = serde_json::from_str(&text)?;
 
-        Ok(OpenApiSpec { spec })
+        Ok(Spec { spec })
     }
 
     /// Load and parse an OpenAPI specification from a file
-    pub async fn from_file(path: &str) -> Result<Self, OpenApiError> {
+    pub async fn from_file(path: &str) -> Result<Self, Error> {
         let content = tokio::fs::read_to_string(path).await?;
-        let spec: Spec = serde_json::from_str(&content)?;
+        let spec: Oas3Spec = serde_json::from_str(&content)?;
 
-        Ok(OpenApiSpec { spec })
+        Ok(Spec { spec })
     }
 
     /// Parse an OpenAPI specification from a JSON value
-    pub fn from_value(json_value: Value) -> Result<Self, OpenApiError> {
-        let spec: Spec = serde_json::from_value(json_value)?;
-        Ok(OpenApiSpec { spec })
+    pub fn from_value(json_value: Value) -> Result<Self, Error> {
+        let spec: Oas3Spec = serde_json::from_value(json_value)?;
+        Ok(Spec { spec })
     }
 
     /// Convert all operations to MCP tool metadata
@@ -95,7 +96,7 @@ impl OpenApiSpec {
         &self,
         tag_filter: Option<&[String]>,
         method_filter: Option<&[reqwest::Method]>,
-    ) -> Result<Vec<ToolMetadata>, OpenApiError> {
+    ) -> Result<Vec<ToolMetadata>, Error> {
         let mut tools = Vec::new();
 
         if let Some(paths) = &self.spec.paths {
@@ -167,11 +168,11 @@ impl OpenApiSpec {
         method_filter: Option<&[reqwest::Method]>,
         base_url: Option<url::Url>,
         default_headers: Option<reqwest::header::HeaderMap>,
-    ) -> Result<Vec<crate::tool::OpenApiTool>, OpenApiError> {
+    ) -> Result<Vec<crate::tool::Tool>, Error> {
         // First generate the tool metadata using existing method
         let tools_metadata = self.to_tool_metadata(tag_filter, method_filter)?;
 
-        // Then convert to OpenApiTool instances
+        // Then convert to Tool instances
         crate::tool_generator::ToolGenerator::generate_openapi_tools(
             tools_metadata,
             base_url,
@@ -256,7 +257,7 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn create_test_spec_with_tags() -> OpenApiSpec {
+    fn create_test_spec_with_tags() -> Spec {
         let spec_json = json!({
             "openapi": "3.0.3",
             "info": {
@@ -319,10 +320,10 @@ mod tests {
             }
         });
 
-        OpenApiSpec::from_value(spec_json).expect("Failed to create test spec")
+        Spec::from_value(spec_json).expect("Failed to create test spec")
     }
 
-    fn create_test_spec_with_mixed_case_tags() -> OpenApiSpec {
+    fn create_test_spec_with_mixed_case_tags() -> Spec {
         let spec_json = json!({
             "openapi": "3.0.3",
             "info": {
@@ -399,10 +400,10 @@ mod tests {
             }
         });
 
-        OpenApiSpec::from_value(spec_json).expect("Failed to create test spec")
+        Spec::from_value(spec_json).expect("Failed to create test spec")
     }
 
-    fn create_test_spec_with_methods() -> OpenApiSpec {
+    fn create_test_spec_with_methods() -> Spec {
         let spec_json = json!({
             "openapi": "3.0.3",
             "info": {
@@ -500,7 +501,7 @@ mod tests {
             }
         });
 
-        OpenApiSpec::from_value(spec_json).expect("Failed to create test spec")
+        Spec::from_value(spec_json).expect("Failed to create test spec")
     }
 
     #[test]

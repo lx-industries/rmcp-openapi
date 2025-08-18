@@ -1,12 +1,12 @@
 use crate::cli::Cli;
 use reqwest::header::HeaderMap;
-use rmcp_openapi::{CliError, OpenApiError, OpenApiSpecLocation};
+use rmcp_openapi::{CliError, Error, SpecLocation};
 
 use url::Url;
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub spec_location: OpenApiSpecLocation,
+    pub spec_location: SpecLocation,
     pub base_url: Option<Url>,
     pub verbose: bool,
     pub port: u16,
@@ -17,12 +17,12 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_cli(cli: Cli) -> Result<Self, OpenApiError> {
+    pub fn from_cli(cli: Cli) -> Result<Self, Error> {
         // Parse base URL if provided
         let base_url = if let Some(base_url_str) = cli.base_url {
             Some(
                 Url::parse(&base_url_str)
-                    .map_err(|e| OpenApiError::InvalidUrl(format!("Invalid base URL: {e}")))?,
+                    .map_err(|e| Error::InvalidUrl(format!("Invalid base URL: {e}")))?,
             )
         } else {
             None
@@ -36,7 +36,7 @@ impl Config {
                 let value = value.trim();
 
                 if key.is_empty() {
-                    return Err(OpenApiError::Cli(CliError::InvalidHeaderFormat {
+                    return Err(Error::Cli(CliError::InvalidHeaderFormat {
                         header: header_str,
                     }));
                 }
@@ -44,7 +44,7 @@ impl Config {
                 // Validate header name using reqwest/http
                 let header_name =
                     http::header::HeaderName::from_bytes(key.as_bytes()).map_err(|e| {
-                        OpenApiError::Cli(CliError::InvalidHeaderName {
+                        Error::Cli(CliError::InvalidHeaderName {
                             header: header_str.clone(),
                             source: e,
                         })
@@ -52,7 +52,7 @@ impl Config {
 
                 // Validate header value using reqwest/http
                 let header_value = http::header::HeaderValue::from_str(value).map_err(|e| {
-                    OpenApiError::Cli(CliError::InvalidHeaderValue {
+                    Error::Cli(CliError::InvalidHeaderValue {
                         header: header_str.clone(),
                         source: e,
                     })
@@ -60,7 +60,7 @@ impl Config {
 
                 default_headers.insert(header_name, header_value);
             } else {
-                return Err(OpenApiError::Cli(CliError::InvalidHeaderFormat {
+                return Err(Error::Cli(CliError::InvalidHeaderFormat {
                     header: header_str,
                 }));
             }
@@ -83,13 +83,13 @@ impl Config {
 mod tests {
     use super::*;
     use crate::cli::Cli;
-    use rmcp_openapi::OpenApiSpecLocation;
+    use rmcp_openapi::SpecLocation;
     use url::Url;
 
     #[test]
     fn test_header_parsing_valid_formats() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_header_parsing_with_spaces() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,
@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn test_header_parsing_invalid_format_no_equals() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn test_header_parsing_invalid_format_empty_key() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,
@@ -217,7 +217,7 @@ mod tests {
     #[test]
     fn test_header_parsing_empty_value_allowed() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn test_no_headers() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn test_header_validation_invalid_header_name() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn test_header_validation_invalid_header_value() {
         let cli = Cli {
-            spec: OpenApiSpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
             base_url: None,
             verbose: false,
             port: 8080,

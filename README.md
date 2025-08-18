@@ -1,10 +1,15 @@
 # rmcp-openapi
 
-Expose OpenAPI definition endpoints as MCP tools using the official Rust SDK for the Model Context Protocol.
+A Rust workspace providing OpenAPI to MCP (Model Context Protocol) conversion tools.
 
 ## Overview
 
-This project provides a bridge between OpenAPI specifications and the Model Context Protocol (MCP), allowing you to automatically generate MCP tools from OpenAPI definitions. This enables AI assistants to interact with REST APIs through a standardized interface.
+This workspace contains two crates that work together to bridge OpenAPI specifications and the Model Context Protocol (MCP):
+
+- **`rmcp-openapi`** (library): Core functionality for converting OpenAPI specifications to MCP tools
+- **`rmcp-openapi-server`** (binary): MCP server executable that exposes OpenAPI endpoints as tools
+
+This enables AI assistants to interact with REST APIs through a standardized interface.
 
 ## Features
 
@@ -21,21 +26,26 @@ This project provides a bridge between OpenAPI specifications and the Model Cont
 
 ## Installation
 
-### Install Binary
+### Install Server Binary
 ```bash
-cargo install rmcp-openapi
+cargo install rmcp-openapi-server
 ```
 
 ### Build from Source
 ```bash
-cargo build --release
+# Build entire workspace
+cargo build --workspace --release
+
+# Build specific crates
+cargo build --package rmcp-openapi --release       # Library only
+cargo build --package rmcp-openapi-server --release # Server only
 ```
 
-### As a Library
+### Using as a Library
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-rmcp-openapi = "0.1.0"
+rmcp-openapi = "0.7.0"
 ```
 
 ## Usage as a Library
@@ -47,9 +57,11 @@ use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create server from OpenAPI spec URL
+    // Create server from OpenAPI spec URL using builder pattern
     let spec_location = OpenApiSpecLocation::from("https://petstore.swagger.io/v2/swagger.json");
-    let mut server = OpenApiServer::new(spec_location);
+    let mut server = OpenApiServer::builder()
+        .spec_location(spec_location)
+        .build();
     
     // Load the OpenAPI specification
     server.load_openapi_spec().await?;
@@ -62,9 +74,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Advanced Example with Custom Base URL
+### Advanced Example with Custom Configuration
 ```rust
 use rmcp_openapi::{OpenApiServer, OpenApiSpecLocation, HttpClient};
+use reqwest::header::HeaderMap;
 use url::Url;
 
 #[tokio::main]
@@ -72,22 +85,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spec_location = OpenApiSpecLocation::from("./api-spec.json");
     let base_url = Url::parse("https://api.example.com")?;
     
-    // Create server with custom base URL
-    let mut server = OpenApiServer::with_base_url(spec_location, base_url)?;
+    // Create headers
+    let mut headers = HeaderMap::new();
+    headers.insert("Authorization", "Bearer token123".parse()?);
+    
+    // Create server with custom configuration using builder pattern
+    let mut server = OpenApiServer::builder()
+        .spec_location(spec_location)
+        .base_url(base_url)
+        .default_headers(headers)
+        .maybe_tag_filter(Some(vec!["user".to_string(), "pets".to_string()]))
+        .build();
+    
     server.load_openapi_spec().await?;
     
     // Validate the registry
     server.validate_registry()?;
     
-    // Get tool metadata
-    if let Some(tool) = server.registry.get_tool("getUserById") {
-        println!("Tool: {} - {}", tool.name, tool.description);
-        
-        // Check if tool has output schema
-        if let Some(output_schema) = &tool.output_schema {
-            println!("Output schema: {}", serde_json::to_string_pretty(output_schema)?);
-        }
-    }
+    // Get tool information
+    println!("Generated {} tools", server.tool_count());
+    println!("Tool stats: {}", server.get_tool_stats());
     
     Ok(())
 }

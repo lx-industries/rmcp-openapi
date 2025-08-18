@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::error::{
-    ErrorResponse, OpenApiError, ToolCallValidationError, ValidationConstraint, ValidationError,
+    Error, ErrorResponse, ToolCallValidationError, ValidationConstraint, ValidationError,
 };
 use crate::tool::ToolMetadata;
 use oas3::spec::{
@@ -214,7 +214,7 @@ impl ToolGenerator {
         method: String,
         path: String,
         spec: &Spec,
-    ) -> Result<ToolMetadata, OpenApiError> {
+    ) -> Result<ToolMetadata, Error> {
         let name = operation.operation_id.clone().unwrap_or_else(|| {
             format!(
                 "{}_{}",
@@ -257,12 +257,11 @@ impl ToolGenerator {
         tools_metadata: Vec<ToolMetadata>,
         base_url: Option<url::Url>,
         default_headers: Option<reqwest::header::HeaderMap>,
-    ) -> Result<Vec<crate::tool::OpenApiTool>, OpenApiError> {
+    ) -> Result<Vec<crate::tool::Tool>, Error> {
         let mut openapi_tools = Vec::with_capacity(tools_metadata.len());
 
         for metadata in tools_metadata {
-            let tool =
-                crate::tool::OpenApiTool::new(metadata, base_url.clone(), default_headers.clone())?;
+            let tool = crate::tool::Tool::new(metadata, base_url.clone(), default_headers.clone())?;
             openapi_tools.push(tool);
         }
 
@@ -304,7 +303,7 @@ impl ToolGenerator {
     fn extract_output_schema(
         responses: &Option<BTreeMap<String, ObjectOrReference<Response>>>,
         spec: &Spec,
-    ) -> Result<Option<Value>, OpenApiError> {
+    ) -> Result<Option<Value>, Error> {
         let responses = match responses {
             Some(r) => r,
             None => return Ok(None),
@@ -386,7 +385,7 @@ impl ToolGenerator {
         schema: &Schema,
         spec: &Spec,
         visited: &mut HashSet<String>,
-    ) -> Result<Value, OpenApiError> {
+    ) -> Result<Value, Error> {
         match schema {
             Schema::Object(obj_schema_or_ref) => match obj_schema_or_ref.as_ref() {
                 ObjectOrReference::Object(obj_schema) => {
@@ -421,7 +420,7 @@ impl ToolGenerator {
         obj_schema: &ObjectSchema,
         spec: &Spec,
         visited: &mut HashSet<String>,
-    ) -> Result<Value, OpenApiError> {
+    ) -> Result<Value, Error> {
         let mut schema_obj = serde_json::Map::new();
 
         // Add type if specified
@@ -634,10 +633,10 @@ impl ToolGenerator {
         ref_path: &str,
         spec: &Spec,
         visited: &mut HashSet<String>,
-    ) -> Result<ObjectSchema, OpenApiError> {
+    ) -> Result<ObjectSchema, Error> {
         // Check for circular reference
         if visited.contains(ref_path) {
-            return Err(OpenApiError::ToolGeneration(format!(
+            return Err(Error::ToolGeneration(format!(
                 "Circular reference detected: {ref_path}"
             )));
         }
@@ -648,7 +647,7 @@ impl ToolGenerator {
         // Parse the reference path
         // Currently only supporting local references like "#/components/schemas/Pet"
         if !ref_path.starts_with("#/components/schemas/") {
-            return Err(OpenApiError::ToolGeneration(format!(
+            return Err(Error::ToolGeneration(format!(
                 "Unsupported reference format: {ref_path}. Only #/components/schemas/ references are supported"
             )));
         }
@@ -657,13 +656,13 @@ impl ToolGenerator {
 
         // Get the schema from components
         let components = spec.components.as_ref().ok_or_else(|| {
-            OpenApiError::ToolGeneration(format!(
+            Error::ToolGeneration(format!(
                 "Reference {ref_path} points to components, but spec has no components section"
             ))
         })?;
 
         let schema_ref = components.schemas.get(schema_name).ok_or_else(|| {
-            OpenApiError::ToolGeneration(format!(
+            Error::ToolGeneration(format!(
                 "Schema '{schema_name}' not found in components/schemas"
             ))
         })?;
@@ -691,7 +690,7 @@ impl ToolGenerator {
         _method: &str,
         request_body: &Option<ObjectOrReference<RequestBody>>,
         spec: &Spec,
-    ) -> Result<Value, OpenApiError> {
+    ) -> Result<Value, Error> {
         let mut properties = serde_json::Map::new();
         let mut required = Vec::new();
 
@@ -840,7 +839,7 @@ impl ToolGenerator {
         param: &Parameter,
         location: ParameterIn,
         spec: &Spec,
-    ) -> Result<(Value, Annotations), OpenApiError> {
+    ) -> Result<(Value, Annotations), Error> {
         // Convert the parameter schema using the unified converter
         let base_schema = if let Some(schema_ref) = &param.schema {
             match schema_ref {
@@ -878,7 +877,7 @@ impl ToolGenerator {
             Value::Object(obj) => obj,
             _ => {
                 // This should never happen as our converter always returns objects
-                return Err(OpenApiError::ToolGeneration(format!(
+                return Err(Error::ToolGeneration(format!(
                     "Internal error: schema converter returned non-object for parameter '{}'",
                     param.name
                 )));
@@ -1049,7 +1048,7 @@ impl ToolGenerator {
         items: &Option<Box<Schema>>,
         result: &mut serde_json::Map<String, Value>,
         spec: &Spec,
-    ) -> Result<(), OpenApiError> {
+    ) -> Result<(), Error> {
         let prefix_count = prefix_items.len();
 
         // Extract types from prefixItems
@@ -1148,7 +1147,7 @@ impl ToolGenerator {
     /// Converts the new oas3 Schema enum (which can be Boolean or Object) to draft-07 format.
     ///
     /// The oas3 crate now supports:
-    /// - Schema::Object(ObjectOrReference<ObjectSchema>) - regular object schemas
+    /// - Schema::Object(`ObjectOrReference<ObjectSchema>`) - regular object schemas
     /// - Schema::Boolean(BooleanSchema) - true/false schemas for validation control
     ///
     /// For MCP compatibility (draft-07), we convert:
@@ -1159,7 +1158,7 @@ impl ToolGenerator {
     fn convert_request_body_to_json_schema(
         request_body_ref: &ObjectOrReference<RequestBody>,
         spec: &Spec,
-    ) -> Result<Option<(Value, Annotations, bool)>, OpenApiError> {
+    ) -> Result<Option<(Value, Annotations, bool)>, Error> {
         match request_body_ref {
             ObjectOrReference::Object(request_body) => {
                 // Extract schema from request body content
@@ -1376,14 +1375,12 @@ impl ToolGenerator {
     fn get_parameter_location(
         tool_metadata: &ToolMetadata,
         param_name: &str,
-    ) -> Result<String, OpenApiError> {
+    ) -> Result<String, Error> {
         let properties = tool_metadata
             .parameters
             .get("properties")
             .and_then(|p| p.as_object())
-            .ok_or_else(|| {
-                OpenApiError::ToolGeneration("Invalid tool parameters schema".to_string())
-            })?;
+            .ok_or_else(|| Error::ToolGeneration("Invalid tool parameters schema".to_string()))?;
 
         if let Some(param_schema) = properties.get(param_name)
             && let Some(location) = param_schema
@@ -1476,16 +1473,11 @@ impl ToolGenerator {
         // Check each provided argument
         for (arg_name, _) in args.iter() {
             if !properties.contains_key(arg_name) {
-                // Find similar parameter names
-                let valid_params_refs: Vec<&str> =
-                    valid_params.iter().map(|s| s.as_str()).collect();
-                let suggestions = crate::find_similar_strings(arg_name, &valid_params_refs);
-
-                errors.push(ValidationError::InvalidParameter {
-                    parameter: arg_name.clone(),
-                    suggestions,
-                    valid_parameters: valid_params.clone(),
-                });
+                // Create InvalidParameter error with suggestions
+                errors.push(ValidationError::invalid_parameter(
+                    arg_name.clone(),
+                    &valid_params,
+                ));
             }
         }
 
@@ -1780,7 +1772,7 @@ impl ToolGenerator {
     fn wrap_output_schema(
         body_schema: &ObjectOrReference<ObjectSchema>,
         spec: &Spec,
-    ) -> Result<Value, OpenApiError> {
+    ) -> Result<Value, Error> {
         // Convert the body schema to JSON
         let mut visited = HashSet::new();
         let body_schema_json = match body_schema {

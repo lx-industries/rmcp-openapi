@@ -1,5 +1,5 @@
-use crate::error::OpenApiError;
-use crate::openapi::OpenApiSpec;
+use crate::error::Error;
+use crate::spec::Spec;
 use crate::tool::ToolMetadata;
 use std::collections::HashMap;
 
@@ -10,8 +10,8 @@ pub struct ToolRegistry {
     tools: HashMap<String, ToolMetadata>,
     /// Map of tool name to `OpenAPI` operation for runtime lookup
     operations: HashMap<String, (oas3::spec::Operation, String, String)>,
-    /// Source `OpenAPI` spec for reference
-    spec: Option<OpenApiSpec>,
+    /// Source spec for reference
+    spec: Option<Spec>,
 }
 
 impl ToolRegistry {
@@ -25,17 +25,17 @@ impl ToolRegistry {
         }
     }
 
-    /// Register tools from an `OpenAPI` specification
+    /// Register tools from a specification
     ///
     /// # Errors
     ///
     /// Returns an error if any tool fails to be generated or registered
     pub fn register_from_spec(
         &mut self,
-        spec: OpenApiSpec,
+        spec: Spec,
         tag_filter: Option<&[String]>,
         method_filter: Option<&[reqwest::Method]>,
-    ) -> Result<usize, OpenApiError> {
+    ) -> Result<usize, Error> {
         // Clear existing tools
         self.clear();
 
@@ -67,7 +67,7 @@ impl ToolRegistry {
         &mut self,
         tool: ToolMetadata,
         operation: (oas3::spec::Operation, String, String),
-    ) -> Result<(), OpenApiError> {
+    ) -> Result<(), Error> {
         let tool_name = tool.name.clone();
 
         // Validate tool metadata
@@ -81,28 +81,28 @@ impl ToolRegistry {
     }
 
     /// Validate tool metadata
-    fn validate_tool(&self, tool: &ToolMetadata) -> Result<(), OpenApiError> {
+    fn validate_tool(&self, tool: &ToolMetadata) -> Result<(), Error> {
         if tool.name.is_empty() {
-            return Err(OpenApiError::ToolGeneration(
+            return Err(Error::ToolGeneration(
                 "Tool name cannot be empty".to_string(),
             ));
         }
 
         if tool.method.is_empty() {
-            return Err(OpenApiError::ToolGeneration(
+            return Err(Error::ToolGeneration(
                 "Tool method cannot be empty".to_string(),
             ));
         }
 
         if tool.path.is_empty() {
-            return Err(OpenApiError::ToolGeneration(
+            return Err(Error::ToolGeneration(
                 "Tool path cannot be empty".to_string(),
             ));
         }
 
         // Validate that the tool name is unique
         if self.tools.contains_key(&tool.name) {
-            return Err(OpenApiError::ToolGeneration(format!(
+            return Err(Error::ToolGeneration(format!(
                 "Tool '{}' already exists",
                 tool.name
             )));
@@ -165,7 +165,7 @@ impl ToolRegistry {
 
     /// Get the source `OpenAPI` spec
     #[must_use]
-    pub fn get_spec(&self) -> Option<&OpenApiSpec> {
+    pub fn get_spec(&self) -> Option<&Spec> {
         self.spec.as_ref()
     }
 
@@ -193,11 +193,11 @@ impl ToolRegistry {
     /// # Errors
     ///
     /// Returns an error if any tool is missing its operation, has invalid metadata, or there are orphaned operations
-    pub fn validate_registry(&self) -> Result<(), OpenApiError> {
+    pub fn validate_registry(&self) -> Result<(), Error> {
         for tool in self.tools.values() {
             // Check if corresponding operation exists
             if !self.operations.contains_key(&tool.name) {
-                return Err(OpenApiError::ToolGeneration(format!(
+                return Err(Error::ToolGeneration(format!(
                     "Missing operation for tool '{}'",
                     tool.name
                 )));
@@ -210,7 +210,7 @@ impl ToolRegistry {
         // Check for orphaned operations
         for operation_name in self.operations.keys() {
             if !self.tools.contains_key(operation_name) {
-                return Err(OpenApiError::ToolGeneration(format!(
+                return Err(Error::ToolGeneration(format!(
                     "Orphaned operation '{operation_name}'"
                 )));
             }
@@ -220,13 +220,10 @@ impl ToolRegistry {
     }
 
     /// Validate a single tool's metadata
-    fn validate_tool_metadata(
-        tool_name: &str,
-        tool_metadata: &ToolMetadata,
-    ) -> Result<(), OpenApiError> {
+    fn validate_tool_metadata(tool_name: &str, tool_metadata: &ToolMetadata) -> Result<(), Error> {
         // Check that the tool has valid parameters schema
         if !tool_metadata.parameters.is_object() {
-            return Err(OpenApiError::Validation(format!(
+            return Err(Error::Validation(format!(
                 "Tool '{tool_name}' has invalid parameters schema - must be an object"
             )));
         }
@@ -236,12 +233,12 @@ impl ToolRegistry {
         // Check for required properties field
         if let Some(properties) = schema_obj.get("properties") {
             if !properties.is_object() {
-                return Err(OpenApiError::Validation(format!(
+                return Err(Error::Validation(format!(
                     "Tool '{tool_name}' properties field must be an object"
                 )));
             }
         } else {
-            return Err(OpenApiError::Validation(format!(
+            return Err(Error::Validation(format!(
                 "Tool '{tool_name}' is missing properties field in parameters schema"
             )));
         }
@@ -250,7 +247,7 @@ impl ToolRegistry {
         if let Some(required) = schema_obj.get("required")
             && !required.is_array()
         {
-            return Err(OpenApiError::Validation(format!(
+            return Err(Error::Validation(format!(
                 "Tool '{tool_name}' required field must be an array"
             )));
         }
@@ -258,7 +255,7 @@ impl ToolRegistry {
         // Check HTTP method is valid
         let valid_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
         if !valid_methods.contains(&tool_metadata.method.to_uppercase().as_str()) {
-            return Err(OpenApiError::Validation(format!(
+            return Err(Error::Validation(format!(
                 "Tool '{}' has invalid HTTP method: {}",
                 tool_name, tool_metadata.method
             )));
@@ -266,7 +263,7 @@ impl ToolRegistry {
 
         // Check path is not empty
         if tool_metadata.path.is_empty() {
-            return Err(OpenApiError::Validation(format!(
+            return Err(Error::Validation(format!(
                 "Tool '{tool_name}' has empty path"
             )));
         }

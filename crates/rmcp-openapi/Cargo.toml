@@ -1,0 +1,44 @@
+[package]
+name = "rmcp-openapi"
+description = "Library for converting OpenAPI specifications to MCP tools"
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "rmcp_openapi"
+path = "src/lib.rs"
+
+[dependencies]
+rmcp = { workspace = true, features = ["server"] }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+regex.workspace = true
+oas3.workspace = true
+indexmap.workspace = true
+mime.workspace = true
+url.workspace = true
+tracing.workspace = true
+strsim.workspace = true
+jsonschema.workspace = true
+heck.workspace = true
+http.workspace = true
+bon.workspace = true
+
+[dev-dependencies]
+rmcp = { workspace = true, features = ["server", "transport-sse-server", "transport-child-process", "transport-streamable-http-server"] }
+insta.workspace = true
+anyhow.workspace = true
+tokio-util.workspace = true
+tracing-subscriber.workspace = true
+axum.workspace = true
+mockito.workspace = true

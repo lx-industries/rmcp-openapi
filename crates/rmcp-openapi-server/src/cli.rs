@@ -1,5 +1,5 @@
 use clap::Parser;
-use rmcp_openapi::OpenApiSpecLocation;
+use rmcp_openapi::SpecLocation;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -7,7 +7,7 @@ use rmcp_openapi::OpenApiSpecLocation;
 #[command(about = "OpenAPI MCP Server - Expose OpenAPI endpoints as MCP tools")]
 pub struct Cli {
     /// `OpenAPI` specification URL or file path
-    pub spec: OpenApiSpecLocation,
+    pub spec: SpecLocation,
 
     /// Base URL to override the one in the `OpenAPI` spec
     #[arg(long)]

@@ -1,4 +1,4 @@
-use rmcp_openapi::{HttpClient, server::OpenApiServer};
+use rmcp_openapi::{HttpClient, Server};
 use serde_json::json;
 use std::env;
 use url::Url;
@@ -341,18 +341,14 @@ async fn test_available_tools() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Helper function to create a server with a specific base URL
-async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<OpenApiServer> {
+async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<Server> {
     // Using petstore-openapi-norefs.json until issue #18 is implemented
     let spec_content = include_str!("assets/petstore-openapi-norefs.json");
 
     // Parse the embedded spec as JSON value
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
 
-    let mut server = OpenApiServer::with_base_url(
-        rmcp_openapi::OpenApiSpecLocation::Json(json_value),
-        base_url,
-    )?;
+    let mut server = Server::with_base_url(rmcp_openapi::SpecLocation::Json(json_value), base_url)?;
 
     // Load the OpenAPI specification using the new API
     server.load_openapi_spec().await?;

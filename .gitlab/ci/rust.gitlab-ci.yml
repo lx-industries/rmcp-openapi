@@ -2,7 +2,7 @@
 .rust-changes: &rust-changes
   - "Cargo.toml"
   - "Cargo.lock"
-  - "src/**/*"
+  - "crates/**/*"
   - "tests/**/*"
   - "examples/**/*"
   - ".cargo/**/*"
@@ -51,7 +51,7 @@ build:
   extends: .rust-template
   stage: build
   script:
-    - cargo build --verbose
+    - cargo build --workspace --all-features --verbose
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -61,7 +61,7 @@ test:
   extends: .rust-template
   stage: test
   script:
-    - cargo test --verbose --lib --bins
+    - cargo test --workspace --verbose --lib --bins
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -78,7 +78,7 @@ clippy:
     - rustup component add clippy
     - cargo clippy --version
   script:
-    - cargo clippy --all-targets --all-features -- -D warnings
+    - cargo clippy --workspace --all-targets --all-features -- -D warnings
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -105,10 +105,10 @@ rustdoc:
   stage: docs
   script:
     # Build documentation with all features and check for warnings
-    - cargo doc --all-features --no-deps 2>&1 | tee doc-output.txt
+    - cargo doc --workspace --all-features --no-deps 2>&1 | tee doc-output.txt
     - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
-    # Also build with private items to ensure internal documentation is complete
-    - cargo rustdoc --lib -- --document-private-items
+    # Also build with private items to ensure internal documentation is complete  
+    - cargo rustdoc --package rmcp-openapi --lib -- --document-private-items
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -128,7 +128,7 @@ doc-test:
   stage: docs
   script:
     # Run documentation tests to ensure examples compile
-    - cargo test --doc --all-features
+    - cargo test --workspace --doc --all-features
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -141,7 +141,7 @@ examples:
   extends: .rust-template
   stage: examples
   script:
-    - cargo build --examples --verbose
+    - cargo build --workspace --examples --verbose
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -160,7 +160,7 @@ integration-js:
     - node --version
     - npm --version
   script:
-    - cargo test --test test_with_js --verbose
+    - cargo test --package rmcp-openapi --test test_with_js --verbose
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -181,7 +181,7 @@ integration-python:
     - python3 --version
     - uv --version
   script:
-    - cargo test --test test_with_python --verbose
+    - cargo test --package rmcp-openapi --test test_with_python --verbose
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache

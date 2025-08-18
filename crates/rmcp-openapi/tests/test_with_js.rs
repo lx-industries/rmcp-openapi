@@ -1,5 +1,6 @@
-use rmcp::transport::SseServer;
-use rmcp_openapi::server::OpenApiServer;
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+use rmcp::transport::{SseServer, StreamableHttpServerConfig, StreamableHttpService};
+use rmcp_openapi::Server;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use url::Url;
 
@@ -9,10 +10,7 @@ use mockito::Mock;
 use serde_json::json;
 
 /// Create a petstore server with base URL for HTTP requests
-fn create_petstore_mcp_server_with_spec(
-    base_url: Url,
-    spec_path: &str,
-) -> anyhow::Result<OpenApiServer> {
+fn create_petstore_mcp_server_with_spec(base_url: Url, spec_path: &str) -> anyhow::Result<Server> {
     let spec_content = match spec_path {
         "assets/petstore-openapi-norefs.json" => {
             include_str!("assets/petstore-openapi-norefs.json")
@@ -23,7 +21,7 @@ fn create_petstore_mcp_server_with_spec(
 
     // Parse the embedded spec as JSON value and create tools directly
     let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
-    let spec = rmcp_openapi::openapi::OpenApiSpec::from_value(json_value)?;
+    let spec = rmcp_openapi::Spec::from_value(json_value)?;
 
     // Generate OpenApiTool instances directly (synchronously)
     let tools = spec.to_openapi_tools(
@@ -33,13 +31,13 @@ fn create_petstore_mcp_server_with_spec(
         None, // default_headers
     )?;
 
-    let mut server = OpenApiServer::with_base_url(
-        rmcp_openapi::OpenApiSpecLocation::Json(serde_json::Value::Null), // Dummy value since we set tools directly
+    let mut server = Server::with_base_url(
+        rmcp_openapi::SpecLocation::Json(serde_json::Value::Null), // Dummy value since we set tools directly
         base_url,
     )?;
 
     // Set tools directly
-    server.tools = tools;
+    server.tool_collection = rmcp_openapi::ToolCollection::from_tools(tools);
 
     Ok(server)
 }
@@ -52,16 +50,16 @@ async fn init() -> anyhow::Result<()> {
         )
         .with(tracing_subscriber::fmt::layer())
         .try_init();
-    tokio::process::Command::new("uv")
-        .args(["sync"])
-        .current_dir("tests/test_with_python")
+    tokio::process::Command::new("npm")
+        .arg("install")
+        .current_dir("tests/test_with_js")
         .spawn()?
         .wait()
         .await?;
     Ok(())
 }
 
-async fn run_python_sse_client_test(
+async fn run_js_sse_client_test(
     spec_path: &str,
     mock_port: u16,
     sse_port: u16,
@@ -79,10 +77,9 @@ async fn run_python_sse_client_test(
     let _error_mock = mock_server.mock_get_pet_by_id_not_found(999999);
     let _validation_error_mock = mock_server.mock_add_pet_validation_error();
 
-    let sse_bind_address = format!("127.0.0.1:{sse_port}");
-
     // Start MCP server with mock API base URL
     let base_url = mock_server.base_url();
+    let sse_bind_address = format!("127.0.0.1:{sse_port}");
     let spec_path = spec_path.to_string(); // Convert to owned string
     let ct = SseServer::serve(sse_bind_address.parse()?)
         .await?
@@ -90,16 +87,18 @@ async fn run_python_sse_client_test(
             create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path).unwrap()
         });
 
-    let output = tokio::process::Command::new("uv")
-        .arg("run")
-        .arg("client.py")
-        .arg(format!("http://{sse_bind_address}/sse"))
-        .current_dir("tests/test_with_python")
-        .output()
-        .await?;
+    let mut cmd = tokio::process::Command::new("node");
+    cmd.arg("client.js").current_dir("tests/test_with_js");
+
+    // Set environment variable for SSE URL if not using default port
+    if sse_port != 8000 {
+        cmd.env("MCP_SSE_URL", format!("http://{sse_bind_address}/sse"));
+    }
+
+    let output = cmd.output().await?;
 
     if !output.status.success() {
-        eprintln!("Python client failed:");
+        eprintln!("JavaScript client failed:");
         eprintln!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
         eprintln!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
     }
@@ -133,31 +132,124 @@ async fn run_python_sse_client_test(
     Ok(())
 }
 
+async fn run_js_streamable_http_client_test(
+    spec_path: &str,
+    mock_port: u16,
+    streamable_port: u16,
+    snapshot_name: &str,
+) -> anyhow::Result<()> {
+    init().await?;
+
+    // Start mock server for HTTP requests
+    let mut mock_server = MockPetstoreServer::new_with_port(mock_port).await;
+
+    // Set up mock responses for all tool calls
+    let _get_pet_mock = mock_server.mock_get_pet_by_id(123);
+    let _find_pets_mock = mock_server.mock_find_pets_by_multiple_status();
+    let _add_pet_mock = mock_server.mock_add_pet();
+    let _error_mock = mock_server.mock_get_pet_by_id_not_found(999999);
+    let _validation_error_mock = mock_server.mock_add_pet_validation_error();
+
+    let base_url = mock_server.base_url();
+    let spec_path = spec_path.to_string(); // Convert to owned string
+    let service = StreamableHttpService::new(
+        move || {
+            create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path)
+                .map_err(std::io::Error::other)
+        },
+        std::sync::Arc::new(LocalSessionManager::default()),
+        StreamableHttpServerConfig {
+            stateful_mode: true,
+            sse_keep_alive: None,
+        },
+    );
+
+    let router = axum::Router::new().nest_service("/mcp", service);
+    let streamable_bind_address = format!("127.0.0.1:{streamable_port}");
+    let tcp_listener = tokio::net::TcpListener::bind(&streamable_bind_address).await?;
+    let ct = tokio_util::sync::CancellationToken::new();
+
+    let server_handle = tokio::spawn({
+        let ct = ct.clone();
+        async move {
+            let _ = axum::serve(tcp_listener, router)
+                .with_graceful_shutdown(async move { ct.cancelled_owned().await })
+                .await;
+        }
+    });
+
+    // Give the server a moment to start
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+    let mut cmd = tokio::process::Command::new("node");
+    cmd.arg("streamable_client.js")
+        .current_dir("tests/test_with_js");
+
+    // Set environment variable for Streamable URL if not using default port
+    if streamable_port != 8001 {
+        cmd.env(
+            "MCP_STREAMABLE_URL",
+            format!("http://{streamable_bind_address}/mcp/"),
+        );
+    }
+
+    let output = cmd.output().await?;
+
+    if !output.status.success() {
+        eprintln!("StreamableHttp client failed:");
+        eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+    }
+    assert!(output.status.success());
+
+    // Capture and validate the actual MCP responses
+    let stdout = String::from_utf8(output.stdout)?;
+    let mut responses: Vec<serde_json::Value> = stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(serde_json::from_str)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Sort arrays for deterministic snapshots (preserve_order handles object properties)
+    for response in &mut responses {
+        if let Some(tools) = response
+            .get_mut("data")
+            .and_then(|d| d.get_mut("tools"))
+            .and_then(|t| t.as_array_mut())
+        {
+            tools.sort_by(|a, b| {
+                let name_a = a.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                let name_b = b.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                name_a.cmp(name_b)
+            });
+        }
+    }
+
+    insta::assert_json_snapshot!(snapshot_name, responses);
+
+    ct.cancel();
+    server_handle.await?;
+    Ok(())
+}
+
 #[tokio::test]
-async fn test_with_python_client() -> anyhow::Result<()> {
-    run_python_sse_client_test(
+async fn test_with_js_sse_client() -> anyhow::Result<()> {
+    run_js_sse_client_test(
         "assets/petstore-openapi-norefs.json",
-        8083,
+        8084,
         8000,
-        "python_sse_client_responses",
+        "js_sse_client_responses",
     )
     .await
 }
 
-// TODO: Add test_nested_with_python_client once nested routing support is implemented
-// See https://gitlab.com/lx-industries/rmcp-actix-web/-/issues/2
-
-// =============================================================================
-// Tests using original petstore spec WITH $refs (to test $ref resolution)
-// =============================================================================
-
 #[tokio::test]
-async fn test_with_python_client_with_refs() -> anyhow::Result<()> {
-    run_python_sse_client_test(
-        "assets/petstore-openapi.json",
-        8088,
-        8004,
-        "python_sse_client_responses_with_refs",
+async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
+    run_js_streamable_http_client_test(
+        "assets/petstore-openapi-norefs.json",
+        8085,
+        8001,
+        "js_streamable_http_client_responses",
     )
     .await
 }
@@ -296,4 +388,30 @@ impl MockPetstoreServer {
             )
             .create()
     }
+}
+
+// =============================================================================
+// Tests using original petstore spec WITH $refs (to test $ref resolution)
+// =============================================================================
+
+#[tokio::test]
+async fn test_with_js_sse_client_with_refs() -> anyhow::Result<()> {
+    run_js_sse_client_test(
+        "assets/petstore-openapi.json",
+        8086,
+        8002,
+        "js_sse_client_responses_with_refs",
+    )
+    .await
+}
+
+#[tokio::test]
+async fn test_with_js_streamable_http_client_with_refs() -> anyhow::Result<()> {
+    run_js_streamable_http_client_test(
+        "assets/petstore-openapi.json",
+        8087,
+        8003,
+        "js_streamable_http_client_responses_with_refs",
+    )
+    .await
 }

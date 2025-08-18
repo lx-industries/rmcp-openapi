@@ -1,0 +1,43 @@
+[package]
+name = "rmcp-openapi-server"
+description = "MCP server executable for OpenAPI specifications"
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "rmcp-openapi-server"
+path = "src/main.rs"
+
+[dependencies]
+# Library dependency
+rmcp-openapi = { version = "0.7.0", path = "../rmcp-openapi" }
+
+# Server-specific dependencies
+rmcp.workspace = true
+tokio.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+url.workspace = true
+reqwest.workspace = true
+http.workspace = true
+
+[dev-dependencies]
+rmcp = { workspace = true, features = [
+    "server",
+    "transport-sse-server",
+    "transport-child-process",
+    "transport-streamable-http-server",
+] }
+insta.workspace = true
+anyhow.workspace = true
+tokio-util.workspace = true
+axum.workspace = true
+mockito.workspace = true
