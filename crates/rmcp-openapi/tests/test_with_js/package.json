@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10"
+    "@modelcontextprotocol/sdk": "1.13.2"
   },
   "type": "module",
   "name": "test_with_ts",
