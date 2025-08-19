@@ -1,3 +1,22 @@
+## [0.8.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.7.0...v0.8.0) (2025-08-19)
+
+
+### Features
+
+* implement structured logging with tracing crate ([98f9faf](https://gitlab.com/lx-industries/rmcp-openapi/commit/98f9faf401af76777c3295af32d3fe8ffe9b617d)), closes [#16](https://gitlab.com/lx-industries/rmcp-openapi/issues/16)
+
+
+### Bug Fixes
+
+* add delay after npm install to prevent Node.js export maps race condition ([67d4f46](https://gitlab.com/lx-industries/rmcp-openapi/commit/67d4f46b518b4258e936ce008df1ff5e38eb2bfd)), closes [#54](https://gitlab.com/lx-industries/rmcp-openapi/issues/54)
+* pin exact SDK version for better CI reproducibility ([79c0fbb](https://gitlab.com/lx-industries/rmcp-openapi/commit/79c0fbb6d3ce0a5b5a80ca370eeb4cee54397749)), closes [#54](https://gitlab.com/lx-industries/rmcp-openapi/issues/54)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate serde_json to v1.0.143 ([50875a1](https://gitlab.com/lx-industries/rmcp-openapi/commit/50875a15a618d91f046f272b2dee663bd720fb3a))
+* **deps:** update rust crate thiserror to v2.0.15 ([0a90724](https://gitlab.com/lx-industries/rmcp-openapi/commit/0a90724c389b568d7c025a6f99fb22a3cab02cfb))
+
 ## [0.7.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.6.1...v0.7.0) (2025-08-18)
 
 
