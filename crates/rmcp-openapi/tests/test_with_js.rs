@@ -56,6 +56,10 @@ async fn init() -> anyhow::Result<()> {
         .spawn()?
         .wait()
         .await?;
+
+    // Add small delay to ensure Node.js export maps are fully processed
+    // This prevents intermittent module resolution failures in CI
+    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
     Ok(())
 }
 
