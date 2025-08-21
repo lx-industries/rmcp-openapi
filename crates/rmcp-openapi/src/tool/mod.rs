@@ -79,7 +79,7 @@ impl Tool {
                     // "For backwards compatibility, a tool that returns structured content SHOULD also
                     // return the serialized JSON in a TextContent block."
                     match serde_json::to_string(structured) {
-                        Ok(json_string) => Some(vec![Content::text(json_string)]),
+                        Ok(json_string) => vec![Content::text(json_string)],
                         Err(e) => {
                             // Return error if we can't serialize the structured content
                             let error = crate::error::ToolCallError::Execution(
@@ -92,7 +92,7 @@ impl Tool {
                         }
                     }
                 } else {
-                    Some(vec![Content::text(response.to_mcp_content())])
+                    vec![Content::text(response.to_mcp_content())]
                 };
 
                 // Return successful response

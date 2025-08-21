@@ -35,7 +35,13 @@ http.workspace = true
 bon.workspace = true
 
 [dev-dependencies]
-rmcp = { workspace = true, features = ["server", "transport-sse-server", "transport-child-process", "transport-streamable-http-server"] }
+rmcp = { workspace = true, features = [
+    "server",
+    "client",
+    "transport-sse-server",
+    "transport-child-process",
+    "transport-streamable-http-server",
+] }
 insta.workspace = true
 anyhow.workspace = true
 tokio-util.workspace = true
