@@ -1,3 +1,14 @@
+## [0.8.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.8.1...v0.8.2) (2025-08-25)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate indexmap to v2.11.0 ([a399498](https://gitlab.com/lx-industries/rmcp-openapi/commit/a39949841131a110099cad9f735a726fefb07595))
+* **deps:** update rust crate jsonschema to 0.33.0 ([2ba2be0](https://gitlab.com/lx-industries/rmcp-openapi/commit/2ba2be02c7b433a4cedd573770fc35c35b87582c))
+* **deps:** update rust crate regex to v1.11.2 ([ae4c26a](https://gitlab.com/lx-industries/rmcp-openapi/commit/ae4c26a7d6f3665766f1a3e57ae96dc31fb3325c))
+* **deps:** update rust crate url to v2.5.6 ([6420f03](https://gitlab.com/lx-industries/rmcp-openapi/commit/6420f03cb13ff2b3eb923af4ac19e22356f60a53))
+* **deps:** update rust crate url to v2.5.7 ([0360f71](https://gitlab.com/lx-industries/rmcp-openapi/commit/0360f715636d6a00251a59f6ed8682c3a822b14c))
+
 ## [0.8.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.8.0...v0.8.1) (2025-08-21)
 
 
