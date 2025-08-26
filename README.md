@@ -45,21 +45,21 @@ cargo build --package rmcp-openapi-server --release # Server only
 Add to your `Cargo.toml`:
 ```toml
 [dependencies]
-rmcp-openapi = "0.7.0"
+rmcp-openapi = "0.8.2"
 ```
 
 ## Usage as a Library
 
 ### Basic Example
 ```rust
-use rmcp_openapi::{OpenApiServer, OpenApiSpecLocation};
+use rmcp_openapi::{Server, SpecLocation};
 use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create server from OpenAPI spec URL using builder pattern
-    let spec_location = OpenApiSpecLocation::from("https://petstore.swagger.io/v2/swagger.json");
-    let mut server = OpenApiServer::builder()
+    let spec_location = SpecLocation::from("https://petstore.swagger.io/v2/swagger.json");
+    let mut server = Server::builder()
         .spec_location(spec_location)
         .build();
     
@@ -76,13 +76,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Advanced Example with Custom Configuration
 ```rust
-use rmcp_openapi::{OpenApiServer, OpenApiSpecLocation, HttpClient};
+use rmcp_openapi::{Server, SpecLocation, HttpClient};
 use reqwest::header::HeaderMap;
 use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let spec_location = OpenApiSpecLocation::from("./api-spec.json");
+    let spec_location = SpecLocation::from("./api-spec.json");
     let base_url = Url::parse("https://api.example.com")?;
     
     // Create headers
@@ -90,11 +90,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     headers.insert("Authorization", "Bearer token123".parse()?);
     
     // Create server with custom configuration using builder pattern
-    let mut server = OpenApiServer::builder()
+    let mut server = Server::builder()
         .spec_location(spec_location)
         .base_url(base_url)
         .default_headers(headers)
-        .maybe_tag_filter(Some(vec!["user".to_string(), "pets".to_string()]))
+        .tag_filter(Some(vec!["user".to_string(), "pets".to_string()]))
         .build();
     
     server.load_openapi_spec().await?;
