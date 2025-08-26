@@ -31,7 +31,7 @@ fn create_petstore_mcp_server_with_spec(base_url: Url, spec_path: &str) -> anyho
     )?;
 
     let mut server = Server::with_base_url(
-        rmcp_openapi::SpecLocation::Json(serde_json::Value::Null), // Dummy value since we set tools directly
+        serde_json::Value::Null, // Dummy value since we set tools directly
         base_url,
     )?;
 

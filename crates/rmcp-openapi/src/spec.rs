@@ -1,7 +1,3 @@
-use std::fmt;
-use std::path::PathBuf;
-use std::str::FromStr;
-
 use crate::error::Error;
 use crate::normalize_tag;
 use crate::tool::ToolMetadata;
@@ -9,55 +5,6 @@ use crate::tool_generator::ToolGenerator;
 use oas3::Spec as Oas3Spec;
 use reqwest::Method;
 use serde_json::Value;
-use url::Url;
-
-#[derive(Debug, Clone)]
-pub enum SpecLocation {
-    File(PathBuf),
-    Url(Url),
-    Json(serde_json::Value),
-}
-
-impl FromStr for SpecLocation {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.starts_with("http://") || s.starts_with("https://") {
-            let url = Url::parse(s).map_err(|e| Error::InvalidUrl(format!("Invalid URL: {e}")))?;
-            Ok(SpecLocation::Url(url))
-        } else {
-            let path = PathBuf::from(s);
-            Ok(SpecLocation::File(path))
-        }
-    }
-}
-
-impl SpecLocation {
-    pub async fn load_spec(&self) -> Result<Spec, Error> {
-        match self {
-            SpecLocation::File(path) => {
-                Spec::from_file(
-                    path.to_str().ok_or_else(|| {
-                        Error::InvalidPath("Invalid file path encoding".to_string())
-                    })?,
-                )
-                .await
-            }
-            SpecLocation::Url(url) => Spec::from_url(url).await,
-            SpecLocation::Json(value) => Spec::from_value(value.clone()),
-        }
-    }
-}
-
-impl fmt::Display for SpecLocation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SpecLocation::File(path) => write!(f, "{}", path.display()),
-            SpecLocation::Url(url) => write!(f, "{url}"),
-            SpecLocation::Json(_) => write!(f, "<inline JSON>"),
-        }
-    }
-}
 
 /// OpenAPI specification wrapper that provides convenience methods
 /// for working with oas3::Spec
@@ -67,24 +14,6 @@ pub struct Spec {
 }
 
 impl Spec {
-    /// Load and parse an OpenAPI specification from a URL
-    pub async fn from_url(url: &Url) -> Result<Self, Error> {
-        let client = reqwest::Client::new();
-        let response = client.get(url.clone()).send().await?;
-        let text = response.text().await?;
-        let spec: Oas3Spec = serde_json::from_str(&text)?;
-
-        Ok(Spec { spec })
-    }
-
-    /// Load and parse an OpenAPI specification from a file
-    pub async fn from_file(path: &str) -> Result<Self, Error> {
-        let content = tokio::fs::read_to_string(path).await?;
-        let spec: Oas3Spec = serde_json::from_str(&content)?;
-
-        Ok(Spec { spec })
-    }
-
     /// Parse an OpenAPI specification from a JSON value
     pub fn from_value(json_value: Value) -> Result<Self, Error> {
         let spec: Oas3Spec = serde_json::from_value(json_value)?;

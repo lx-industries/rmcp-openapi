@@ -23,7 +23,7 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
     let non_existent_pet_id = 999999u64;
 
     if should_use_live_api() {
-        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
@@ -44,7 +44,7 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
         let mut mock_server = MockPetstoreServer::new_with_port(9001).await;
         let _mock = mock_server.mock_get_pet_by_id_not_found(non_existent_pet_id);
 
-        let server = create_server_with_base_url(mock_server.base_url()).await?;
+        let server = create_server_with_base_url(mock_server.base_url())?;
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
@@ -73,7 +73,7 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
 /// Test HTTP 400 Bad Request error handling
 #[tokio::test]
 async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
         .get_tool_metadata("addPet")
@@ -113,7 +113,7 @@ async fn test_http_500_server_error() -> anyhow::Result<()> {
     let mut mock_server = MockPetstoreServer::new_with_port(9003).await;
     let _mock = mock_server.mock_server_error("/pet/123");
 
-    let server = create_server_with_base_url(mock_server.base_url()).await?;
+    let server = create_server_with_base_url(mock_server.base_url())?;
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
@@ -144,8 +144,7 @@ async fn test_http_500_server_error() -> anyhow::Result<()> {
 async fn test_network_connection_error() -> anyhow::Result<()> {
     // Test with an invalid/unreachable URL to simulate connection failure
     let server =
-        create_server_with_base_url(Url::parse("http://invalid-host-that-does-not-exist.com")?)
-            .await?;
+        create_server_with_base_url(Url::parse("http://invalid-host-that-does-not-exist.com")?)?;
     let client = HttpClient::new()
         .with_base_url(Url::parse("http://invalid-host-that-does-not-exist.com")?)?;
 
@@ -174,7 +173,7 @@ async fn test_network_connection_error() -> anyhow::Result<()> {
 /// Test missing required parameter validation
 #[tokio::test]
 async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
     let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
@@ -216,7 +215,7 @@ async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
 /// Test type validation error (string for integer parameter)
 #[tokio::test]
 async fn test_type_validation_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
     let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
@@ -249,7 +248,7 @@ async fn test_type_validation_error() -> anyhow::Result<()> {
 /// Test array type validation
 #[tokio::test]
 async fn test_array_type_validation_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
         .get_tool_metadata("findPetsByStatus")
@@ -281,7 +280,7 @@ async fn test_array_type_validation_error() -> anyhow::Result<()> {
 /// Test enum validation
 #[tokio::test]
 async fn test_enum_validation_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
         .get_tool_metadata("findPetsByStatus")
@@ -314,7 +313,7 @@ async fn test_enum_validation_error() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
     if should_use_live_api() {
-        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?).await?;
+        let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
         let client = HttpClient::new().with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
 
         let tool_metadata = server
@@ -336,7 +335,7 @@ async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
         let mut mock_server = MockPetstoreServer::new_with_port(9005).await;
         let _mock = mock_server.mock_find_pets_by_status("available");
 
-        let server = create_server_with_base_url(mock_server.base_url()).await?;
+        let server = create_server_with_base_url(mock_server.base_url())?;
         let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
         let tool_metadata = server
@@ -372,7 +371,7 @@ async fn test_non_json_response_handling() -> anyhow::Result<()> {
         .with_body("<html><body>This is HTML, not JSON</body></html>")
         .create();
 
-    let server = create_server_with_base_url(mock_server.base_url()).await?;
+    let server = create_server_with_base_url(mock_server.base_url())?;
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
@@ -412,7 +411,7 @@ async fn test_malformed_json_response_handling() -> anyhow::Result<()> {
         .with_body(r#"{"id": 123, "name": "doggie", "invalid": json}"#) // Missing quotes around json
         .create();
 
-    let server = create_server_with_base_url(mock_server.base_url()).await?;
+    let server = create_server_with_base_url(mock_server.base_url())?;
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
@@ -452,7 +451,7 @@ async fn test_empty_response_handling() -> anyhow::Result<()> {
         .with_header("content-length", "0")
         .create();
 
-    let server = create_server_with_base_url(mock_server.base_url()).await?;
+    let server = create_server_with_base_url(mock_server.base_url())?;
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     // For this test, we'll manually create a DELETE request since deletePet might not be in our spec
@@ -517,7 +516,7 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
         .with_body(large_response)
         .create();
 
-    let server = create_server_with_base_url(mock_server.base_url()).await?;
+    let server = create_server_with_base_url(mock_server.base_url())?;
     let client = HttpClient::new().with_base_url(mock_server.base_url())?;
 
     let tool_metadata = server
@@ -551,7 +550,7 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
 /// Test passing integer for string field
 #[tokio::test]
 async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
     let tool_metadata = server
         .get_tool_metadata("addPet")
@@ -587,7 +586,7 @@ async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
 /// Test tool not found error with suggestions
 #[tokio::test]
 async fn test_tool_not_found_with_suggestions() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
     // Verify the server has the expected tools
     let tool_names = server.get_tool_names();
@@ -632,7 +631,7 @@ async fn test_tool_not_found_with_suggestions() -> anyhow::Result<()> {
 /// Test tool not found error with multiple suggestions
 #[tokio::test]
 async fn test_tool_not_found_multiple_suggestions() -> anyhow::Result<()> {
-    let server = create_server_with_base_url(Url::parse("http://example.com")?).await?;
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
     // Verify the server has the expected tools
     let tool_names = server.get_tool_names();
@@ -670,17 +669,17 @@ async fn test_tool_not_found_multiple_suggestions() -> anyhow::Result<()> {
 }
 
 /// Helper function to create a server with a specific base URL
-async fn create_server_with_base_url(base_url: Url) -> anyhow::Result<Server> {
+fn create_server_with_base_url(base_url: Url) -> anyhow::Result<Server> {
     // Using petstore-openapi-norefs.json until issue #18 is implemented
     let spec_content = include_str!("assets/petstore-openapi-norefs.json");
 
     // Parse the embedded spec as JSON value
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
 
-    let mut server = Server::with_base_url(rmcp_openapi::SpecLocation::Json(json_value), base_url)?;
+    let mut server = Server::with_base_url(json_value, base_url)?;
 
-    // Load the OpenAPI specification using the new API
-    server.load_openapi_spec().await?;
+    // Load the OpenAPI specification
+    server.load_openapi_spec()?;
 
     Ok(server)
 }

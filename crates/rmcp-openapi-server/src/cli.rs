@@ -1,5 +1,5 @@
+use crate::spec_loader::SpecLocation;
 use clap::Parser;
-use rmcp_openapi::SpecLocation;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

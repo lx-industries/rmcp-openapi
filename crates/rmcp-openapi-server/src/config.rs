@@ -1,7 +1,7 @@
 use crate::cli::Cli;
+use crate::spec_loader::SpecLocation;
 use reqwest::header::HeaderMap;
-use rmcp_openapi::{CliError, Error, SpecLocation};
-
+use rmcp_openapi::{CliError, Error};
 use url::Url;
 
 #[derive(Debug, Clone)]
@@ -81,7 +81,7 @@ impl Config {
 mod tests {
     use super::*;
     use crate::cli::Cli;
-    use rmcp_openapi::SpecLocation;
+    use crate::spec_loader::SpecLocation;
     use url::Url;
 
     #[test]

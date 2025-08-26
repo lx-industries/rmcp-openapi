@@ -52,19 +52,34 @@ rmcp-openapi = "0.8.2"
 
 ### Basic Example
 ```rust
-use rmcp_openapi::{Server, SpecLocation};
-use url::Url;
+use rmcp_openapi::Server;
+use serde_json::Value;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create server from OpenAPI spec URL using builder pattern
-    let spec_location = SpecLocation::from("https://petstore.swagger.io/v2/swagger.json");
-    let mut server = Server::builder()
-        .spec_location(spec_location)
-        .build();
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load OpenAPI specification JSON (from URL, file, or embedded)
+    let openapi_json: Value = {
+        // Example: Load from embedded JSON string
+        let spec_content = r#"{
+            "openapi": "3.0.3",
+            "info": {"title": "Pet Store", "version": "1.0.0"},
+            "paths": {
+                "/pets": {
+                    "get": {
+                        "operationId": "listPets",
+                        "responses": {"200": {"description": "List of pets"}}
+                    }
+                }
+            }
+        }"#;
+        serde_json::from_str(spec_content)?
+        // In practice, you'd load from file or URL using your preferred method
+    };
     
-    // Load the OpenAPI specification
-    server.load_openapi_spec().await?;
+    // Create server with OpenAPI specification
+    let mut server = Server::new(openapi_json);
+    
+    // Parse the OpenAPI specification and generate tools
+    server.load_openapi_spec()?;
     
     // Get information about generated tools
     println!("Generated {} tools", server.tool_count());
@@ -76,13 +91,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ### Advanced Example with Custom Configuration
 ```rust
-use rmcp_openapi::{Server, SpecLocation, HttpClient};
+use rmcp_openapi::Server;
 use reqwest::header::HeaderMap;
+use serde_json::Value;
 use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let spec_location = SpecLocation::from("./api-spec.json");
+    // Load OpenAPI specification from file (async I/O handled by your code)
+    let openapi_json: Value = {
+        let content = tokio::fs::read_to_string("./api-spec.json").await?;
+        serde_json::from_str(&content)?
+    };
+    
     let base_url = Url::parse("https://api.example.com")?;
     
     // Create headers
@@ -91,16 +112,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create server with custom configuration using builder pattern
     let mut server = Server::builder()
-        .spec_location(spec_location)
+        .openapi_spec(openapi_json)
         .base_url(base_url)
         .default_headers(headers)
         .tag_filter(Some(vec!["user".to_string(), "pets".to_string()]))
         .build();
     
-    server.load_openapi_spec().await?;
-    
-    // Validate the registry
-    server.validate_registry()?;
+    // Parse specification and generate tools
+    server.load_openapi_spec()?;
     
     // Get tool information
     println!("Generated {} tools", server.tool_count());

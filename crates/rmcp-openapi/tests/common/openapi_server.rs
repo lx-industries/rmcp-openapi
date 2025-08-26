@@ -1,12 +1,12 @@
 use rmcp::transport::SseServer;
-use rmcp_openapi::{Server, Spec, SpecLocation};
+use rmcp_openapi::{Server, Spec};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use url::Url;
 
 /// Helper to create an OpenAPI server for testing
 #[allow(dead_code)]
-pub async fn create_petstore_server(base_url: Option<Url>) -> anyhow::Result<Server> {
+pub fn create_petstore_server(base_url: Option<Url>) -> anyhow::Result<Server> {
     // Using petstore-openapi-norefs.json until issue #18 is implemented
     let spec_content = include_str!("../assets/petstore-openapi-norefs.json");
 
@@ -14,13 +14,13 @@ pub async fn create_petstore_server(base_url: Option<Url>) -> anyhow::Result<Ser
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
     
     let mut server = if let Some(url) = base_url {
-        Server::with_base_url(SpecLocation::Json(json_value.clone()), url)?
+        Server::with_base_url(json_value, url)?
     } else {
-        Server::new(SpecLocation::Json(json_value))
+        Server::new(json_value)
     };
 
-    // Load the OpenAPI specification using the new API
-    server.load_openapi_spec().await?;
+    // Load the OpenAPI specification
+    server.load_openapi_spec()?;
 
     Ok(server)
 }
@@ -31,7 +31,7 @@ pub async fn start_sse_server_with_petstore(
     bind_addr: &str,
     base_url: Option<Url>,
 ) -> anyhow::Result<(Arc<Server>, CancellationToken)> {
-    let server = Arc::new(create_petstore_server(base_url.clone()).await?);
+    let server = Arc::new(create_petstore_server(base_url.clone())?);
 
     let ct = SseServer::serve(bind_addr.parse()?)
         .await?
@@ -43,17 +43,13 @@ pub async fn start_sse_server_with_petstore(
             let json_value: serde_json::Value = serde_json::from_str(spec_content).unwrap();
             
             let mut server = if let Some(ref url) = base_url {
-                Server::with_base_url(SpecLocation::Json(json_value.clone()), url.clone()).unwrap()
+                Server::with_base_url(json_value, url.clone()).unwrap()
             } else {
-                Server::new(SpecLocation::Json(json_value))
+                Server::new(json_value)
             };
 
-            // Load the OpenAPI specification using the new API
-            tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(async {
-                    server.load_openapi_spec().await.unwrap();
-                })
-            });
+            // Load the OpenAPI specification
+            server.load_openapi_spec().unwrap();
 
             server
         });

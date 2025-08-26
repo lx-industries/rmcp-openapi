@@ -14,13 +14,12 @@ use reqwest::header::HeaderMap;
 use url::Url;
 
 use crate::error::Error;
-use crate::spec::SpecLocation;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
 use tracing::{debug, info, info_span, warn};
 
 #[derive(Clone, Builder)]
 pub struct Server {
-    pub spec_location: SpecLocation,
+    pub openapi_spec: serde_json::Value,
     #[builder(default)]
     pub tool_collection: ToolCollection,
     pub base_url: Option<Url>,
@@ -30,64 +29,64 @@ pub struct Server {
 }
 
 impl Server {
-    /// Create a new server with basic configuration (backwards compatibility)
+    /// Create a new server with basic configuration
     #[must_use]
-    pub fn new(spec_location: SpecLocation) -> Self {
-        Self::builder().spec_location(spec_location).build()
+    pub fn new(openapi_spec: serde_json::Value) -> Self {
+        Self::builder().openapi_spec(openapi_spec).build()
     }
 
-    /// Create a new server with a base URL for API calls (backwards compatibility)
+    /// Create a new server with a base URL for API calls
     ///
     /// # Errors
     ///
     /// Returns an error if the base URL is invalid
-    pub fn with_base_url(spec_location: SpecLocation, base_url: Url) -> Result<Self, Error> {
+    pub fn with_base_url(openapi_spec: serde_json::Value, base_url: Url) -> Result<Self, Error> {
         Ok(Self::builder()
-            .spec_location(spec_location)
+            .openapi_spec(openapi_spec)
             .base_url(base_url)
             .build())
     }
 
-    /// Create a new server with both base URL and default headers (backwards compatibility)
+    /// Create a new server with both base URL and default headers
     ///
     /// # Errors
     ///
     /// Returns an error if the base URL is invalid
     pub fn with_base_url_and_headers(
-        spec_location: SpecLocation,
+        openapi_spec: serde_json::Value,
         base_url: Url,
         default_headers: HeaderMap,
     ) -> Result<Self, Error> {
         Ok(Self::builder()
-            .spec_location(spec_location)
+            .openapi_spec(openapi_spec)
             .base_url(base_url)
             .default_headers(default_headers)
             .build())
     }
 
-    /// Create a new server with default headers but no base URL (backwards compatibility)
+    /// Create a new server with default headers but no base URL
     #[must_use]
-    pub fn with_default_headers(spec_location: SpecLocation, default_headers: HeaderMap) -> Self {
+    pub fn with_default_headers(
+        openapi_spec: serde_json::Value,
+        default_headers: HeaderMap,
+    ) -> Self {
         Self::builder()
-            .spec_location(spec_location)
+            .openapi_spec(openapi_spec)
             .default_headers(default_headers)
             .build()
     }
 
-    /// Load the `OpenAPI` specification and convert to OpenApiTool instances
+    /// Parse the `OpenAPI` specification and convert to OpenApiTool instances
     ///
     /// # Errors
     ///
-    /// Returns an error if the spec cannot be loaded or tools cannot be generated
-    pub async fn load_openapi_spec(&mut self) -> Result<(), Error> {
-        let span = info_span!(
-            "tool_registration",
-            spec_location = %self.spec_location
-        );
+    /// Returns an error if the spec cannot be parsed or tools cannot be generated
+    pub fn load_openapi_spec(&mut self) -> Result<(), Error> {
+        let span = info_span!("tool_registration");
         let _enter = span.enter();
 
-        // Load the OpenAPI specification
-        let spec = self.spec_location.load_spec().await?;
+        // Parse the OpenAPI specification
+        let spec = crate::spec::Spec::from_value(self.openapi_spec.clone())?;
 
         // Generate OpenApiTool instances directly
         let tools = spec.to_openapi_tools(
@@ -314,7 +313,7 @@ mod tests {
         let tool2 = Tool::new(tool2_metadata, None, None).unwrap();
 
         // Create server with tools
-        let mut server = Server::new(SpecLocation::Url(Url::parse("test://example").unwrap()));
+        let mut server = Server::new(serde_json::Value::Null);
         server.tool_collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
         // Test: Create ToolNotFound error with a typo
@@ -357,7 +356,7 @@ mod tests {
         let tool = Tool::new(tool_metadata, None, None).unwrap();
 
         // Create server with tool
-        let mut server = Server::new(SpecLocation::Url(Url::parse("test://example").unwrap()));
+        let mut server = Server::new(serde_json::Value::Null);
         server.tool_collection = ToolCollection::from_tools(vec![tool]);
 
         // Test: Create ToolNotFound error with unrelated name

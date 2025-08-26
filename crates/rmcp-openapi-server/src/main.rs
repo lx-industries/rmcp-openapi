@@ -1,5 +1,6 @@
 mod cli;
 mod config;
+mod spec_loader;
 
 use cli::Cli;
 use config::Config;
@@ -32,9 +33,16 @@ async fn run() -> Result<(), Error> {
     );
     let _enter = span.enter();
 
+    // Load OpenAPI specification JSON first
+    info!(
+        spec_location = %config.spec_location,
+        "Loading OpenAPI specification"
+    );
+    let openapi_json = config.spec_location.load_json().await?;
+
     // Create server using the builder pattern
     let mut server = Server::builder()
-        .spec_location(config.spec_location.clone())
+        .openapi_spec(openapi_json)
         .maybe_tag_filter(config.tags.clone())
         .maybe_method_filter(config.methods.clone())
         .maybe_base_url(config.base_url.clone())
@@ -43,12 +51,8 @@ async fn run() -> Result<(), Error> {
         )
         .build();
 
-    // Load OpenAPI specification
-    info!(
-        spec_location = %config.spec_location,
-        "Loading OpenAPI specification"
-    );
-    server.load_openapi_spec().await?;
+    // Parse OpenAPI specification and generate tools
+    server.load_openapi_spec()?;
     info!(
         tool_count = server.tool_count(),
         "Successfully loaded tools from OpenAPI specification"

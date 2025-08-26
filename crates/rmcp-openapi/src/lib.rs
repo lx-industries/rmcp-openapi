@@ -10,7 +10,6 @@ pub use error::{CliError, Error, ToolCallError};
 pub use http_client::{HttpClient, HttpResponse};
 pub use server::Server;
 pub use spec::Spec;
-pub use spec::SpecLocation;
 pub use tool::{Tool, ToolCollection, ToolMetadata};
 pub use tool_generator::{ExtractedParameters, RequestConfig, ToolGenerator};
 pub use tool_registry::{ToolRegistry, ToolRegistryStats};
