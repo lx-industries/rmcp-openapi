@@ -1,3 +1,10 @@
+## [0.8.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.8.2...v0.8.3) (2025-08-26)
+
+
+### Bug Fixes
+
+* broken README code examples ([2146c3c](https://gitlab.com/lx-industries/rmcp-openapi/commit/2146c3c40b1422583baf6e7d72eef2fe958c2128)), closes [#55](https://gitlab.com/lx-industries/rmcp-openapi/issues/55)
+
 ## [0.8.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.8.1...v0.8.2) (2025-08-25)
 
 
