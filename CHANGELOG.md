@@ -1,3 +1,15 @@
+## [0.9.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.8.3...v0.9.0) (2025-08-27)
+
+
+### Features
+
+* upgrade oas3 to 0.19.0 and leverage reference metadata fields ([b5b2552](https://gitlab.com/lx-industries/rmcp-openapi/commit/b5b25529e3aa3a634c6c63bfaf315b085df82b7a))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate clap to v4.5.46 ([4d58ffe](https://gitlab.com/lx-industries/rmcp-openapi/commit/4d58ffefddfa9276fa928f455f5ed5a3e91db419))
+
 ## [0.8.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.8.2...v0.8.3) (2025-08-26)
 
 
