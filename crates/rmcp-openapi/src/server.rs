@@ -22,60 +22,13 @@ pub struct Server {
     pub openapi_spec: serde_json::Value,
     #[builder(default)]
     pub tool_collection: ToolCollection,
-    pub base_url: Option<Url>,
+    pub base_url: Url,
     pub default_headers: Option<HeaderMap>,
     pub tag_filter: Option<Vec<String>>,
     pub method_filter: Option<Vec<reqwest::Method>>,
 }
 
 impl Server {
-    /// Create a new server with basic configuration
-    #[must_use]
-    pub fn new(openapi_spec: serde_json::Value) -> Self {
-        Self::builder().openapi_spec(openapi_spec).build()
-    }
-
-    /// Create a new server with a base URL for API calls
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the base URL is invalid
-    pub fn with_base_url(openapi_spec: serde_json::Value, base_url: Url) -> Result<Self, Error> {
-        Ok(Self::builder()
-            .openapi_spec(openapi_spec)
-            .base_url(base_url)
-            .build())
-    }
-
-    /// Create a new server with both base URL and default headers
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the base URL is invalid
-    pub fn with_base_url_and_headers(
-        openapi_spec: serde_json::Value,
-        base_url: Url,
-        default_headers: HeaderMap,
-    ) -> Result<Self, Error> {
-        Ok(Self::builder()
-            .openapi_spec(openapi_spec)
-            .base_url(base_url)
-            .default_headers(default_headers)
-            .build())
-    }
-
-    /// Create a new server with default headers but no base URL
-    #[must_use]
-    pub fn with_default_headers(
-        openapi_spec: serde_json::Value,
-        default_headers: HeaderMap,
-    ) -> Self {
-        Self::builder()
-            .openapi_spec(openapi_spec)
-            .default_headers(default_headers)
-            .build()
-    }
-
     /// Parse the `OpenAPI` specification and convert to OpenApiTool instances
     ///
     /// # Errors
@@ -92,7 +45,7 @@ impl Server {
         let tools = spec.to_openapi_tools(
             self.tag_filter.as_deref(),
             self.method_filter.as_deref(),
-            self.base_url.clone(),
+            Some(self.base_url.clone()),
             self.default_headers.clone(),
         )?;
 
@@ -140,20 +93,6 @@ impl Server {
     #[must_use]
     pub fn get_tool_stats(&self) -> String {
         self.tool_collection.get_stats()
-    }
-
-    /// Set tag filter for this server instance
-    #[must_use]
-    pub fn with_tags(mut self, tags: Option<Vec<String>>) -> Self {
-        self.tag_filter = tags;
-        self
-    }
-
-    /// Set method filter for this server instance
-    #[must_use]
-    pub fn with_methods(mut self, methods: Option<Vec<reqwest::Method>>) -> Self {
-        self.method_filter = methods;
-        self
     }
 
     /// Simple validation - check that tools are loaded
@@ -313,7 +252,10 @@ mod tests {
         let tool2 = Tool::new(tool2_metadata, None, None).unwrap();
 
         // Create server with tools
-        let mut server = Server::new(serde_json::Value::Null);
+        let mut server = Server::builder()
+            .openapi_spec(serde_json::Value::Null)
+            .base_url(url::Url::parse("http://example.com").unwrap())
+            .build();
         server.tool_collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
         // Test: Create ToolNotFound error with a typo
@@ -356,7 +298,10 @@ mod tests {
         let tool = Tool::new(tool_metadata, None, None).unwrap();
 
         // Create server with tool
-        let mut server = Server::new(serde_json::Value::Null);
+        let mut server = Server::builder()
+            .openapi_spec(serde_json::Value::Null)
+            .base_url(url::Url::parse("http://example.com").unwrap())
+            .build();
         server.tool_collection = ToolCollection::from_tools(vec![tool]);
 
         // Test: Create ToolNotFound error with unrelated name

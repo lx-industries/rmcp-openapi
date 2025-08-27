@@ -54,6 +54,7 @@ rmcp-openapi = "0.8.2"
 ```rust
 use rmcp_openapi::Server;
 use serde_json::Value;
+use url::Url;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load OpenAPI specification JSON (from URL, file, or embedded)
@@ -75,8 +76,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // In practice, you'd load from file or URL using your preferred method
     };
     
-    // Create server with OpenAPI specification
-    let mut server = Server::new(openapi_json);
+    // Create server with OpenAPI specification and base URL
+    let mut server = Server::builder()
+        .openapi_spec(openapi_json)
+        .base_url(Url::parse("https://api.example.com")?)
+        .build();
     
     // Parse the OpenAPI specification and generate tools
     server.load_openapi_spec()?;

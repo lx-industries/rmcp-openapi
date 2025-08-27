@@ -348,7 +348,10 @@ fn create_server_with_base_url(base_url: Url) -> anyhow::Result<Server> {
     // Parse the embedded spec as JSON value
     let json_value: serde_json::Value = serde_json::from_str(spec_content)?;
 
-    let mut server = Server::with_base_url(json_value, base_url)?;
+    let mut server = Server::builder()
+        .openapi_spec(json_value)
+        .base_url(base_url)
+        .build();
 
     // Load the OpenAPI specification
     server.load_openapi_spec()?;

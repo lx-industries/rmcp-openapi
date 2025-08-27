@@ -40,12 +40,17 @@ async fn run() -> Result<(), Error> {
     );
     let openapi_json = config.spec_location.load_json().await?;
 
+    // Validate that base_url is provided
+    let base_url = config.base_url.ok_or_else(|| {
+        Error::McpError("base_url is required. Please provide --base-url argument.".to_string())
+    })?;
+
     // Create server using the builder pattern
     let mut server = Server::builder()
         .openapi_spec(openapi_json)
         .maybe_tag_filter(config.tags.clone())
         .maybe_method_filter(config.methods.clone())
-        .maybe_base_url(config.base_url.clone())
+        .base_url(base_url)
         .maybe_default_headers(
             (!config.default_headers.is_empty()).then_some(config.default_headers.clone()),
         )
