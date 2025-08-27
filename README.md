@@ -77,10 +77,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     
     // Create server with OpenAPI specification and base URL
-    let mut server = Server::builder()
-        .openapi_spec(openapi_json)
-        .base_url(Url::parse("https://api.example.com")?)
-        .build();
+    let mut server = Server::new(
+        openapi_json,
+        Url::parse("https://api.example.com")?,
+        None, // default_headers
+        None, // tag_filter
+        None, // method_filter
+    );
     
     // Parse the OpenAPI specification and generate tools
     server.load_openapi_spec()?;
@@ -114,13 +117,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut headers = HeaderMap::new();
     headers.insert("Authorization", "Bearer token123".parse()?);
     
-    // Create server with custom configuration using builder pattern
-    let mut server = Server::builder()
-        .openapi_spec(openapi_json)
-        .base_url(base_url)
-        .default_headers(headers)
-        .tag_filter(Some(vec!["user".to_string(), "pets".to_string()]))
-        .build();
+    // Create server with custom configuration
+    let mut server = Server::new(
+        openapi_json,
+        base_url,
+        Some(headers),
+        Some(vec!["user".to_string(), "pets".to_string()]), // tag_filter
+        None, // method_filter
+    );
     
     // Parse specification and generate tools
     server.load_openapi_spec()?;

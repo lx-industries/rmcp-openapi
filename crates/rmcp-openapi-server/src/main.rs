@@ -1,11 +1,11 @@
 mod cli;
-mod config;
+mod configuration;
 mod spec_loader;
 
 use cli::Cli;
-use config::Config;
+use configuration::Configuration;
 use rmcp::transport::SseServer;
-use rmcp_openapi::{Error, Server};
+use rmcp_openapi::Error;
 use std::process;
 use tokio::signal;
 use tracing::{debug, error, info, info_span};
@@ -21,40 +21,24 @@ async fn main() {
 async fn run() -> Result<(), Error> {
     // Parse command line arguments
     let cli = Cli::parse_args();
-    let config = Config::from_cli(cli)?;
+    let config = Configuration::from_cli(cli)?;
 
     // Set up structured logging
     setup_logging();
 
+    // Extract values needed after server creation
+    let bind_address = config.bind_address.clone();
+    let port = config.port;
+
     let span = info_span!(
         "server_initialization",
-        bind_address = %config.bind_address,
-        port = config.port,
+        bind_address = %bind_address,
+        port = port,
     );
     let _enter = span.enter();
 
-    // Load OpenAPI specification JSON first
-    info!(
-        spec_location = %config.spec_location,
-        "Loading OpenAPI specification"
-    );
-    let openapi_json = config.spec_location.load_json().await?;
-
-    // Validate that base_url is provided
-    let base_url = config.base_url.ok_or_else(|| {
-        Error::McpError("base_url is required. Please provide --base-url argument.".to_string())
-    })?;
-
-    // Create server using the builder pattern
-    let mut server = Server::builder()
-        .openapi_spec(openapi_json)
-        .maybe_tag_filter(config.tags.clone())
-        .maybe_method_filter(config.methods.clone())
-        .base_url(base_url)
-        .maybe_default_headers(
-            (!config.default_headers.is_empty()).then_some(config.default_headers.clone()),
-        )
-        .build();
+    // Create server from configuration by loading OpenAPI spec
+    let mut server = config.try_into_server().await?;
 
     // Parse OpenAPI specification and generate tools
     server.load_openapi_spec()?;
@@ -75,7 +59,7 @@ async fn run() -> Result<(), Error> {
     // Validate the registry
     server.validate_registry()?;
 
-    let bind_addr = format!("{}:{}", config.bind_address, config.port);
+    let bind_addr = format!("{}:{}", bind_address, port);
     info!(
         bind_address = %bind_addr,
         "OpenAPI MCP Server starting"

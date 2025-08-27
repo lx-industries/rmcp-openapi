@@ -1,13 +1,14 @@
 use crate::cli::Cli;
 use crate::spec_loader::SpecLocation;
+use bon::Builder;
 use reqwest::header::HeaderMap;
-use rmcp_openapi::{CliError, Error};
+use rmcp_openapi::{CliError, Error, Server};
 use url::Url;
 
-#[derive(Debug, Clone)]
-pub struct Config {
+#[derive(Debug, Clone, Builder)]
+pub struct Configuration {
     pub spec_location: SpecLocation,
-    pub base_url: Option<Url>,
+    pub base_url: Url,
     pub port: u16,
     pub bind_address: String,
     pub default_headers: HeaderMap,
@@ -15,17 +16,11 @@ pub struct Config {
     pub methods: Option<Vec<reqwest::Method>>,
 }
 
-impl Config {
+impl Configuration {
     pub fn from_cli(cli: Cli) -> Result<Self, Error> {
-        // Parse base URL if provided
-        let base_url = if let Some(base_url_str) = cli.base_url {
-            Some(
-                Url::parse(&base_url_str)
-                    .map_err(|e| Error::InvalidUrl(format!("Invalid base URL: {e}")))?,
-            )
-        } else {
-            None
-        };
+        // Parse base URL - now required by CLI
+        let base_url = Url::parse(&cli.base_url)
+            .map_err(|e| Error::InvalidUrl(format!("Invalid base URL: {e}")))?;
 
         // Parse headers from CLI format "name: value"
         let mut default_headers = HeaderMap::new();
@@ -65,7 +60,7 @@ impl Config {
             }
         }
 
-        Ok(Config {
+        Ok(Configuration {
             spec_location: cli.spec,
             base_url,
             port: cli.port,
@@ -74,6 +69,28 @@ impl Config {
             tags: cli.tags,
             methods: cli.methods,
         })
+    }
+}
+
+impl Configuration {
+    /// Convert Configuration to Server by loading the OpenAPI spec
+    pub async fn try_into_server(self) -> Result<Server, Error> {
+        // Load OpenAPI specification from the spec location
+        let openapi_spec = self.spec_location.load_json().await?;
+
+        let headers = if self.default_headers.is_empty() {
+            None
+        } else {
+            Some(self.default_headers)
+        };
+
+        Ok(Server::new(
+            openapi_spec,
+            self.base_url,
+            headers,
+            self.tags,
+            self.methods,
+        ))
     }
 }
 
@@ -88,7 +105,7 @@ mod tests {
     fn test_header_parsing_valid_formats() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![
@@ -101,7 +118,7 @@ mod tests {
             methods: None,
         };
 
-        let config = Config::from_cli(cli).unwrap();
+        let config = Configuration::from_cli(cli).unwrap();
 
         assert_eq!(config.default_headers.len(), 4);
         assert_eq!(
@@ -138,7 +155,7 @@ mod tests {
     fn test_header_parsing_with_spaces() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![
@@ -149,7 +166,7 @@ mod tests {
             methods: None,
         };
 
-        let config = Config::from_cli(cli).unwrap();
+        let config = Configuration::from_cli(cli).unwrap();
 
         assert_eq!(config.default_headers.len(), 2);
         assert_eq!(
@@ -172,7 +189,7 @@ mod tests {
     fn test_header_parsing_invalid_format_no_equals() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["InvalidHeaderNoEquals".to_string()],
@@ -180,7 +197,7 @@ mod tests {
             methods: None,
         };
 
-        let result = Config::from_cli(cli);
+        let result = Configuration::from_cli(cli);
         assert!(result.is_err());
 
         let error = result.unwrap_err().to_string();
@@ -192,7 +209,7 @@ mod tests {
     fn test_header_parsing_invalid_format_empty_key() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![": value".to_string()],
@@ -200,7 +217,7 @@ mod tests {
             methods: None,
         };
 
-        let result = Config::from_cli(cli);
+        let result = Configuration::from_cli(cli);
         assert!(result.is_err());
 
         let error = result.unwrap_err().to_string();
@@ -212,7 +229,7 @@ mod tests {
     fn test_header_parsing_empty_value_allowed() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["X-Empty-Header:".to_string()],
@@ -220,7 +237,7 @@ mod tests {
             methods: None,
         };
 
-        let config = Config::from_cli(cli).unwrap();
+        let config = Configuration::from_cli(cli).unwrap();
 
         assert_eq!(config.default_headers.len(), 1);
         assert_eq!(
@@ -236,7 +253,7 @@ mod tests {
     fn test_no_headers() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec![],
@@ -244,7 +261,7 @@ mod tests {
             methods: None,
         };
 
-        let config = Config::from_cli(cli).unwrap();
+        let config = Configuration::from_cli(cli).unwrap();
         assert!(config.default_headers.is_empty());
     }
 
@@ -252,7 +269,7 @@ mod tests {
     fn test_header_validation_invalid_header_name() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Invalid Header Name: value".to_string()],
@@ -260,7 +277,7 @@ mod tests {
             methods: None,
         };
 
-        let result = Config::from_cli(cli);
+        let result = Configuration::from_cli(cli);
         assert!(result.is_err());
 
         let error = result.unwrap_err().to_string();
@@ -272,7 +289,7 @@ mod tests {
     fn test_header_validation_invalid_header_value() {
         let cli = Cli {
             spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
-            base_url: None,
+            base_url: "https://api.example.com".to_string(),
             port: 8080,
             bind_address: "127.0.0.1".to_string(),
             headers: vec!["Valid-Header: invalid\x00value".to_string()],
@@ -280,7 +297,7 @@ mod tests {
             methods: None,
         };
 
-        let result = Config::from_cli(cli);
+        let result = Configuration::from_cli(cli);
         assert!(result.is_err());
 
         let error = result.unwrap_err().to_string();

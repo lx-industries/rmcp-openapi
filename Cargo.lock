@@ -1854,6 +1854,7 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "axum",
+ "bon",
  "clap",
  "http",
  "insta",

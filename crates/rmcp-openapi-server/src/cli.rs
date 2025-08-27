@@ -11,7 +11,7 @@ pub struct Cli {
 
     /// Base URL to override the one in the `OpenAPI` spec
     #[arg(long)]
-    pub base_url: Option<String>,
+    pub base_url: String,
 
     /// Port to bind the MCP server to
     #[arg(long, short = 'p', default_value = "8080")]

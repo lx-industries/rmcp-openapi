@@ -1,4 +1,3 @@
-use bon::Builder;
 use rmcp::{
     RoleServer, ServerHandler,
     model::{
@@ -17,10 +16,9 @@ use crate::error::Error;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
 use tracing::{debug, info, info_span, warn};
 
-#[derive(Clone, Builder)]
+#[derive(Clone)]
 pub struct Server {
     pub openapi_spec: serde_json::Value,
-    #[builder(default)]
     pub tool_collection: ToolCollection,
     pub base_url: Url,
     pub default_headers: Option<HeaderMap>,
@@ -29,6 +27,24 @@ pub struct Server {
 }
 
 impl Server {
+    /// Create a new Server instance with required parameters
+    pub fn new(
+        openapi_spec: serde_json::Value,
+        base_url: Url,
+        default_headers: Option<HeaderMap>,
+        tag_filter: Option<Vec<String>>,
+        method_filter: Option<Vec<reqwest::Method>>,
+    ) -> Self {
+        Self {
+            openapi_spec,
+            tool_collection: ToolCollection::new(),
+            base_url,
+            default_headers,
+            tag_filter,
+            method_filter,
+        }
+    }
+
     /// Parse the `OpenAPI` specification and convert to OpenApiTool instances
     ///
     /// # Errors
@@ -252,10 +268,13 @@ mod tests {
         let tool2 = Tool::new(tool2_metadata, None, None).unwrap();
 
         // Create server with tools
-        let mut server = Server::builder()
-            .openapi_spec(serde_json::Value::Null)
-            .base_url(url::Url::parse("http://example.com").unwrap())
-            .build();
+        let mut server = Server::new(
+            serde_json::Value::Null,
+            url::Url::parse("http://example.com").unwrap(),
+            None,
+            None,
+            None,
+        );
         server.tool_collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
         // Test: Create ToolNotFound error with a typo
@@ -298,10 +317,13 @@ mod tests {
         let tool = Tool::new(tool_metadata, None, None).unwrap();
 
         // Create server with tool
-        let mut server = Server::builder()
-            .openapi_spec(serde_json::Value::Null)
-            .base_url(url::Url::parse("http://example.com").unwrap())
-            .build();
+        let mut server = Server::new(
+            serde_json::Value::Null,
+            url::Url::parse("http://example.com").unwrap(),
+            None,
+            None,
+            None,
+        );
         server.tool_collection = ToolCollection::from_tools(vec![tool]);
 
         // Test: Create ToolNotFound error with unrelated name
