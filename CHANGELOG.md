@@ -1,3 +1,18 @@
+## [0.10.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.9.0...v0.10.0) (2025-08-29)
+
+
+### Features
+
+* implement proper optional array parameter handling in HTTP requests ([b90c893](https://gitlab.com/lx-industries/rmcp-openapi/commit/b90c89354649e8c3140bfbb487b47d33415b78bf))
+* make base_url mandatory in Server struct ([1eca579](https://gitlab.com/lx-industries/rmcp-openapi/commit/1eca579e5bfd6dbed351eacfc4fd9eefbacb3ec1))
+* refactor Server/Configuration to eliminate field duplication ([6af0b88](https://gitlab.com/lx-industries/rmcp-openapi/commit/6af0b884124a743c73c1d61bf71d3d9506a202a2))
+* restore builder pattern for Server struct ([90b8bc7](https://gitlab.com/lx-industries/rmcp-openapi/commit/90b8bc77f8de0def4c1252498c95d1830c322bb4))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust:1.89.0 docker digest to 26318ae ([c506ac4](https://gitlab.com/lx-industries/rmcp-openapi/commit/c506ac4ba545c8a30e2494541d9d0313c1826278))
+
 ## [0.9.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.8.3...v0.9.0) (2025-08-27)
 
 
