@@ -17,6 +17,7 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Flexible Spec Loading**: Support for both URL-based and local file OpenAPI specifications
 - **HTTP Client Integration**: Built-in HTTP client with configurable base URLs and request handling
 - **Parameter Mapping**: Intelligent mapping of OpenAPI parameters (path, query, body) to MCP tool parameters
+- **Smart Parameter Handling**: Optional array parameters with empty values are automatically omitted from HTTP requests for OpenAPI compliance
 - **Output Schema Support**: Automatic generation of output schemas from OpenAPI response definitions
 - **Structured Content**: Returns parsed JSON responses as structured content when output schemas are defined
 - **Dual Usage Modes**: Use as a standalone MCP server or integrate as a Rust library
@@ -221,6 +222,32 @@ Example generated tools for Petstore API:
 - `getPetById`: Find pet by ID
 - `updatePet`: Update an existing pet
 - `deletePet`: Delete a pet
+
+### Parameter Handling
+
+The server implements intelligent parameter handling to ensure OpenAPI specification compliance:
+
+#### Array Parameters
+- **Empty Optional Arrays**: Optional array parameters with empty values (`[]`) are automatically omitted from HTTP requests
+- **Non-Empty Optional Arrays**: Optional arrays with values are included normally
+- **Required Arrays**: Required array parameters are always processed, even when empty
+- **Arrays with Defaults**: Optional arrays with default values are always included, even when empty
+
+#### Examples
+```json
+// These parameters...
+{
+  "requiredTags": [],           // Required array - included as "?requiredTags="
+  "optionalTags": [],           // Optional array - omitted entirely  
+  "optionalWithDefault": [],    // Optional with default - included as "?optionalWithDefault="
+  "nonEmptyOptional": ["tag1"]  // Non-empty optional - included as "?nonEmptyOptional=tag1"
+}
+
+// ...generate this HTTP request:
+// GET /endpoint?requiredTags=&optionalWithDefault=&nonEmptyOptional=tag1
+```
+
+This behavior ensures that HTTP requests conform to OpenAPI specifications where optional parameters should be omitted when not needed, while preserving required parameters and those with explicit defaults.
 
 ### Output Schema Support
 

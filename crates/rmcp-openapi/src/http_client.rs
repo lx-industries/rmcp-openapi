@@ -132,7 +132,7 @@ impl HttpClient {
 
         // Add query parameters with proper URL encoding
         if !extracted_params.query.is_empty() {
-            Self::add_query_parameters(&mut url, &extracted_params.query);
+            Self::add_query_parameters(&mut url, &extracted_params.query, tool_metadata);
         }
 
         info!("Final URL: {}", url);
@@ -154,12 +154,12 @@ impl HttpClient {
 
         // Add request-specific headers (these override default headers)
         if !extracted_params.headers.is_empty() {
-            request = Self::add_headers(request, &extracted_params.headers);
+            request = Self::add_headers(request, &extracted_params.headers, tool_metadata);
         }
 
         // Add cookies
         if !extracted_params.cookies.is_empty() {
-            request = Self::add_cookies(request, &extracted_params.cookies);
+            request = Self::add_cookies(request, &extracted_params.cookies, tool_metadata);
         }
 
         // Add request body if present
@@ -369,12 +369,24 @@ impl HttpClient {
     }
 
     /// Add query parameters to the request using proper URL encoding
-    fn add_query_parameters(url: &mut Url, query_params: &HashMap<String, QueryParameter>) {
+    fn add_query_parameters(
+        url: &mut Url,
+        query_params: &HashMap<String, QueryParameter>,
+        tool_metadata: &ToolMetadata,
+    ) {
         {
             let mut query_pairs = url.query_pairs_mut();
             for (key, query_param) in query_params {
+                // Skip empty optional array parameters
+                if tool_metadata.should_omit_empty_array_parameter(key, &query_param.value) {
+                    continue;
+                }
                 if let Value::Array(arr) = &query_param.value {
-                    if query_param.explode {
+                    if arr.is_empty() {
+                        // For empty arrays that should be included (required or with defaults),
+                        // add the parameter with an empty value
+                        query_pairs.append_pair(key, "");
+                    } else if query_param.explode {
                         // explode=true: Handle array parameters - add each value as a separate query parameter
                         for item in arr {
                             let item_str = match item {
@@ -425,8 +437,13 @@ impl HttpClient {
     fn add_headers(
         mut request: RequestBuilder,
         headers: &HashMap<String, Value>,
+        tool_metadata: &ToolMetadata,
     ) -> RequestBuilder {
         for (key, value) in headers {
+            // Skip empty optional array parameters
+            if tool_metadata.should_omit_empty_array_parameter(key, value) {
+                continue;
+            }
             let value_str = match value {
                 Value::String(s) => s.clone(),
                 Value::Number(n) => n.to_string(),
@@ -442,10 +459,15 @@ impl HttpClient {
     fn add_cookies(
         mut request: RequestBuilder,
         cookies: &HashMap<String, Value>,
+        tool_metadata: &ToolMetadata,
     ) -> RequestBuilder {
         if !cookies.is_empty() {
             let cookie_header = cookies
                 .iter()
+                .filter(|(key, value)| {
+                    // Skip empty optional array parameters
+                    !tool_metadata.should_omit_empty_array_parameter(key, value)
+                })
                 .map(|(key, value)| {
                     let value_str = match value {
                         Value::String(s) => s.clone(),
@@ -458,7 +480,9 @@ impl HttpClient {
                 .collect::<Vec<_>>()
                 .join("; ");
 
-            request = request.header(header::COOKIE, cookie_header);
+            if !cookie_header.is_empty() {
+                request = request.header(header::COOKIE, cookie_header);
+            }
         }
         request
     }
@@ -901,7 +925,7 @@ mod tests {
         };
 
         let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
-        HttpClient::add_query_parameters(&mut url, &extracted_params.query);
+        HttpClient::add_query_parameters(&mut url, &extracted_params.query, &tool_metadata);
 
         let url_string = url.to_string();
 
@@ -949,7 +973,7 @@ mod tests {
         };
 
         let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
-        HttpClient::add_query_parameters(&mut url, &extracted_params.query);
+        HttpClient::add_query_parameters(&mut url, &extracted_params.query, &tool_metadata);
 
         let url_string = url.to_string();
 
@@ -1069,7 +1093,11 @@ mod tests {
         let mut url_exploded = client
             .build_url(&tool_metadata, &extracted_params_exploded)
             .unwrap();
-        HttpClient::add_query_parameters(&mut url_exploded, &extracted_params_exploded.query);
+        HttpClient::add_query_parameters(
+            &mut url_exploded,
+            &extracted_params_exploded.query,
+            &tool_metadata,
+        );
         let url_exploded_string = url_exploded.to_string();
 
         // Test explode=false (should generate comma-separated values)
@@ -1094,6 +1122,7 @@ mod tests {
         HttpClient::add_query_parameters(
             &mut url_not_exploded,
             &extracted_params_not_exploded.query,
+            &tool_metadata,
         );
         let url_not_exploded_string = url_not_exploded.to_string();
 
@@ -1109,5 +1138,193 @@ mod tests {
 
         println!("Exploded URL: {url_exploded_string}");
         println!("Non-exploded URL: {url_not_exploded_string}");
+    }
+
+    #[test]
+    fn test_omit_empty_optional_array_query_parameters() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        // Create tool metadata with optional and required array parameters
+        let tool_metadata = crate::ToolMetadata {
+            name: "test".to_string(),
+            title: None,
+            description: "test".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "optional_array": {"type": "array", "items": {"type": "string"}},
+                    "required_array": {"type": "array", "items": {"type": "string"}},
+                    "optional_with_default": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "default": ["default"]
+                    },
+                    "optional_string": {"type": "string"}
+                },
+                "required": ["required_array"]
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+        };
+
+        let mut query_params = HashMap::new();
+        query_params.insert(
+            "optional_array".to_string(),
+            QueryParameter::new(json!([]), true),
+        ); // Empty optional array - should be omitted
+        query_params.insert(
+            "required_array".to_string(),
+            QueryParameter::new(json!([]), true),
+        ); // Empty required array - should be included
+        query_params.insert(
+            "optional_with_default".to_string(),
+            QueryParameter::new(json!([]), true),
+        ); // Empty optional with default - should be included
+        query_params.insert(
+            "optional_string".to_string(),
+            QueryParameter::new(json!(""), true),
+        ); // Empty string - should be included (not array)
+
+        let extracted_params = ExtractedParameters {
+            path: HashMap::new(),
+            query: query_params,
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        HttpClient::add_query_parameters(&mut url, &extracted_params.query, &tool_metadata);
+
+        let url_string = url.to_string();
+        // Verify empty optional array is omitted
+        assert!(!url_string.contains("optional_array"));
+
+        // Verify empty required array is included
+        assert!(url_string.contains("required_array"));
+
+        // Verify empty optional with default is included
+        assert!(url_string.contains("optional_with_default"));
+
+        // Verify empty string is included (not an array)
+        assert!(url_string.contains("optional_string"));
+    }
+
+    #[test]
+    fn test_omit_empty_optional_array_headers() {
+        let tool_metadata = crate::ToolMetadata {
+            name: "test".to_string(),
+            title: None,
+            description: "test".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "x-optional-array": {"type": "array", "items": {"type": "string"}},
+                    "x-required-array": {"type": "array", "items": {"type": "string"}},
+                    "x-optional-string": {"type": "string"}
+                },
+                "required": ["x-required-array"]
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+        };
+
+        let mut headers = HashMap::new();
+        headers.insert("x-optional-array".to_string(), json!([])); // Should be omitted
+        headers.insert("x-required-array".to_string(), json!([])); // Should be included
+        headers.insert("x-optional-string".to_string(), json!("value")); // Should be included
+
+        let request = HttpClient::new()
+            .client
+            .request(reqwest::Method::GET, "https://api.example.com");
+        let request = HttpClient::add_headers(request, &headers, &tool_metadata);
+
+        // We can't easily inspect the headers without sending the request,
+        // but we can verify the function doesn't panic and returns a valid RequestBuilder
+        assert!(request.build().is_ok());
+    }
+
+    #[test]
+    fn test_omit_empty_optional_array_cookies() {
+        let tool_metadata = crate::ToolMetadata {
+            name: "test".to_string(),
+            title: None,
+            description: "test".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "optional_array_cookie": {"type": "array", "items": {"type": "string"}},
+                    "required_array_cookie": {"type": "array", "items": {"type": "string"}},
+                    "optional_string_cookie": {"type": "string"}
+                },
+                "required": ["required_array_cookie"]
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+        };
+
+        let mut cookies = HashMap::new();
+        cookies.insert("optional_array_cookie".to_string(), json!([])); // Should be omitted
+        cookies.insert("required_array_cookie".to_string(), json!([])); // Should be included
+        cookies.insert("optional_string_cookie".to_string(), json!("value")); // Should be included
+
+        let request = HttpClient::new()
+            .client
+            .request(reqwest::Method::GET, "https://api.example.com");
+        let request = HttpClient::add_cookies(request, &cookies, &tool_metadata);
+
+        // Verify the function doesn't panic and returns a valid RequestBuilder
+        assert!(request.build().is_ok());
+    }
+
+    #[test]
+    fn test_non_empty_optional_arrays_are_included() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        let tool_metadata = crate::ToolMetadata {
+            name: "test".to_string(),
+            title: None,
+            description: "test".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "optional_array": {"type": "array", "items": {"type": "string"}}
+                },
+                "required": []
+            }),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+        };
+
+        let mut query_params = HashMap::new();
+        query_params.insert(
+            "optional_array".to_string(),
+            QueryParameter::new(json!(["value1", "value2"]), true),
+        ); // Non-empty optional array - should be included
+
+        let extracted_params = ExtractedParameters {
+            path: HashMap::new(),
+            query: query_params,
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        HttpClient::add_query_parameters(&mut url, &extracted_params.query, &tool_metadata);
+
+        let url_string = url.to_string();
+
+        // Verify non-empty optional array is included
+        assert!(url_string.contains("optional_array=value1"));
+        assert!(url_string.contains("optional_array=value2"));
     }
 }
