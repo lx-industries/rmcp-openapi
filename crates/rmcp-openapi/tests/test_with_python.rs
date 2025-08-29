@@ -30,13 +30,10 @@ fn create_petstore_mcp_server_with_spec(base_url: Url, spec_path: &str) -> anyho
         None, // default_headers
     )?;
 
-    let mut server = Server::new(
-        serde_json::Value::Null, // Dummy value since we set tools directly
-        base_url,
-        None, // default_headers
-        None, // tag_filter
-        None, // method_filter
-    );
+    let mut server = Server::builder()
+        .openapi_spec(serde_json::Value::Null) // Dummy value since we set tools directly
+        .base_url(base_url)
+        .build();
 
     // Set tools directly
     server.tool_collection = rmcp_openapi::ToolCollection::from_tools(tools);

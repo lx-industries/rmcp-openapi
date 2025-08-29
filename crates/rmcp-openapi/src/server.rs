@@ -1,3 +1,4 @@
+use bon::Builder;
 use rmcp::{
     RoleServer, ServerHandler,
     model::{
@@ -16,9 +17,10 @@ use crate::error::Error;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
 use tracing::{debug, info, info_span, warn};
 
-#[derive(Clone)]
+#[derive(Clone, Builder)]
 pub struct Server {
     pub openapi_spec: serde_json::Value,
+    #[builder(default)]
     pub tool_collection: ToolCollection,
     pub base_url: Url,
     pub default_headers: Option<HeaderMap>,
