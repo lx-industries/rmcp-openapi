@@ -1,3 +1,11 @@
+## [0.10.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.10.0...v0.10.1) (2025-08-30)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to v0.6.1 ([ddaba7d](https://gitlab.com/lx-industries/rmcp-openapi/commit/ddaba7d66be4c717acbe09b63ef3528b4f092986))
+* **deps:** update rust:1.89.0 docker digest to 3329e2d ([2bfb87c](https://gitlab.com/lx-industries/rmcp-openapi/commit/2bfb87c62fb96a9f1f1d40e1ea78e3811b1c118f))
+
 ## [0.10.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.9.0...v0.10.0) (2025-08-29)
 
 
