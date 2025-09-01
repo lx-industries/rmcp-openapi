@@ -1,3 +1,11 @@
+## [0.10.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.10.1...v0.10.2) (2025-09-01)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to v22.19.0 ([548512c](https://gitlab.com/lx-industries/rmcp-openapi/commit/548512c390f70f5a77434b851a725bc8ace9bd95))
+* **deps:** update rust crate tracing-subscriber to v0.3.20 ([b81066b](https://gitlab.com/lx-industries/rmcp-openapi/commit/b81066b22c23cf2dbeb2ae343ccd1ffddbe7e242))
+
 ## [0.10.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.10.0...v0.10.1) (2025-08-30)
 
 
