@@ -231,9 +231,9 @@ checksum = "6a65b545ab31d687cff52899d4890855fec459eb6afe0da6417b8a18da87aa29"
 
 [[package]]
 name = "bon"
-version = "3.7.1"
+version = "3.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "537c317ddf588aab15c695bf92cf55dec159b93221c074180ca3e0e5a94da415"
+checksum = "c2529c31017402be841eb45892278a6c21a000c0a17643af326c73a73f83f0fb"
 dependencies = [
  "bon-macros",
  "rustversion",
@@ -241,9 +241,9 @@ dependencies = [
 
 [[package]]
 name = "bon-macros"
-version = "3.7.1"
+version = "3.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca5abbf2d4a4c6896197c9de13d6d7cb7eff438c63dacde1dde980569cb00248"
+checksum = "d82020dadcb845a345591863adb65d74fa8dc5c18a0b6d408470e13b7adc7005"
 dependencies = [
  "darling",
  "ident_case",
@@ -1798,7 +1798,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-openapi"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -1828,7 +1828,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-openapi-server"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "anyhow",
  "axum",
