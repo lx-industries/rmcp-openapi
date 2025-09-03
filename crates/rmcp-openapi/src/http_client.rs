@@ -1,4 +1,4 @@
-use reqwest::header::{self, HeaderMap};
+use reqwest::header::{self, HeaderMap, HeaderValue};
 use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -83,6 +83,24 @@ impl HttpClient {
     pub fn with_default_headers(mut self, default_headers: HeaderMap) -> Self {
         self.default_headers = default_headers;
         self
+    }
+
+    /// Create a new HTTP client with authorization header
+    ///
+    /// Clones the current client and adds the Authorization header to default headers.
+    /// This allows passing authorization through to backend APIs.
+    #[must_use]
+    pub fn with_authorization(&self, auth_value: &str) -> Self {
+        let mut headers = self.default_headers.clone();
+        if let Ok(header_value) = HeaderValue::from_str(auth_value) {
+            headers.insert(header::AUTHORIZATION, header_value);
+        }
+
+        Self {
+            client: self.client.clone(),
+            base_url: self.base_url.clone(),
+            default_headers: headers,
+        }
     }
 
     /// Execute an `OpenAPI` tool call

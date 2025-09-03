@@ -8,6 +8,7 @@ use rmcp::{
     },
     service::RequestContext,
 };
+use rmcp_actix_web::transport::AuthorizationHeader;
 use serde_json::Value;
 
 use reqwest::header::HeaderMap;
@@ -171,7 +172,7 @@ impl ServerHandler for Server {
     async fn call_tool(
         &self,
         request: CallToolRequestParam,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
         let span = info_span!(
             "call_tool",
@@ -188,10 +189,17 @@ impl ServerHandler for Server {
         let arguments = request.arguments.unwrap_or_default();
         let arguments_value = Value::Object(arguments);
 
+        // Extract authorization header from context extensions
+        let auth_header = context.extensions.get::<AuthorizationHeader>().cloned();
+
+        if auth_header.is_some() {
+            debug!("Authorization header is present");
+        }
+
         // Delegate all tool validation and execution to the tool collection
         match self
             .tool_collection
-            .call_tool(&request.name, &arguments_value)
+            .call_tool(&request.name, &arguments_value, auth_header)
             .await
         {
             Ok(result) => {

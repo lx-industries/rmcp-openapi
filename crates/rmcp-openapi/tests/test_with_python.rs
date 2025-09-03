@@ -130,7 +130,7 @@ async fn run_python_sse_client_test(
     Ok(())
 }
 
-#[tokio::test]
+#[actix_web::test]
 async fn test_with_python_client() -> anyhow::Result<()> {
     run_python_sse_client_test(
         "assets/petstore-openapi-norefs.json",
@@ -148,7 +148,7 @@ async fn test_with_python_client() -> anyhow::Result<()> {
 // Tests using original petstore spec WITH $refs (to test $ref resolution)
 // =============================================================================
 
-#[tokio::test]
+#[actix_web::test]
 async fn test_with_python_client_with_refs() -> anyhow::Result<()> {
     run_python_sse_client_test(
         "assets/petstore-openapi.json",

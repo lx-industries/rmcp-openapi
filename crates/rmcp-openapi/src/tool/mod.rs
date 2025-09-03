@@ -8,6 +8,7 @@ use crate::error::Error;
 use crate::http_client::HttpClient;
 use reqwest::header::HeaderMap;
 use rmcp::model::{CallToolResult, Tool as McpTool};
+use rmcp_actix_web::transport::AuthorizationHeader;
 use serde_json::Value;
 use url::Url;
 
@@ -45,16 +46,20 @@ impl Tool {
     pub async fn call(
         &self,
         arguments: &Value,
+        auth_header: Option<AuthorizationHeader>,
     ) -> Result<CallToolResult, crate::error::ToolCallError> {
         use rmcp::model::Content;
         use serde_json::json;
 
-        // Execute the HTTP request using the embedded HTTP client
-        match self
-            .http_client
-            .execute_tool_call(&self.metadata, arguments)
-            .await
-        {
+        // Create HTTP client with authorization if provided
+        let client = if let Some(auth) = auth_header {
+            self.http_client.with_authorization(&auth.0)
+        } else {
+            self.http_client.clone()
+        };
+
+        // Execute the HTTP request using the (potentially auth-enhanced) HTTP client
+        match client.execute_tool_call(&self.metadata, arguments).await {
             Ok(response) => {
                 // Check if the tool has an output schema
                 let structured_content = if self.metadata.output_schema.is_some() {
@@ -113,12 +118,18 @@ impl Tool {
     pub async fn execute(
         &self,
         arguments: &Value,
+        auth_header: Option<AuthorizationHeader>,
     ) -> Result<crate::http_client::HttpResponse, crate::error::ToolCallError> {
-        // Execute the HTTP request using the embedded HTTP client
+        // Create HTTP client with authorization if provided
+        let client = if let Some(auth) = auth_header {
+            self.http_client.with_authorization(&auth.0)
+        } else {
+            self.http_client.clone()
+        };
+
+        // Execute the HTTP request using the (potentially auth-enhanced) HTTP client
         // Return the raw HttpResponse without MCP formatting
-        self.http_client
-            .execute_tool_call(&self.metadata, arguments)
-            .await
+        client.execute_tool_call(&self.metadata, arguments).await
     }
 }
 

@@ -18,7 +18,7 @@ fn should_use_live_api() -> bool {
 const LIVE_API_BASE_URL: &str = "https://petstore.swagger.io/v2";
 
 /// Test HTTP 404 Not Found error handling
-#[tokio::test]
+#[actix_web::test]
 async fn test_http_404_not_found_error() -> anyhow::Result<()> {
     let non_existent_pet_id = 999999u64;
 
@@ -71,7 +71,7 @@ async fn test_http_404_not_found_error() -> anyhow::Result<()> {
 }
 
 /// Test HTTP 400 Bad Request error handling
-#[tokio::test]
+#[actix_web::test]
 async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
@@ -107,7 +107,7 @@ async fn test_http_400_bad_request_error() -> anyhow::Result<()> {
 }
 
 /// Test HTTP 500 Internal Server Error handling
-#[tokio::test]
+#[actix_web::test]
 async fn test_http_500_server_error() -> anyhow::Result<()> {
     // This test only works with mock server since we can't force live API to error
     let mut mock_server = MockPetstoreServer::new_with_port(9003).await;
@@ -140,7 +140,7 @@ async fn test_http_500_server_error() -> anyhow::Result<()> {
 }
 
 /// Test network connection error handling
-#[tokio::test]
+#[actix_web::test]
 async fn test_network_connection_error() -> anyhow::Result<()> {
     // Test with an invalid/unreachable URL to simulate connection failure
     let server =
@@ -171,7 +171,7 @@ async fn test_network_connection_error() -> anyhow::Result<()> {
 }
 
 /// Test missing required parameter validation
-#[tokio::test]
+#[actix_web::test]
 async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
     let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
@@ -213,7 +213,7 @@ async fn test_missing_required_parameter_error() -> anyhow::Result<()> {
 }
 
 /// Test type validation error (string for integer parameter)
-#[tokio::test]
+#[actix_web::test]
 async fn test_type_validation_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
     let client = HttpClient::new().with_base_url(Url::parse("http://example.com")?)?;
@@ -246,7 +246,7 @@ async fn test_type_validation_error() -> anyhow::Result<()> {
 }
 
 /// Test array type validation
-#[tokio::test]
+#[actix_web::test]
 async fn test_array_type_validation_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
@@ -278,7 +278,7 @@ async fn test_array_type_validation_error() -> anyhow::Result<()> {
 }
 
 /// Test enum validation
-#[tokio::test]
+#[actix_web::test]
 async fn test_enum_validation_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
@@ -310,7 +310,7 @@ async fn test_enum_validation_error() -> anyhow::Result<()> {
 }
 
 /// Test enum validation - parameter passing
-#[tokio::test]
+#[actix_web::test]
 async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
     if should_use_live_api() {
         let server = create_server_with_base_url(Url::parse(LIVE_API_BASE_URL)?)?;
@@ -357,7 +357,7 @@ async fn test_enum_validation_parameter_passing() -> anyhow::Result<()> {
 }
 
 /// Test non-JSON response handling
-#[tokio::test]
+#[actix_web::test]
 async fn test_non_json_response_handling() -> anyhow::Result<()> {
     // Use mock server to return non-JSON content
     let mut mock_server = MockPetstoreServer::new_with_port(9006).await;
@@ -397,7 +397,7 @@ async fn test_non_json_response_handling() -> anyhow::Result<()> {
 }
 
 /// Test malformed JSON response handling
-#[tokio::test]
+#[actix_web::test]
 async fn test_malformed_json_response_handling() -> anyhow::Result<()> {
     // Use mock server to return malformed JSON
     let mut mock_server = MockPetstoreServer::new_with_port(9007).await;
@@ -438,7 +438,7 @@ async fn test_malformed_json_response_handling() -> anyhow::Result<()> {
 }
 
 /// Test empty response (204 No Content) handling
-#[tokio::test]
+#[actix_web::test]
 async fn test_empty_response_handling() -> anyhow::Result<()> {
     // Use mock server to return 204 No Content
     let mut mock_server = MockPetstoreServer::new_with_port(9008).await;
@@ -492,7 +492,7 @@ async fn test_empty_response_handling() -> anyhow::Result<()> {
 }
 
 /// Test large response handling with simpler approach
-#[tokio::test]
+#[actix_web::test]
 async fn test_large_response_handling() -> anyhow::Result<()> {
     // Use mock server to return a large response using a simpler endpoint
     let mut mock_server = MockPetstoreServer::new_with_port(9009).await;
@@ -548,7 +548,7 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
 }
 
 /// Test passing integer for string field
-#[tokio::test]
+#[actix_web::test]
 async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
@@ -584,7 +584,7 @@ async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {
 }
 
 /// Test tool not found error with suggestions
-#[tokio::test]
+#[actix_web::test]
 async fn test_tool_not_found_with_suggestions() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
@@ -629,7 +629,7 @@ async fn test_tool_not_found_with_suggestions() -> anyhow::Result<()> {
 }
 
 /// Test tool not found error with multiple suggestions
-#[tokio::test]
+#[actix_web::test]
 async fn test_tool_not_found_multiple_suggestions() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 

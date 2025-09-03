@@ -16,7 +16,7 @@ fn should_use_live_api() -> bool {
 const LIVE_API_BASE_URL: &str = "https://petstore.swagger.io/v2";
 
 /// Test path parameter transformation - getPetById
-#[tokio::test]
+#[actix_web::test]
 async fn test_get_pet_by_id_path_parameter() -> anyhow::Result<()> {
     let pet_id = 123u64;
 
@@ -75,7 +75,7 @@ async fn test_get_pet_by_id_path_parameter() -> anyhow::Result<()> {
 }
 
 /// Test path parameter transformation with not found scenario
-#[tokio::test]
+#[actix_web::test]
 async fn test_get_pet_by_id_not_found() -> anyhow::Result<()> {
     let pet_id = 99999u64; // Non-existent pet ID
 
@@ -127,7 +127,7 @@ async fn test_get_pet_by_id_not_found() -> anyhow::Result<()> {
 }
 
 /// Test query parameter transformation - findPetsByStatus
-#[tokio::test]
+#[actix_web::test]
 async fn test_find_pets_by_status_query_parameter() -> anyhow::Result<()> {
     let status = "available";
 
@@ -190,7 +190,7 @@ async fn test_find_pets_by_status_query_parameter() -> anyhow::Result<()> {
 }
 
 /// Test query parameter transformation with multiple status values
-#[tokio::test]
+#[actix_web::test]
 async fn test_find_pets_by_multiple_status_query_parameter() -> anyhow::Result<()> {
     let statuses = vec!["available", "pending"];
 
@@ -245,7 +245,7 @@ async fn test_find_pets_by_multiple_status_query_parameter() -> anyhow::Result<(
 }
 
 /// Test JSON request body transformation - addPet
-#[tokio::test]
+#[actix_web::test]
 async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
     let pet_data = json!({
         "name": "new doggie",
@@ -326,7 +326,7 @@ async fn test_add_pet_json_request_body() -> anyhow::Result<()> {
 }
 
 /// Test available tools listing
-#[tokio::test]
+#[actix_web::test]
 async fn test_available_tools() -> anyhow::Result<()> {
     let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
 
@@ -360,7 +360,7 @@ fn create_server_with_base_url(base_url: Url) -> anyhow::Result<Server> {
 }
 
 /// Test URL construction with path parameters
-#[tokio::test]
+#[actix_web::test]
 async fn test_url_construction_with_path_parameters() -> anyhow::Result<()> {
     let mock_server = MockPetstoreServer::new_with_port(9106).await;
     let server = create_server_with_base_url(mock_server.base_url())?;
@@ -393,7 +393,7 @@ async fn test_url_construction_with_path_parameters() -> anyhow::Result<()> {
 }
 
 /// Test content-type header setting for JSON requests
-#[tokio::test]
+#[actix_web::test]
 async fn test_content_type_header_for_json() -> anyhow::Result<()> {
     let mut mock_server = MockPetstoreServer::new_with_port(9108).await;
     let _mock = mock_server.mock_add_pet();

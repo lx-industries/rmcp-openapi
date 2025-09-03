@@ -4558,7 +4558,7 @@ mod tests {
         let result = ToolGenerator::format_examples_for_description(&examples);
         assert_eq!(
             result,
-            Some("Example: `{\"user\":{\"age\":30,\"name\":\"John\"}}`".to_string())
+            Some("Example: `{\"user\":{\"name\":\"John\",\"age\":30}}`".to_string())
         );
 
         // Test more than 3 examples (should only show first 3)

@@ -236,7 +236,7 @@ async fn run_js_streamable_http_client_test(
     Ok(())
 }
 
-#[tokio::test]
+#[actix_web::test]
 async fn test_with_js_sse_client() -> anyhow::Result<()> {
     run_js_sse_client_test(
         "assets/petstore-openapi-norefs.json",
@@ -247,7 +247,7 @@ async fn test_with_js_sse_client() -> anyhow::Result<()> {
     .await
 }
 
-#[tokio::test]
+#[actix_web::test]
 async fn test_with_js_streamable_http_client() -> anyhow::Result<()> {
     run_js_streamable_http_client_test(
         "assets/petstore-openapi-norefs.json",
@@ -398,7 +398,7 @@ impl MockPetstoreServer {
 // Tests using original petstore spec WITH $refs (to test $ref resolution)
 // =============================================================================
 
-#[tokio::test]
+#[actix_web::test]
 async fn test_with_js_sse_client_with_refs() -> anyhow::Result<()> {
     run_js_sse_client_test(
         "assets/petstore-openapi.json",
@@ -409,7 +409,7 @@ async fn test_with_js_sse_client_with_refs() -> anyhow::Result<()> {
     .await
 }
 
-#[tokio::test]
+#[actix_web::test]
 async fn test_with_js_streamable_http_client_with_refs() -> anyhow::Result<()> {
     run_js_streamable_http_client_test(
         "assets/petstore-openapi.json",

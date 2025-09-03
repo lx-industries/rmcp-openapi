@@ -2,15 +2,17 @@ mod cli;
 mod configuration;
 mod spec_loader;
 
+use std::{process, sync::Arc};
+
+use actix_web::{App, HttpServer, web};
 use cli::Cli;
 use configuration::Configuration;
-use rmcp::transport::SseServer;
+use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+use rmcp_actix_web::StreamableHttpService;
 use rmcp_openapi::Error;
-use std::process;
-use tokio::signal;
 use tracing::{debug, error, info, info_span};
 
-#[tokio::main]
+#[actix_web::main]
 async fn main() {
     if let Err(e) = run().await {
         error!("Application error: {}", e);
@@ -65,31 +67,28 @@ async fn run() -> Result<(), Error> {
         "OpenAPI MCP Server starting"
     );
 
-    // Set up MCP server with SSE transport
-    let cancellation_token = SseServer::serve(
-        bind_addr
-            .parse()
-            .map_err(|e| Error::InvalidUrl(format!("Invalid bind address: {e}")))?,
-    )
-    .await
-    .map_err(|e| Error::McpError(format!("Failed to start SSE server: {e}")))?
-    .with_service(move || {
-        // Clone the already loaded server
-        server.clone()
-    });
+    let service = StreamableHttpService::builder()
+        .service_factory(Arc::new(move || Ok(server.clone())))
+        .session_manager(LocalSessionManager::default().into())
+        .stateful_mode(false)
+        .build();
+
+    let http_server = HttpServer::new(move || {
+        App::new()
+            // Mount MCP services at custom paths
+            .service(web::scope("/mcp").service(service.clone().scope()))
+    })
+    .bind(bind_addr.clone())?
+    .run();
 
     info!(
-        connection_url = %format!("http://{bind_addr}/sse"),
+        connection_url = %format!("http://{bind_addr}/mcp"),
         "Server ready for MCP client connections"
     );
 
-    // Wait for shutdown signal
-    signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");
-    info!("Shutdown signal received, stopping server");
+    http_server.await?;
 
-    // Cancel the server
-    cancellation_token.cancel();
-    info!("Server stopped gracefully");
+    info!("Shutdown signal received, stopping server");
 
     Ok(())
 }
