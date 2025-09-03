@@ -1,12 +1,17 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "status",
+      "message": "Parameter 'status' must be one of: available, pending, sold",
+      "field_path": "status",
       "actual_value": "unknown",
+      "expected_type": "string",
       "constraints": [
         {
           "type": "enum-values",
@@ -16,12 +21,7 @@ expression: serialized
             "sold"
           ]
         }
-      ],
-      "expected_type": "string",
-      "field_path": "status",
-      "message": "Parameter 'status' must be one of: available, pending, sold",
-      "parameter": "status",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

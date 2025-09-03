@@ -1,9 +1,9 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
-  "category": "timeout",
+  "type": "network-error",
   "message": "Connection timeout",
-  "type": "network-error"
+  "category": "timeout"
 }

@@ -1,17 +1,17 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "invalid-parameter",
       "parameter": "pet_i",
       "suggestions": [
         "petId",
         "petInfo"
       ],
-      "type": "invalid-parameter",
       "valid_parameters": [
         "petId",
         "petInfo",

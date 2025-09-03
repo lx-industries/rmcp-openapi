@@ -1,28 +1,28 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "categories",
+      "message": "Array has 4 items but maximum is 3",
+      "field_path": "categories",
       "actual_value": [
         "a",
         "b",
         "c",
         "d"
       ],
+      "expected_type": "array",
       "constraints": [
         {
           "type": "max-items",
           "value": 3
         }
-      ],
-      "expected_type": "array",
-      "field_path": "categories",
-      "message": "Array has 4 items but maximum is 3",
-      "parameter": "categories",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

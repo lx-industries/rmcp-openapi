@@ -1,23 +1,23 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "price",
+      "message": "10.5 is not a multiple of 3",
+      "field_path": "price",
       "actual_value": 10.5,
+      "expected_type": "number",
       "constraints": [
         {
           "type": "multiple-of",
           "value": 3.0
         }
-      ],
-      "expected_type": "number",
-      "field_path": "price",
-      "message": "10.5 is not a multiple of 3",
-      "parameter": "price",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

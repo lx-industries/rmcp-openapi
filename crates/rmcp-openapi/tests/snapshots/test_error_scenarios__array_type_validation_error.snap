@@ -1,17 +1,17 @@
 ---
-source: tests/test_error_scenarios.rs
+source: crates/rmcp-openapi/tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
-      "actual_value": "available",
-      "expected_type": "array",
-      "field_path": "status",
-      "message": "\"available\" is not of type \"array\"",
+      "type": "constraint-violation",
       "parameter": "status",
-      "type": "constraint-violation"
+      "message": "\"available\" is not of type \"array\"",
+      "field_path": "status",
+      "actual_value": "available",
+      "expected_type": "array"
     }
   ]
 }

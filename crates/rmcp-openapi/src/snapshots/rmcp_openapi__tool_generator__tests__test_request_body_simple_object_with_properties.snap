@@ -1,10 +1,9 @@
 ---
-source: src/tool_generator.rs
+source: crates/rmcp-openapi/src/tool_generator.rs
 expression: request_body_schema
 ---
 {
-  "additionalProperties": true,
-  "description": "Pet status update",
+  "type": "object",
   "properties": {
     "reason": {
       "type": "string"
@@ -16,7 +15,8 @@ expression: request_body_schema
   "required": [
     "status"
   ],
-  "type": "object",
-  "x-content-type": "application/json",
-  "x-location": "body"
+  "additionalProperties": true,
+  "description": "Pet status update",
+  "x-location": "body",
+  "x-content-type": "application/json"
 }

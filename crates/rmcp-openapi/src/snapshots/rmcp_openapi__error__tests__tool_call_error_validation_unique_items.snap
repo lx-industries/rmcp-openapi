@@ -1,27 +1,27 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "numbers",
+      "message": "Array items [1, 2, 2, 3] are not unique",
+      "field_path": "numbers",
       "actual_value": [
         1,
         2,
         2,
         3
       ],
+      "expected_type": "array",
       "constraints": [
         {
           "type": "unique-items"
         }
-      ],
-      "expected_type": "array",
-      "field_path": "numbers",
-      "message": "Array items [1, 2, 2, 3] are not unique",
-      "parameter": "numbers",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

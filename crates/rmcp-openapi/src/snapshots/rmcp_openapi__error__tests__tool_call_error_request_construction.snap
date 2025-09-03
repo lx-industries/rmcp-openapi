@@ -1,8 +1,8 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
-  "reason": "Invalid parameter location: body",
-  "type": "request-construction-error"
+  "type": "request-construction-error",
+  "reason": "Invalid parameter location: body"
 }

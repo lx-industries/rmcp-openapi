@@ -1,8 +1,8 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
-  "reason": "Invalid JSON",
-  "type": "response-parsing-error"
+  "type": "response-parsing-error",
+  "reason": "Invalid JSON"
 }

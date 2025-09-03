@@ -1,25 +1,25 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "tags",
+      "message": "Array has 1 items but minimum is 2",
+      "field_path": "tags",
       "actual_value": [
         "tag1"
       ],
+      "expected_type": "array",
       "constraints": [
         {
           "type": "min-items",
           "value": 2
         }
-      ],
-      "expected_type": "array",
-      "field_path": "tags",
-      "message": "Array has 1 items but minimum is 2",
-      "parameter": "tags",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

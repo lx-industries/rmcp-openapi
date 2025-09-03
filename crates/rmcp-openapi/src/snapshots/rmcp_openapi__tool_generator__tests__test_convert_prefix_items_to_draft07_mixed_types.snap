@@ -1,8 +1,10 @@
 ---
-source: src/tool_generator.rs
+source: crates/rmcp-openapi/src/tool_generator.rs
 expression: result
 ---
 {
+  "minItems": 2,
+  "maxItems": 2,
   "items": {
     "oneOf": [
       {
@@ -12,7 +14,5 @@ expression: result
         "type": "string"
       }
     ]
-  },
-  "maxItems": 2,
-  "minItems": 2
+  }
 }

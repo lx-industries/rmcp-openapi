@@ -1,11 +1,11 @@
 ---
-source: src/tool_generator.rs
+source: crates/rmcp-openapi/src/tool_generator.rs
 expression: request_body_schema
 ---
 {
+  "type": "object",
   "additionalProperties": true,
   "description": "Request body data",
-  "type": "object",
-  "x-content-type": "application/json",
-  "x-location": "body"
+  "x-location": "body",
+  "x-content-type": "application/json"
 }

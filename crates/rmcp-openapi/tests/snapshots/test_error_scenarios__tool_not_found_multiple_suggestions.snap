@@ -1,12 +1,12 @@
 ---
-source: tests/test_error_scenarios.rs
+source: crates/rmcp-openapi/tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
+  "type": "tool-not-found",
+  "tool_name": "findPet",
   "suggestions": [
     "findPetsByStatus",
     "addPet"
-  ],
-  "tool_name": "findPet",
-  "type": "tool-not-found"
+  ]
 }

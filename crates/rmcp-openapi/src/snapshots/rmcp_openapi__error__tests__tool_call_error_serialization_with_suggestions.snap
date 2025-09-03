@@ -1,12 +1,12 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
+  "type": "tool-not-found",
+  "tool_name": "getPetByID",
   "suggestions": [
     "getPetById",
     "getPetsByStatus"
-  ],
-  "tool_name": "getPetByID",
-  "type": "tool-not-found"
+  ]
 }

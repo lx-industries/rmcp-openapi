@@ -1,14 +1,14 @@
 ---
-source: src/tool_generator.rs
+source: crates/rmcp-openapi/src/tool_generator.rs
 expression: request_body_schema
 ---
 {
-  "description": "Array of pet objects",
-  "items": {
-    "additionalProperties": true,
-    "type": "object"
-  },
   "type": "array",
-  "x-content-type": "application/json",
-  "x-location": "body"
+  "items": {
+    "type": "object",
+    "additionalProperties": true
+  },
+  "description": "Array of pet objects",
+  "x-location": "body",
+  "x-content-type": "application/json"
 }

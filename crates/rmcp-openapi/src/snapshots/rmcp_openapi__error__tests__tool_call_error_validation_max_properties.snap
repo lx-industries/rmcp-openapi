@@ -1,27 +1,27 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "config",
+      "message": "Object has 3 properties but maximum is 2",
+      "field_path": "config",
       "actual_value": {
         "a": 1,
         "b": 2,
         "c": 3
       },
+      "expected_type": "object",
       "constraints": [
         {
           "type": "max-properties",
           "value": 2
         }
-      ],
-      "expected_type": "object",
-      "field_path": "config",
-      "message": "Object has 3 properties but maximum is 2",
-      "parameter": "config",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

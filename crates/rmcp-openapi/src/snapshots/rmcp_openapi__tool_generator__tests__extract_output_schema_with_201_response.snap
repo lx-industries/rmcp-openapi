@@ -1,115 +1,133 @@
 ---
-source: src/tool_generator.rs
+source: crates/rmcp-openapi/src/tool_generator.rs
 expression: result
 ---
 {
-  "additionalProperties": false,
+  "type": "object",
   "description": "Unified response structure with success and error variants",
+  "required": [
+    "status",
+    "body"
+  ],
+  "additionalProperties": false,
   "properties": {
+    "status": {
+      "type": "integer",
+      "description": "HTTP status code",
+      "minimum": 100,
+      "maximum": 599
+    },
     "body": {
       "description": "Response body - either success data or error information",
       "oneOf": [
         {
-          "additionalProperties": true,
+          "type": "object",
           "properties": {
             "created": {
               "type": "boolean"
             }
           },
-          "type": "object"
+          "additionalProperties": true
         },
         {
-          "description": "Error response structure for tool execution failures",
+          "required": [
+            "error"
+          ],
           "properties": {
             "error": {
               "description": "Execution errors that occur during tool execution\nThese return as Ok(CallToolResult { is_error: true })",
               "oneOf": [
                 {
                   "description": "HTTP error response from the API",
+                  "type": "object",
                   "properties": {
-                    "details": {
-                      "description": "Optional structured error details from API"
+                    "status": {
+                      "description": "HTTP status code",
+                      "type": "integer",
+                      "format": "uint16",
+                      "minimum": 0,
+                      "maximum": 65535
                     },
                     "message": {
                       "description": "Error message or response body",
                       "type": "string"
                     },
-                    "status": {
-                      "description": "HTTP status code",
-                      "format": "uint16",
-                      "maximum": 65535,
-                      "minimum": 0,
-                      "type": "integer"
+                    "details": {
+                      "description": "Optional structured error details from API"
                     },
                     "type": {
-                      "const": "http-error",
-                      "type": "string"
+                      "type": "string",
+                      "const": "http-error"
                     }
                   },
                   "required": [
                     "type",
                     "status",
                     "message"
-                  ],
-                  "type": "object"
+                  ]
                 },
                 {
                   "description": "Network/connection failures",
+                  "type": "object",
                   "properties": {
-                    "category": {
-                      "description": "Network error categories for better error handling",
-                      "oneOf": [
-                        {
-                          "const": "timeout",
-                          "description": "Request timeout",
-                          "type": "string"
-                        },
-                        {
-                          "const": "connect",
-                          "description": "Connection error (DNS, refused, unreachable)",
-                          "type": "string"
-                        },
-                        {
-                          "const": "request",
-                          "description": "Request construction/sending error",
-                          "type": "string"
-                        },
-                        {
-                          "const": "body",
-                          "description": "Response body error",
-                          "type": "string"
-                        },
-                        {
-                          "const": "decode",
-                          "description": "Response decoding error",
-                          "type": "string"
-                        },
-                        {
-                          "const": "other",
-                          "description": "Other network errors",
-                          "type": "string"
-                        }
-                      ]
-                    },
                     "message": {
                       "description": "Description of the network failure",
                       "type": "string"
                     },
+                    "category": {
+                      "description": "Network error categories for better error handling",
+                      "oneOf": [
+                        {
+                          "description": "Request timeout",
+                          "type": "string",
+                          "const": "timeout"
+                        },
+                        {
+                          "description": "Connection error (DNS, refused, unreachable)",
+                          "type": "string",
+                          "const": "connect"
+                        },
+                        {
+                          "description": "Request construction/sending error",
+                          "type": "string",
+                          "const": "request"
+                        },
+                        {
+                          "description": "Response body error",
+                          "type": "string",
+                          "const": "body"
+                        },
+                        {
+                          "description": "Response decoding error",
+                          "type": "string",
+                          "const": "decode"
+                        },
+                        {
+                          "description": "Other network errors",
+                          "type": "string",
+                          "const": "other"
+                        }
+                      ]
+                    },
                     "type": {
-                      "const": "network-error",
-                      "type": "string"
+                      "type": "string",
+                      "const": "network-error"
                     }
                   },
                   "required": [
                     "type",
                     "message",
                     "category"
-                  ],
-                  "type": "object"
+                  ]
                 },
                 {
                   "description": "Response parsing failed",
+                  "type": "object",
                   "properties": {
+                    "reason": {
+                      "description": "Description of the parsing failure",
+                      "type": "string"
+                    },
                     "raw_response": {
                       "description": "Raw response body for debugging",
                       "type": [
@@ -117,41 +135,23 @@ expression: result
                         "null"
                       ]
                     },
-                    "reason": {
-                      "description": "Description of the parsing failure",
-                      "type": "string"
-                    },
                     "type": {
-                      "const": "response-parsing-error",
-                      "type": "string"
+                      "type": "string",
+                      "const": "response-parsing-error"
                     }
                   },
                   "required": [
                     "type",
                     "reason"
-                  ],
-                  "type": "object"
+                  ]
                 }
               ]
             }
           },
-          "required": [
-            "error"
-          ],
+          "description": "Error response structure for tool execution failures",
           "type": "object"
         }
       ]
-    },
-    "status": {
-      "description": "HTTP status code",
-      "maximum": 599,
-      "minimum": 100,
-      "type": "integer"
     }
-  },
-  "required": [
-    "status",
-    "body"
-  ],
-  "type": "object"
+  }
 }

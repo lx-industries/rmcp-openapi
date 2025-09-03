@@ -1,9 +1,9 @@
 ---
-source: src/tool_generator.rs
+source: crates/rmcp-openapi/src/tool_generator.rs
 expression: result
 ---
 {
-  "additionalProperties": true,
+  "type": "object",
   "properties": {
     "price": {
       "type": "number",
@@ -17,5 +17,5 @@ expression: result
       "type": "string"
     }
   },
-  "type": "object"
+  "additionalProperties": true
 }

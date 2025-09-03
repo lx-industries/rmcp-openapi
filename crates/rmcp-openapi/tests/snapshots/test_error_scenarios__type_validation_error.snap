@@ -1,28 +1,28 @@
 ---
-source: tests/test_error_scenarios.rs
+source: crates/rmcp-openapi/tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "petId",
+      "message": "\"not_a_number\" is not of type \"integer\"",
+      "field_path": "petId",
       "actual_value": "not_a_number",
+      "expected_type": "integer",
       "constraints": [
         {
-          "exclusive": false,
           "type": "minimum",
-          "value": 1.0
+          "value": 1.0,
+          "exclusive": false
         },
         {
-          "format": "int64",
-          "type": "format"
+          "type": "format",
+          "format": "int64"
         }
-      ],
-      "expected_type": "integer",
-      "field_path": "petId",
-      "message": "\"not_a_number\" is not of type \"integer\"",
-      "parameter": "petId",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

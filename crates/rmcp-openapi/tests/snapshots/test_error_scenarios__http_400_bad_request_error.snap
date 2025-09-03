@@ -1,28 +1,28 @@
 ---
-source: tests/test_error_scenarios.rs
+source: crates/rmcp-openapi/tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "request_body",
+      "message": "\"invalid\" is not one of \"available\", \"pending\" or \"sold\"",
+      "field_path": "request_body/status",
       "actual_value": {
         "status": "invalid"
       },
+      "expected_type": "object",
       "constraints": [
         {
+          "type": "required",
           "properties": [
             "name",
             "photoUrls"
-          ],
-          "type": "required"
+          ]
         }
-      ],
-      "expected_type": "object",
-      "field_path": "request_body/status",
-      "message": "\"invalid\" is not one of \"available\", \"pending\" or \"sold\"",
-      "parameter": "request_body",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

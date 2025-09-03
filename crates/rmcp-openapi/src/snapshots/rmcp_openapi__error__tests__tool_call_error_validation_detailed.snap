@@ -1,29 +1,29 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "age",
+      "message": "Parameter 'age' must be between 0 and 150",
+      "field_path": "age",
       "actual_value": 200,
+      "expected_type": "integer",
       "constraints": [
         {
-          "exclusive": false,
           "type": "minimum",
-          "value": 0.0
+          "value": 0.0,
+          "exclusive": false
         },
         {
-          "exclusive": false,
           "type": "maximum",
-          "value": 150.0
+          "value": 150.0,
+          "exclusive": false
         }
-      ],
-      "expected_type": "integer",
-      "field_path": "age",
-      "message": "Parameter 'age' must be between 0 and 150",
-      "parameter": "age",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }

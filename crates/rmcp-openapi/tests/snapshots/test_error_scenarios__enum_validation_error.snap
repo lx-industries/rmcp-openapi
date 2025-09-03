@@ -1,19 +1,19 @@
 ---
-source: tests/test_error_scenarios.rs
+source: crates/rmcp-openapi/tests/test_error_scenarios.rs
 expression: error_json
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "status",
+      "message": "\"invalid_status\" is not one of \"available\", \"pending\" or \"sold\"",
+      "field_path": "status/0",
       "actual_value": [
         "invalid_status"
       ],
-      "expected_type": "array",
-      "field_path": "status/0",
-      "message": "\"invalid_status\" is not one of \"available\", \"pending\" or \"sold\"",
-      "parameter": "status",
-      "type": "constraint-violation"
+      "expected_type": "array"
     }
   ]
 }

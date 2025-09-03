@@ -1,13 +1,13 @@
 ---
-source: src/tool_generator.rs
+source: crates/rmcp-openapi/src/tool_generator.rs
 expression: result
 ---
 {
-  "description": "List of tags",
+  "type": "array",
   "items": {
-    "maxLength": 50,
+    "type": "string",
     "minLength": 1,
-    "type": "string"
+    "maxLength": 50
   },
-  "type": "array"
+  "description": "List of tags"
 }

@@ -1,23 +1,23 @@
 ---
-source: src/error.rs
+source: crates/rmcp-openapi/src/error.rs
 expression: serialized
 ---
 {
   "type": "validation-errors",
   "violations": [
     {
+      "type": "constraint-violation",
+      "parameter": "environment",
+      "message": "\"staging\" is not equal to const \"production\"",
+      "field_path": "environment",
       "actual_value": "staging",
+      "expected_type": "string",
       "constraints": [
         {
           "type": "const-value",
           "value": "production"
         }
-      ],
-      "expected_type": "string",
-      "field_path": "environment",
-      "message": "\"staging\" is not equal to const \"production\"",
-      "parameter": "environment",
-      "type": "constraint-violation"
+      ]
     }
   ]
 }
