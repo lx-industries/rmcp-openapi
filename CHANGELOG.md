@@ -1,3 +1,21 @@
+## [0.11.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.10.2...v0.11.0) (2025-09-04)
+
+
+### Features
+
+* add Authorization header pass-through for MCP to OpenAPI bridge ([2aef664](https://gitlab.com/lx-industries/rmcp-openapi/commit/2aef6641dfa3eb94d57a2f9f37ea045508aa54ae))
+
+
+### Bug Fixes
+
+* add preserve_order feature to serde_json for deterministic JSON key ordering ([b70b1d9](https://gitlab.com/lx-industries/rmcp-openapi/commit/b70b1d9e2b853e13208f2d19d2fc884be9ed0419))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate bon to v3.7.2 ([eccce01](https://gitlab.com/lx-industries/rmcp-openapi/commit/eccce01b30833834d0ebcd69398696955445bf31))
+* **deps:** update rust crate clap to v4.5.47 ([81668f2](https://gitlab.com/lx-industries/rmcp-openapi/commit/81668f241f93853f1d8cd3ad289b052fca8676f2))
+
 ## [0.10.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.10.1...v0.10.2) (2025-09-01)
 
 
