@@ -1,3 +1,10 @@
+## [0.12.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.11.0...v0.12.0) (2025-09-04)
+
+
+### Features
+
+* add configurable authorization modes for token passthrough ([322c99c](https://gitlab.com/lx-industries/rmcp-openapi/commit/322c99c3d3afedcd3fa79b43f0cf91c052779406)), closes [#67](https://gitlab.com/lx-industries/rmcp-openapi/issues/67)
+
 ## [0.11.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.10.2...v0.11.0) (2025-09-04)
 
 
