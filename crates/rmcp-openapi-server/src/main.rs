@@ -49,6 +49,30 @@ async fn run() -> Result<(), Error> {
         "Successfully loaded tools from OpenAPI specification"
     );
 
+    // Log the authorization mode on startup
+    info!(
+        authorization_mode = ?server.authorization_mode(),
+        "Authorization mode configured"
+    );
+
+    // Log security warning if in passthrough mode
+    #[cfg(feature = "authorization-token-passthrough")]
+    match server.authorization_mode() {
+        rmcp_openapi::AuthorizationMode::PassthroughWarn => {
+            tracing::warn!(
+                "⚠️  Authorization header passthrough is enabled with warnings. \
+                This violates MCP specification but may be necessary for proxy scenarios."
+            );
+        }
+        rmcp_openapi::AuthorizationMode::PassthroughSilent => {
+            info!(
+                "Authorization header passthrough is enabled (silent mode). \
+                Headers will be forwarded without per-request warnings."
+            );
+        }
+        _ => {}
+    }
+
     debug!(
         tools = %server.get_tool_names().join(", "),
         "Available tools"

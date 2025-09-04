@@ -1,5 +1,6 @@
 use crate::spec_loader::SpecLocation;
 use clap::Parser;
+use rmcp_openapi::AuthorizationMode;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -42,6 +43,15 @@ pub struct Cli {
         help = "Only include operations with these HTTP methods (comma-separated: GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS,TRACE)"
     )]
     pub methods: Option<Vec<reqwest::Method>>,
+
+    /// Authorization mode for handling Authorization headers
+    #[arg(
+        long,
+        env = "RMCP_AUTHORIZATION_MODE",
+        default_value = "compliant",
+        help = "How to handle Authorization headers: compliant (MCP spec, no passthrough), passthrough-warn (pass with warnings), passthrough-silent (pass silently)"
+    )]
+    pub authorization_mode: AuthorizationMode,
 }
 
 impl Cli {

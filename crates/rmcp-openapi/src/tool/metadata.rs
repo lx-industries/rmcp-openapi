@@ -26,6 +26,16 @@ pub struct ToolMetadata {
     pub method: String,
     /// URL path for the API endpoint - internal only, not exposed to MCP
     pub path: String,
+    /// Security requirements from OpenAPI spec - internal only, not exposed to MCP
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub security: Option<Vec<String>>,
+}
+
+impl ToolMetadata {
+    /// Check if this tool requires authentication based on OpenAPI security definitions
+    pub fn requires_auth(&self) -> bool {
+        self.security.as_ref().is_some_and(|s| !s.is_empty())
+    }
 }
 
 /// Converts internal `ToolMetadata` to MCP-compliant `Tool`.

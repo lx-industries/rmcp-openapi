@@ -14,6 +14,10 @@ categories.workspace = true
 name = "rmcp-openapi-server"
 path = "src/main.rs"
 
+[features]
+default = []
+authorization-token-passthrough = ["rmcp-openapi/authorization-token-passthrough"]
+
 [dependencies]
 # Library dependency
 rmcp-openapi = { version = "0.11.0", path = "../rmcp-openapi" }
@@ -22,7 +26,7 @@ rmcp-openapi = { version = "0.11.0", path = "../rmcp-openapi" }
 actix-web.workspace = true
 rmcp.workspace = true
 rmcp-actix-web.workspace = true
-clap = { version = "4.5.41", features = ["derive"] }
+clap = { version = "4.5.41", features = ["derive", "env"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror.workspace = true

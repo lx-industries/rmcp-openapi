@@ -23,7 +23,19 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Transport Support**: SSE (Server-Sent Events) transport for MCP communication
 - **Comprehensive Testing**: Includes integration tests with JavaScript and Python MCP clients
 - **Built with Official SDK**: Uses the official Rust MCP SDK for reliable protocol compliance
-- **Authentication Pass-Through**: Automatic forwarding of Authorization headers from MCP clients to backend APIs based on OpenAPI security definitions
+- **Authorization Header Handling**: Configurable authorization modes to balance MCP compliance with proxy requirements
+
+## Security
+
+`rmcp-openapi` acts as a proxy between MCP clients and OpenAPI services, which creates unique security considerations regarding authorization header handling. 
+
+**Important**: Please read the [SECURITY.md](./SECURITY.md) file for detailed information about:
+- MCP specification compliance
+- Authorization modes (compliant, passthrough-warn, passthrough-silent)
+- Security implications and recommendations
+- Compile-time feature flags for authorization passthrough
+
+By default, the server operates in MCP-compliant mode and does not forward authorization headers. Non-compliant modes require explicit opt-in via compile-time features and runtime configuration.
 
 ## Contributing
 

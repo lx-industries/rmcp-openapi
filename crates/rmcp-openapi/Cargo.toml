@@ -50,3 +50,12 @@ tokio.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = { version = "0.8", features = [] }
 mockito = "1.7.0"
+
+[features]
+default = []
+# Enable this if your MCP service will forward tokens to upstream APIs (non-compliant).
+# This violates MCP specifications but may be necessary for proxy architectures.
+# See SECURITY.md for important security implications.
+authorization-token-passthrough = [
+    "rmcp-actix-web/authorization-token-passthrough",
+]

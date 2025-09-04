@@ -1,13 +1,17 @@
+pub mod config;
 pub mod error;
 pub mod http_client;
+pub mod security;
 pub mod server;
 pub mod spec;
 pub mod tool;
 pub mod tool_generator;
 pub mod tool_registry;
 
+pub use config::{Authorization, AuthorizationMode};
 pub use error::{CliError, Error, ToolCallError};
 pub use http_client::{HttpClient, HttpResponse};
+pub use security::SecurityObserver;
 pub use server::Server;
 pub use spec::Spec;
 pub use tool::{Tool, ToolCollection, ToolMetadata};

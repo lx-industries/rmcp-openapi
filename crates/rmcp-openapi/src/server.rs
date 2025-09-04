@@ -14,6 +14,7 @@ use serde_json::Value;
 use reqwest::header::HeaderMap;
 use url::Url;
 
+use crate::config::{Authorization, AuthorizationMode};
 use crate::error::Error;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
 use tracing::{debug, info, info_span, warn};
@@ -27,6 +28,8 @@ pub struct Server {
     pub default_headers: Option<HeaderMap>,
     pub tag_filter: Option<Vec<String>>,
     pub method_filter: Option<Vec<reqwest::Method>>,
+    #[builder(default)]
+    pub authorization_mode: AuthorizationMode,
 }
 
 impl Server {
@@ -45,6 +48,7 @@ impl Server {
             default_headers,
             tag_filter,
             method_filter,
+            authorization_mode: AuthorizationMode::default(),
         }
     }
 
@@ -106,6 +110,16 @@ impl Server {
     #[must_use]
     pub fn get_tool_metadata(&self, name: &str) -> Option<&ToolMetadata> {
         self.get_tool(name).map(|tool| &tool.metadata)
+    }
+
+    /// Set the authorization mode for the server
+    pub fn set_authorization_mode(&mut self, mode: AuthorizationMode) {
+        self.authorization_mode = mode;
+    }
+
+    /// Get the current authorization mode
+    pub fn authorization_mode(&self) -> AuthorizationMode {
+        self.authorization_mode
     }
 
     /// Get basic tool statistics
@@ -196,10 +210,13 @@ impl ServerHandler for Server {
             debug!("Authorization header is present");
         }
 
+        // Create Authorization enum from mode and header
+        let authorization = Authorization::from_mode(self.authorization_mode, auth_header);
+
         // Delegate all tool validation and execution to the tool collection
         match self
             .tool_collection
-            .call_tool(&request.name, &arguments_value, auth_header)
+            .call_tool(&request.name, &arguments_value, authorization)
             .await
         {
             Ok(result) => {
@@ -250,6 +267,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/pet/{petId}".to_string(),
+            security: None,
         };
 
         let tool2_metadata = ToolMetadata {
@@ -271,6 +289,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/pet/findByStatus".to_string(),
+            security: None,
         };
 
         // Create OpenApiTool instances
@@ -321,6 +340,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/pet/{petId}".to_string(),
+            security: None,
         };
 
         // Create OpenApiTool instance

@@ -4,11 +4,12 @@ pub mod tool_collection;
 pub use metadata::ToolMetadata;
 pub use tool_collection::ToolCollection;
 
+use crate::config::Authorization;
 use crate::error::Error;
 use crate::http_client::HttpClient;
+use crate::security::SecurityObserver;
 use reqwest::header::HeaderMap;
 use rmcp::model::{CallToolResult, Tool as McpTool};
-use rmcp_actix_web::transport::AuthorizationHeader;
 use serde_json::Value;
 use url::Url;
 
@@ -46,10 +47,33 @@ impl Tool {
     pub async fn call(
         &self,
         arguments: &Value,
-        auth_header: Option<AuthorizationHeader>,
+        authorization: Authorization,
     ) -> Result<CallToolResult, crate::error::ToolCallError> {
         use rmcp::model::Content;
         use serde_json::json;
+
+        // Create security observer for logging
+        let observer = SecurityObserver::new(&authorization);
+
+        // Log the authorization decision
+        let has_auth = match &authorization {
+            Authorization::None => false,
+            #[cfg(feature = "authorization-token-passthrough")]
+            Authorization::PassthroughWarn(header) | Authorization::PassthroughSilent(header) => {
+                header.is_some()
+            }
+        };
+
+        observer.observe_request(&self.metadata.name, has_auth, self.metadata.requires_auth());
+
+        // Extract authorization header if present
+        let auth_header: Option<&rmcp_actix_web::transport::AuthorizationHeader> =
+            match &authorization {
+                Authorization::None => None,
+                #[cfg(feature = "authorization-token-passthrough")]
+                Authorization::PassthroughWarn(header)
+                | Authorization::PassthroughSilent(header) => header.as_ref(),
+            };
 
         // Create HTTP client with authorization if provided
         let client = if let Some(auth) = auth_header {
@@ -118,8 +142,17 @@ impl Tool {
     pub async fn execute(
         &self,
         arguments: &Value,
-        auth_header: Option<AuthorizationHeader>,
+        authorization: Authorization,
     ) -> Result<crate::http_client::HttpResponse, crate::error::ToolCallError> {
+        // Extract authorization header if present
+        let auth_header: Option<&rmcp_actix_web::transport::AuthorizationHeader> =
+            match &authorization {
+                Authorization::None => None,
+                #[cfg(feature = "authorization-token-passthrough")]
+                Authorization::PassthroughWarn(header)
+                | Authorization::PassthroughSilent(header) => header.as_ref(),
+            };
+
         // Create HTTP client with authorization if provided
         let client = if let Some(auth) = auth_header {
             self.http_client.with_authorization(&auth.0)

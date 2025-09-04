@@ -1,7 +1,7 @@
 use super::Tool;
+use crate::config::Authorization;
 use crate::error::{ToolCallError, ToolCallValidationError};
 use rmcp::model::{CallToolResult, Tool as McpTool};
-use rmcp_actix_web::transport::AuthorizationHeader;
 use serde_json::Value;
 use tracing::debug_span;
 
@@ -73,7 +73,7 @@ impl ToolCollection {
         &self,
         tool_name: &str,
         arguments: &Value,
-        auth_header: Option<AuthorizationHeader>,
+        authorization: Authorization,
     ) -> Result<CallToolResult, ToolCallError> {
         let span = debug_span!(
             "tool_execution",
@@ -85,7 +85,7 @@ impl ToolCollection {
         // First validate that the tool exists
         if let Some(tool) = self.get_tool(tool_name) {
             // Tool exists, delegate to the tool's call method
-            tool.call(arguments, auth_header).await
+            tool.call(arguments, authorization).await
         } else {
             // Tool not found - generate suggestions and return validation error
             let tool_names: Vec<&str> = self
@@ -156,6 +156,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: format!("/{}", name),
+            security: None,
         };
         Tool::new(metadata, None, None).unwrap()
     }
@@ -228,7 +229,9 @@ mod tests {
         let tool2 = create_test_tool("getPetsByStatus", "Get pets by status");
         let collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
-        let result = collection.call_tool("getPetByID", &json!({}), None).await;
+        let result = collection
+            .call_tool("getPetByID", &json!({}), Authorization::default())
+            .await;
         assert!(result.is_err());
 
         if let Err(ToolCallError::Validation(ToolCallValidationError::ToolNotFound {
@@ -251,7 +254,11 @@ mod tests {
         let collection = ToolCollection::from_tools(vec![tool]);
 
         let result = collection
-            .call_tool("completelyDifferentName", &json!({}), None)
+            .call_tool(
+                "completelyDifferentName",
+                &json!({}),
+                Authorization::default(),
+            )
             .await;
         assert!(result.is_err());
 

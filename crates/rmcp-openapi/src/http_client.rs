@@ -806,6 +806,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/pets/{id}".to_string(),
+            security: None,
         };
 
         let mut path_params = HashMap::new();
@@ -836,6 +837,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "https://api.example.com/pets/123".to_string(),
+            security: None,
         };
 
         let extracted_params = ExtractedParameters {
@@ -859,6 +861,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/pets/123".to_string(),
+            security: None,
         };
 
         let result = client.build_url(&tool_metadata_relative, &extracted_params);
@@ -884,6 +887,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/search".to_string(),
+            security: None,
         };
 
         // Test various query parameter values that need encoding
@@ -945,6 +949,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/search".to_string(),
+            security: None,
         };
 
         let mut query_params = HashMap::new();
@@ -991,6 +996,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/users/{userId}/pets/{petId}".to_string(),
+            security: None,
         };
 
         let mut path_params = HashMap::new();
@@ -1030,6 +1036,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/pets".to_string(),
+            security: None,
         };
 
         let extracted_params = ExtractedParameters {
@@ -1066,6 +1073,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/search".to_string(),
+            security: None,
         };
 
         // Test explode=true (should generate separate parameters)

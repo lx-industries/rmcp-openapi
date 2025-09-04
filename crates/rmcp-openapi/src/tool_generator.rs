@@ -769,6 +769,7 @@ impl ToolGenerator {
             output_schema,
             method,
             path,
+            security: None, // TODO: Extract security requirements from OpenAPI spec
         })
     }
 
@@ -4277,6 +4278,7 @@ mod tests {
             output_schema: None,
             method: "GET".to_string(),
             path: "/items".to_string(),
+            security: None,
         };
 
         // Pass incorrect parameter names

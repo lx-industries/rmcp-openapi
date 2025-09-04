@@ -2,7 +2,7 @@ use crate::cli::Cli;
 use crate::spec_loader::SpecLocation;
 use bon::Builder;
 use reqwest::header::HeaderMap;
-use rmcp_openapi::{CliError, Error, Server};
+use rmcp_openapi::{AuthorizationMode, CliError, Error, Server};
 use url::Url;
 
 #[derive(Debug, Clone, Builder)]
@@ -14,6 +14,7 @@ pub struct Configuration {
     pub default_headers: HeaderMap,
     pub tags: Option<Vec<String>>,
     pub methods: Option<Vec<reqwest::Method>>,
+    pub authorization_mode: AuthorizationMode,
 }
 
 impl Configuration {
@@ -68,6 +69,7 @@ impl Configuration {
             default_headers,
             tags: cli.tags,
             methods: cli.methods,
+            authorization_mode: cli.authorization_mode,
         })
     }
 }
@@ -84,13 +86,18 @@ impl Configuration {
             Some(self.default_headers)
         };
 
-        Ok(Server::new(
+        let mut server = Server::new(
             openapi_spec,
             self.base_url,
             headers,
             self.tags,
             self.methods,
-        ))
+        );
+
+        // Set the authorization mode
+        server.set_authorization_mode(self.authorization_mode);
+
+        Ok(server)
     }
 }
 
@@ -116,6 +123,7 @@ mod tests {
             ],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -164,6 +172,7 @@ mod tests {
             ],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -195,6 +204,7 @@ mod tests {
             headers: vec!["InvalidHeaderNoEquals".to_string()],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let result = Configuration::from_cli(cli);
@@ -215,6 +225,7 @@ mod tests {
             headers: vec![": value".to_string()],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let result = Configuration::from_cli(cli);
@@ -235,6 +246,7 @@ mod tests {
             headers: vec!["X-Empty-Header:".to_string()],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -259,6 +271,7 @@ mod tests {
             headers: vec![],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -275,6 +288,7 @@ mod tests {
             headers: vec!["Invalid Header Name: value".to_string()],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let result = Configuration::from_cli(cli);
@@ -295,6 +309,7 @@ mod tests {
             headers: vec!["Valid-Header: invalid\x00value".to_string()],
             tags: None,
             methods: None,
+            authorization_mode: AuthorizationMode::default(),
         };
 
         let result = Configuration::from_cli(cli);
