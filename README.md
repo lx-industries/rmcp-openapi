@@ -23,6 +23,7 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Transport Support**: SSE (Server-Sent Events) transport for MCP communication
 - **Comprehensive Testing**: Includes integration tests with JavaScript and Python MCP clients
 - **Built with Official SDK**: Uses the official Rust MCP SDK for reliable protocol compliance
+- **Authentication Pass-Through**: Automatic forwarding of Authorization headers from MCP clients to backend APIs based on OpenAPI security definitions
 
 ## Contributing
 
