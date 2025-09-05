@@ -129,6 +129,7 @@ impl Tool {
                     content,
                     structured_content,
                     is_error: Some(!response.is_success),
+                    meta: None,
                 })
             }
             Err(e) => {
