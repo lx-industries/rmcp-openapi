@@ -628,7 +628,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2000,7 +2000,7 @@ dependencies = [
  "once_cell",
  "socket2 0.5.10",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2187,9 +2187,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "0.6.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f521fbd040eba82684b17d787d423f43afb6e97974029b51f679157a589592a"
+checksum = "c7dd163d26e254725137b7933e4ba042ea6bf2d756a4260559aaea8b6ad4c27e"
 dependencies = [
  "axum",
  "base64",
@@ -2219,9 +2219,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-actix-web"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0704dd0b569d7e230be9a84fcc7c891867225ff12680dad37f1ee890f53b4b66"
+checksum = "b5b8262162e559d07c6b45889b117c418fcfca651818d1adc65a933273cb8c73"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -2242,9 +2242,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "0.6.1"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c162bf8a2846f70464ded6dda6430b60d1e2fb4b0e371f0906e39f63916641b9"
+checksum = "a43bb4c90a0d4b12f7315eb681a73115d335a2cee81322eca96f3467fe4cd06f"
 dependencies = [
  "darling",
  "proc-macro2",
