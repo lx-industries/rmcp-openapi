@@ -1,3 +1,10 @@
+## [0.13.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.12.1...v0.13.0) (2025-09-08)
+
+
+### Features
+
+* add the rustls-tls (enabled by default) and native-tls Cargo features ([b459983](https://gitlab.com/lx-industries/rmcp-openapi/commit/b4599832ce9d28e8453b67b2a0775a90c601631f))
+
 ## [0.12.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.12.0...v0.12.1) (2025-09-05)
 
 
