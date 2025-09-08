@@ -15,7 +15,7 @@ categories = ["network-programming", "web-programming"]
 actix-web = "4.9.0"
 rmcp = { version = "0.6.0", features = ["server", "transport-sse-server"] }
 rmcp-actix-web = "0.6.0"
-reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["http2", "json", "charset", "system-proxy"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 thiserror = "2.0"
 url = "2.5.4"

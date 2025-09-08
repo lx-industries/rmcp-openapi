@@ -52,7 +52,9 @@ axum = { version = "0.8", features = [] }
 mockito = "1.7.0"
 
 [features]
-default = []
+default = ["rustls-tls"]
+rustls-tls = ["reqwest/rustls-tls"]
+native-tls = ["reqwest/native-tls"]
 # Enable this if your MCP service will forward tokens to upstream APIs (non-compliant).
 # This violates MCP specifications but may be necessary for proxy architectures.
 # See SECURITY.md for important security implications.
