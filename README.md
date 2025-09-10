@@ -20,14 +20,14 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Output Schema Support**: Automatic generation of output schemas from OpenAPI response definitions
 - **Structured Content**: Returns parsed JSON responses as structured content when output schemas are defined
 - **Dual Usage Modes**: Use as a standalone MCP server or integrate as a Rust library
-- **Transport Support**: SSE (Server-Sent Events) transport for MCP communication
+- **Transport Support**: StreamableHttp transport for MCP communication (default), with optional deprecated SSE transport
 - **Comprehensive Testing**: Includes integration tests with JavaScript and Python MCP clients
 - **Built with Official SDK**: Uses the official Rust MCP SDK for reliable protocol compliance
 - **Authorization Header Handling**: Configurable authorization modes to balance MCP compliance with proxy requirements
 
 ## Security
 
-`rmcp-openapi` acts as a proxy between MCP clients and OpenAPI services, which creates unique security considerations regarding authorization header handling. 
+`rmcp-openapi` acts as a proxy between MCP clients and OpenAPI services, which creates unique security considerations regarding authorization header handling.
 
 **Important**: Please read the [SECURITY.md](./SECURITY.md) file for detailed information about:
 - MCP specification compliance
@@ -100,6 +100,34 @@ Add to your `Cargo.toml`:
 rmcp-openapi = "0.8.2"
 ```
 
+## Cargo Features
+
+### Transport Features
+
+- **`rustls-tls`** (default): Use rustls for TLS support
+- **`native-tls`**: Use native TLS implementation
+- **`transport-sse`**: Enable deprecated SSE (Server-Sent Events) transport for backward compatibility
+
+### Security Features
+
+- **`authorization-token-passthrough`**: Enable non-compliant authorization header forwarding (see SECURITY.md)
+
+### Usage Examples
+
+```toml
+# Default configuration (StreamableHttp transport only)
+[dependencies]
+rmcp-openapi = "0.13.0"
+
+# Enable deprecated SSE transport for backward compatibility
+[dependencies]
+rmcp-openapi = { version = "0.13.0", features = ["transport-sse"] }
+
+# Server with SSE transport
+[dependencies]
+rmcp-openapi-server = { version = "0.13.0", features = ["transport-sse"] }
+```
+
 ## Usage as a Library
 
 ### Basic Example
@@ -127,20 +155,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::from_str(spec_content)?
         // In practice, you'd load from file or URL using your preferred method
     };
-    
+
     // Create server with OpenAPI specification and base URL
     let mut server = Server::builder()
         .openapi_spec(openapi_json)
         .base_url(Url::parse("https://api.example.com")?)
         .build();
-    
+
     // Parse the OpenAPI specification and generate tools
     server.load_openapi_spec()?;
-    
+
     // Get information about generated tools
     println!("Generated {} tools", server.tool_count());
     println!("Available tools: {}", server.get_tool_names().join(", "));
-    
+
     Ok(())
 }
 ```
@@ -159,13 +187,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let content = tokio::fs::read_to_string("./api-spec.json").await?;
         serde_json::from_str(&content)?
     };
-    
+
     let base_url = Url::parse("https://api.example.com")?;
-    
+
     // Create headers
     let mut headers = HeaderMap::new();
     headers.insert("Authorization", "Bearer token123".parse()?);
-    
+
     // Create server with custom configuration using builder pattern
     let mut server = Server::builder()
         .openapi_spec(openapi_json)
@@ -173,14 +201,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .default_headers(headers)
         .tag_filter(Some(vec!["user".to_string(), "pets".to_string()]))
         .build();
-    
+
     // Parse specification and generate tools
     server.load_openapi_spec()?;
-    
+
     // Get tool information
     println!("Generated {} tools", server.tool_count());
     println!("Tool stats: {}", server.get_tool_stats());
-    
+
     Ok(())
 }
 ```
@@ -199,7 +227,9 @@ rmcp-openapi-server --help
 
 ### MCP Client Connection
 
-The server exposes an SSE endpoint for MCP clients:
+The server exposes a StreamableHttp endpoint for MCP clients by default.
+
+If you enable the deprecated `transport-sse` feature, an SSE endpoint is also available:
 
 ```
 http://localhost:8080/sse
@@ -220,7 +250,9 @@ Add to your Claude Desktop MCP configuration:
 }
 ```
 
-### Example with JavaScript MCP Client
+### Example with JavaScript MCP Client (Deprecated SSE Transport)
+
+**Note**: This example uses the deprecated SSE transport. Enable the `transport-sse` feature to use this.
 
 ```javascript
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';

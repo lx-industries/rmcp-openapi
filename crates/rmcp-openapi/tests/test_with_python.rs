@@ -1,4 +1,3 @@
-use rmcp::transport::SseServer;
 use rmcp_openapi::Server;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use url::Url;
@@ -58,105 +57,113 @@ async fn init() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_python_sse_client_test(
-    spec_path: &str,
-    mock_port: u16,
-    sse_port: u16,
-    snapshot_name: &str,
-) -> anyhow::Result<()> {
-    init().await?;
+/// SSE transport tests (deprecated)
+#[cfg(feature = "transport-sse")]
+#[allow(deprecated)]
+mod sse_tests {
+    use super::*;
+    use rmcp::transport::SseServer;
 
-    // Start mock server for HTTP requests
-    let mut mock_server = MockPetstoreServer::new_with_port(mock_port).await;
+    async fn run_python_sse_client_test(
+        spec_path: &str,
+        mock_port: u16,
+        sse_port: u16,
+        snapshot_name: &str,
+    ) -> anyhow::Result<()> {
+        super::init().await?;
 
-    // Set up mock responses for all tool calls
-    let _get_pet_mock = mock_server.mock_get_pet_by_id(123);
-    let _find_pets_mock = mock_server.mock_find_pets_by_multiple_status();
-    let _add_pet_mock = mock_server.mock_add_pet();
-    let _error_mock = mock_server.mock_get_pet_by_id_not_found(999999);
-    let _validation_error_mock = mock_server.mock_add_pet_validation_error();
+        // Start mock server for HTTP requests
+        let mut mock_server = MockPetstoreServer::new_with_port(mock_port).await;
 
-    let sse_bind_address = format!("127.0.0.1:{sse_port}");
+        // Set up mock responses for all tool calls
+        let _get_pet_mock = mock_server.mock_get_pet_by_id(123);
+        let _find_pets_mock = mock_server.mock_find_pets_by_multiple_status();
+        let _add_pet_mock = mock_server.mock_add_pet();
+        let _error_mock = mock_server.mock_get_pet_by_id_not_found(999999);
+        let _validation_error_mock = mock_server.mock_add_pet_validation_error();
 
-    // Start MCP server with mock API base URL
-    let base_url = mock_server.base_url();
-    let spec_path = spec_path.to_string(); // Convert to owned string
-    let ct = SseServer::serve(sse_bind_address.parse()?)
-        .await?
-        .with_service(move || {
-            create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path).unwrap()
-        });
+        let sse_bind_address = format!("127.0.0.1:{sse_port}");
 
-    let output = tokio::process::Command::new("uv")
-        .arg("run")
-        .arg("client.py")
-        .arg(format!("http://{sse_bind_address}/sse"))
-        .current_dir("tests/test_with_python")
-        .output()
-        .await?;
-
-    if !output.status.success() {
-        eprintln!("Python client failed:");
-        eprintln!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
-        eprintln!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
-    }
-    assert!(output.status.success());
-
-    // Capture and validate the actual MCP responses
-    let stdout = String::from_utf8(output.stdout)?;
-    let mut responses: Vec<serde_json::Value> = stdout
-        .lines()
-        .filter(|line| !line.is_empty())
-        .map(serde_json::from_str)
-        .collect::<Result<Vec<_>, _>>()?;
-
-    // Sort arrays for deterministic snapshots (preserve_order handles object properties)
-    for response in &mut responses {
-        if let Some(tools) = response
-            .get_mut("data")
-            .and_then(|d| d.get_mut("tools"))
-            .and_then(|t| t.as_array_mut())
-        {
-            tools.sort_by(|a, b| {
-                let name_a = a.get("name").and_then(|n| n.as_str()).unwrap_or("");
-                let name_b = b.get("name").and_then(|n| n.as_str()).unwrap_or("");
-                name_a.cmp(name_b)
+        // Start MCP server with mock API base URL
+        let base_url = mock_server.base_url();
+        let spec_path = spec_path.to_string(); // Convert to owned string
+        let ct = SseServer::serve(sse_bind_address.parse()?)
+            .await?
+            .with_service(move || {
+                super::create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path).unwrap()
             });
+
+        let output = tokio::process::Command::new("uv")
+            .arg("run")
+            .arg("client.py")
+            .arg(format!("http://{sse_bind_address}/sse"))
+            .current_dir("tests/test_with_python")
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            eprintln!("Python client failed:");
+            eprintln!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
+            eprintln!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
         }
+        assert!(output.status.success());
+
+        // Capture and validate the actual MCP responses
+        let stdout = String::from_utf8(output.stdout)?;
+        let mut responses: Vec<serde_json::Value> = stdout
+            .lines()
+            .filter(|line| !line.is_empty())
+            .map(serde_json::from_str)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Sort arrays for deterministic snapshots (preserve_order handles object properties)
+        for response in &mut responses {
+            if let Some(tools) = response
+                .get_mut("data")
+                .and_then(|d| d.get_mut("tools"))
+                .and_then(|t| t.as_array_mut())
+            {
+                tools.sort_by(|a, b| {
+                    let name_a = a.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                    let name_b = b.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                    name_a.cmp(name_b)
+                });
+            }
+        }
+
+        insta::assert_json_snapshot!(snapshot_name, responses);
+        ct.cancel();
+        Ok(())
     }
 
-    insta::assert_json_snapshot!(snapshot_name, responses);
-    ct.cancel();
-    Ok(())
-}
+    #[actix_web::test]
+    async fn test_with_python_client() -> anyhow::Result<()> {
+        run_python_sse_client_test(
+            "assets/petstore-openapi-norefs.json",
+            8083,
+            8000,
+            "python_sse_client_responses",
+        )
+        .await
+    }
 
-#[actix_web::test]
-async fn test_with_python_client() -> anyhow::Result<()> {
-    run_python_sse_client_test(
-        "assets/petstore-openapi-norefs.json",
-        8083,
-        8000,
-        "python_sse_client_responses",
-    )
-    .await
-}
+    // TODO: Add test_nested_with_python_client once nested routing support is implemented
+    // See https://gitlab.com/lx-industries/rmcp-actix-web/-/issues/2
 
-// TODO: Add test_nested_with_python_client once nested routing support is implemented
-// See https://gitlab.com/lx-industries/rmcp-actix-web/-/issues/2
+    // =============================================================================
+    // Tests using original petstore spec WITH $refs (to test $ref resolution)
+    // =============================================================================
 
-// =============================================================================
-// Tests using original petstore spec WITH $refs (to test $ref resolution)
-// =============================================================================
-
-#[actix_web::test]
-async fn test_with_python_client_with_refs() -> anyhow::Result<()> {
-    run_python_sse_client_test(
-        "assets/petstore-openapi.json",
-        8088,
-        8004,
-        "python_sse_client_responses_with_refs",
-    )
-    .await
+    #[actix_web::test]
+    async fn test_with_python_client_with_refs() -> anyhow::Result<()> {
+        run_python_sse_client_test(
+            "assets/petstore-openapi.json",
+            8088,
+            8004,
+            "python_sse_client_responses_with_refs",
+        )
+        .await
+    }
 }
 
 // Test-specific mock methods for MockPetstoreServer

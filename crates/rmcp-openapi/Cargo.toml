@@ -15,8 +15,8 @@ name = "rmcp_openapi"
 path = "src/lib.rs"
 
 [dependencies]
-rmcp = { workspace = true, features = ["server"] }
-rmcp-actix-web.workspace = true
+rmcp = { workspace = true, default-features = false }
+rmcp-actix-web = { workspace = true, default-features = false, features = ["transport-streamable-http"] }
 reqwest.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_json.workspace = true
@@ -39,8 +39,6 @@ actix-web.workspace = true
 rmcp = { workspace = true, features = [
     "server",
     "client",
-    "transport-sse-server",
-    "transport-child-process",
     "transport-streamable-http-server",
 ] }
 insta = { version = "1.43.1", features = ["json"] }
@@ -55,6 +53,8 @@ mockito = "1.7.0"
 default = ["rustls-tls"]
 rustls-tls = ["reqwest/rustls-tls"]
 native-tls = ["reqwest/native-tls"]
+# Enable deprecated SSE transport for backward compatibility
+transport-sse = ["rmcp/transport-sse-server", "rmcp-actix-web/transport-sse"]
 # Enable this if your MCP service will forward tokens to upstream APIs (non-compliant).
 # This violates MCP specifications but may be necessary for proxy architectures.
 # See SECURITY.md for important security implications.

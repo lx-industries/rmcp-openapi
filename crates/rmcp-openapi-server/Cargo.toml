@@ -19,6 +19,12 @@ default = ["rustls-tls"]
 authorization-token-passthrough = ["rmcp-openapi/authorization-token-passthrough"]
 rustls-tls = ["rmcp-openapi/rustls-tls"]
 native-tls = ["rmcp-openapi/native-tls"]
+# Enable deprecated SSE transport for backward compatibility
+transport-sse = [
+    "rmcp/transport-sse-server",
+    "rmcp-actix-web/transport-sse",
+    "rmcp-openapi/transport-sse",
+]
 
 [dependencies]
 # Library dependency
@@ -26,8 +32,8 @@ rmcp-openapi = { version = "0.13.0", path = "../rmcp-openapi" }
 
 # Server-specific dependencies
 actix-web.workspace = true
-rmcp.workspace = true
-rmcp-actix-web.workspace = true
+rmcp = { workspace = true, default-features = false }
+rmcp-actix-web = { workspace = true, default-features = false, features = ["transport-streamable-http"] }
 clap = { version = "4.5.41", features = ["derive", "env"] }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -42,8 +48,6 @@ bon = "3.7"
 [dev-dependencies]
 rmcp = { workspace = true, features = [
     "server",
-    "transport-sse-server",
-    "transport-child-process",
     "transport-streamable-http-server",
 ] }
 insta = { version = "1.43.1", features = ["json"] }
