@@ -1,3 +1,19 @@
+## [0.14.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.13.0...v0.14.0) (2025-09-11)
+
+
+### Features
+
+* gate SSE transport behind transport-sse cargo feature ([84b6cf3](https://gitlab.com/lx-industries/rmcp-openapi/commit/84b6cf3ddfe35fcd579bef5a9425413d6fb1e92a))
+* make server info customizable using OpenAPI metadata ([4237cef](https://gitlab.com/lx-industries/rmcp-openapi/commit/4237cef4720b3d40275de331917c1919ce1a05d5))
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to afff6d8 ([5bc3f99](https://gitlab.com/lx-industries/rmcp-openapi/commit/5bc3f99fc5fe550b385521e96ef7db180a47bafc))
+* **deps:** update node.js to d6ba961 ([e66af6a](https://gitlab.com/lx-industries/rmcp-openapi/commit/e66af6aa318ae86f064960a08a18fb93e048c02a))
+* **deps:** update rust:1.89.0 docker digest to 1ca9500 ([b54d676](https://gitlab.com/lx-industries/rmcp-openapi/commit/b54d676afc25ed45b7597eeceef8780141b90794))
+* **deps:** update rust:1.89.0 docker digest to 9e1b362 ([a328be9](https://gitlab.com/lx-industries/rmcp-openapi/commit/a328be992fb4d287bcbf62485c5237ea6d55cf53))
+
 ## [0.13.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.12.1...v0.13.0) (2025-09-08)
 
 
