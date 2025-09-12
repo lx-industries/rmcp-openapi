@@ -32,6 +32,7 @@ pub struct Server {
     pub authorization_mode: AuthorizationMode,
     pub server_name: Option<String>,
     pub server_version: Option<String>,
+    pub server_title: Option<String>,
     pub server_instructions: Option<String>,
 }
 
@@ -54,6 +55,7 @@ impl Server {
             authorization_mode: AuthorizationMode::default(),
             server_name: None,
             server_version: None,
+            server_title: None,
             server_instructions: None,
         }
     }
@@ -172,6 +174,29 @@ impl Server {
             .as_str()
             .map(|s| s.to_string())
     }
+
+    /// Extract display title from OpenAPI spec info section
+    /// First checks for x-display-title extension, then derives from title
+    fn extract_openapi_display_title(&self) -> Option<String> {
+        // First check for x-display-title extension
+        if let Some(display_title) = self
+            .openapi_spec
+            .get("info")
+            .and_then(|info| info.get("x-display-title"))
+            .and_then(|t| t.as_str())
+        {
+            return Some(display_title.to_string());
+        }
+
+        // Fallback: enhance the title with "Server" suffix if not already present
+        self.extract_openapi_title().map(|title| {
+            if title.to_lowercase().contains("server") {
+                title
+            } else {
+                format!("{} Server", title)
+            }
+        })
+    }
 }
 
 impl ServerHandler for Server {
@@ -190,6 +215,12 @@ impl ServerHandler for Server {
             .or_else(|| self.extract_openapi_version())
             .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
 
+        // 3-level fallback for title: custom -> OpenAPI-derived -> None
+        let server_title = self
+            .server_title
+            .clone()
+            .or_else(|| self.extract_openapi_display_title());
+
         // 3-level fallback for instructions: custom -> OpenAPI spec -> default
         let instructions = self
             .server_instructions
@@ -202,6 +233,9 @@ impl ServerHandler for Server {
             server_info: Implementation {
                 name: server_name,
                 version: server_version,
+                title: server_title,
+                icons: None,
+                website_url: None,
             },
             capabilities: ServerCapabilities {
                 tools: Some(ToolsCapability {

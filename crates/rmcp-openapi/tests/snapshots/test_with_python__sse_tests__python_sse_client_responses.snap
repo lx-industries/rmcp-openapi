@@ -11,7 +11,7 @@ expression: responses
       "tools": [
         {
           "name": "addPet",
-          "title": null,
+          "title": "Add a new pet to the store",
           "description": "Add a new pet to the store\n\nAdd a new pet to the store\n\nEndpoint: POST /pet",
           "inputSchema": {
             "type": "object",
@@ -233,18 +233,12 @@ expression: responses
               }
             }
           },
-          "annotations": {
-            "title": "Add a new pet to the store",
-            "readOnlyHint": null,
-            "destructiveHint": null,
-            "idempotentHint": null,
-            "openWorldHint": null
-          },
+          "annotations": null,
           "meta": null
         },
         {
           "name": "findPetsByStatus",
-          "title": null,
+          "title": "Finds Pets by status",
           "description": "Finds Pets by status\n\nMultiple status values can be provided with comma separated strings\n\nEndpoint: GET /pet/findByStatus",
           "inputSchema": {
             "type": "object",
@@ -456,18 +450,12 @@ expression: responses
               }
             }
           },
-          "annotations": {
-            "title": "Finds Pets by status",
-            "readOnlyHint": null,
-            "destructiveHint": null,
-            "idempotentHint": null,
-            "openWorldHint": null
-          },
+          "annotations": null,
           "meta": null
         },
         {
           "name": "getPetById",
-          "title": null,
+          "title": "Find pet by ID",
           "description": "Find pet by ID\n\nReturns a single pet\n\nEndpoint: GET /pet/{petId}",
           "inputSchema": {
             "type": "object",
@@ -663,13 +651,7 @@ expression: responses
               }
             }
           },
-          "annotations": {
-            "title": "Find pet by ID",
-            "readOnlyHint": null,
-            "destructiveHint": null,
-            "idempotentHint": null,
-            "openWorldHint": null
-          },
+          "annotations": null,
           "meta": null
         }
       ]
