@@ -98,9 +98,9 @@ impl Configuration {
         server.set_authorization_mode(self.authorization_mode);
 
         // Set binary metadata
-        server.server_name = Some(env!("CARGO_PKG_NAME").to_string());
-        server.server_version = Some(env!("CARGO_PKG_VERSION").to_string());
-        server.server_instructions = Some(env!("CARGO_PKG_DESCRIPTION").to_string());
+        server.name = Some(env!("CARGO_PKG_NAME").to_string());
+        server.version = Some(env!("CARGO_PKG_VERSION").to_string());
+        server.instructions = Some(env!("CARGO_PKG_DESCRIPTION").to_string());
 
         Ok(server)
     }

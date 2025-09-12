@@ -30,10 +30,10 @@ pub struct Server {
     pub method_filter: Option<Vec<reqwest::Method>>,
     #[builder(default)]
     pub authorization_mode: AuthorizationMode,
-    pub server_name: Option<String>,
-    pub server_version: Option<String>,
-    pub server_title: Option<String>,
-    pub server_instructions: Option<String>,
+    pub name: Option<String>,
+    pub version: Option<String>,
+    pub title: Option<String>,
+    pub instructions: Option<String>,
 }
 
 impl Server {
@@ -53,10 +53,10 @@ impl Server {
             tag_filter,
             method_filter,
             authorization_mode: AuthorizationMode::default(),
-            server_name: None,
-            server_version: None,
-            server_title: None,
-            server_instructions: None,
+            name: None,
+            version: None,
+            title: None,
+            instructions: None,
         }
     }
 
@@ -203,27 +203,27 @@ impl ServerHandler for Server {
     fn get_info(&self) -> InitializeResult {
         // 3-level fallback for server name: custom -> OpenAPI spec -> default
         let server_name = self
-            .server_name
+            .name
             .clone()
             .or_else(|| self.extract_openapi_title())
             .unwrap_or_else(|| "OpenAPI MCP Server".to_string());
 
         // 3-level fallback for server version: custom -> OpenAPI spec -> crate version
         let server_version = self
-            .server_version
+            .version
             .clone()
             .or_else(|| self.extract_openapi_version())
             .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
 
         // 3-level fallback for title: custom -> OpenAPI-derived -> None
         let server_title = self
-            .server_title
+            .title
             .clone()
             .or_else(|| self.extract_openapi_display_title());
 
         // 3-level fallback for instructions: custom -> OpenAPI spec -> default
         let instructions = self
-            .server_instructions
+            .instructions
             .clone()
             .or_else(|| self.extract_openapi_description())
             .or_else(|| Some("Exposes OpenAPI endpoints as MCP tools".to_string()));
@@ -565,9 +565,9 @@ mod tests {
 
         // Set custom metadata directly
         let mut server = server;
-        server.server_name = Some("Custom Server".to_string());
-        server.server_version = Some("3.0.0".to_string());
-        server.server_instructions = Some("Custom instructions".to_string());
+        server.name = Some("Custom Server".to_string());
+        server.version = Some("3.0.0".to_string());
+        server.instructions = Some("Custom instructions".to_string());
 
         let result = server.get_info();
 
@@ -647,8 +647,8 @@ mod tests {
         );
 
         // Set custom name and instructions, leave version to fallback to OpenAPI
-        server.server_name = Some("Custom Server".to_string());
-        server.server_instructions = Some("Custom instructions".to_string());
+        server.name = Some("Custom Server".to_string());
+        server.instructions = Some("Custom instructions".to_string());
 
         let result = server.get_info();
 
