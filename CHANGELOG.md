@@ -1,3 +1,16 @@
+## [0.15.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.14.0...v0.15.0) (2025-09-12)
+
+
+### Features
+
+* add server_title field to Server struct ([ae8864f](https://gitlab.com/lx-industries/rmcp-openapi/commit/ae8864f3bf2cd98bd9509e2799a48a6f83412a7c)), closes [#26](https://gitlab.com/lx-industries/rmcp-openapi/issues/26) [#26](https://gitlab.com/lx-industries/rmcp-openapi/issues/26)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate indexmap to v2.11.1 ([018dca1](https://gitlab.com/lx-industries/rmcp-openapi/commit/018dca1867731d22948ebae853d4afa08b6e037e))
+* **deps:** update rust crate rmcp-actix-web to v0.8.1 ([08ca765](https://gitlab.com/lx-industries/rmcp-openapi/commit/08ca765193da7f53bfd106fc64349abb12fce805))
+
 ## [0.14.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.13.0...v0.14.0) (2025-09-11)
 
 
