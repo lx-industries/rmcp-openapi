@@ -1,3 +1,18 @@
+## [0.15.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.15.1...v0.15.2) (2025-09-22)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate anyhow to v1.0.100 ([b842ca8](https://gitlab.com/lx-industries/rmcp-openapi/commit/b842ca818e60b89e52323ae4d4a314bdaf0cda17))
+* **deps:** update rust crate clap to v4.5.48 ([96176b9](https://gitlab.com/lx-industries/rmcp-openapi/commit/96176b9401390253d374452ebf6d990dbdd80c53))
+* **deps:** update rust crate indexmap to v2.11.3 ([b46585b](https://gitlab.com/lx-industries/rmcp-openapi/commit/b46585ba9c03357c605c80384f5575ad4f5c56b7))
+* **deps:** update rust crate indexmap to v2.11.4 ([cce9d6a](https://gitlab.com/lx-industries/rmcp-openapi/commit/cce9d6a3e74be2b00adde23819e45384e7d2f3a4))
+* **deps:** update rust crate rmcp-actix-web to v0.8.2 ([72c9e0e](https://gitlab.com/lx-industries/rmcp-openapi/commit/72c9e0ee6f744b588f2e57c3a0a9aacfd14afa8d))
+* **deps:** update rust crate serde to v1.0.225 ([2373ccb](https://gitlab.com/lx-industries/rmcp-openapi/commit/2373ccbb271f0587bc1d161239e9ee8f18779821))
+* **deps:** update rust crate serde to v1.0.226 ([2ee23c5](https://gitlab.com/lx-industries/rmcp-openapi/commit/2ee23c599efbff5c02ed0d4366749d7966a5ae0e))
+* **deps:** update rust docker tag to v1.90.0 ([e2f59e9](https://gitlab.com/lx-industries/rmcp-openapi/commit/e2f59e958305a82006ea96c30742afc9adeeb2dc))
+* **deps:** update rust:1.89.0 docker digest to 57407b3 ([f2429f2](https://gitlab.com/lx-industries/rmcp-openapi/commit/f2429f2316d9c97b6b27b46e3752072a8e239d85))
+
 ## [0.15.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.15.0...v0.15.1) (2025-09-15)
 
 
