@@ -827,7 +827,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "778e2ac28f6c47af28e4907f13ffd1e1ddbd400980a9abd7c8df189bf578a5ad"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2192,9 +2192,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-actix-web"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30ecdba83dcb4170b58b713baff1baf16d333b9d2404553c9decd26462bd5462"
+checksum = "3107ecac234d9fa3ddefbdb868e3f5dfc3f1a982c1acd329748e54bc12e9b866"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -2228,7 +2228,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-openapi"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -2260,7 +2260,7 @@ dependencies = [
 
 [[package]]
 name = "rmcp-openapi-server"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -2304,7 +2304,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -2667,7 +2667,7 @@ dependencies = [
  "getrandom 0.3.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
