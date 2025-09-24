@@ -34,6 +34,8 @@ pub struct Server {
     pub version: Option<String>,
     pub title: Option<String>,
     pub instructions: Option<String>,
+    #[builder(default)]
+    pub skip_tool_descriptions: bool,
 }
 
 impl Server {
@@ -44,6 +46,7 @@ impl Server {
         default_headers: Option<HeaderMap>,
         tag_filter: Option<Vec<String>>,
         method_filter: Option<Vec<reqwest::Method>>,
+        skip_tool_descriptions: bool,
     ) -> Self {
         Self {
             openapi_spec,
@@ -57,6 +60,7 @@ impl Server {
             version: None,
             title: None,
             instructions: None,
+            skip_tool_descriptions,
         }
     }
 
@@ -78,6 +82,7 @@ impl Server {
             self.method_filter.as_deref(),
             Some(self.base_url.clone()),
             self.default_headers.clone(),
+            self.skip_tool_descriptions,
         )?;
 
         self.tool_collection = ToolCollection::from_tools(tools);
@@ -342,7 +347,7 @@ mod tests {
         let tool1_metadata = ToolMetadata {
             name: "getPetById".to_string(),
             title: Some("Get Pet by ID".to_string()),
-            description: "Find pet by ID".to_string(),
+            description: Some("Find pet by ID".to_string()),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -361,7 +366,7 @@ mod tests {
         let tool2_metadata = ToolMetadata {
             name: "getPetsByStatus".to_string(),
             title: Some("Find Pets by Status".to_string()),
-            description: "Find pets by status".to_string(),
+            description: Some("Find pets by status".to_string()),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -391,6 +396,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
         server.tool_collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
@@ -415,7 +421,7 @@ mod tests {
         let tool_metadata = ToolMetadata {
             name: "getPetById".to_string(),
             title: Some("Get Pet by ID".to_string()),
-            description: "Find pet by ID".to_string(),
+            description: Some("Find pet by ID".to_string()),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -441,6 +447,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
         server.tool_collection = ToolCollection::from_tools(vec![tool]);
 
@@ -497,6 +504,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         assert_eq!(
@@ -527,6 +535,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         assert_eq!(server.extract_openapi_title(), Some("My API".to_string()));
@@ -546,6 +555,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         assert_eq!(server.extract_openapi_title(), None);
@@ -561,6 +571,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         // Set custom metadata directly
@@ -594,6 +605,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         let result = server.get_info();
@@ -614,6 +626,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         let result = server.get_info();
@@ -644,6 +657,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         // Set custom name and instructions, leave version to fallback to OpenAPI

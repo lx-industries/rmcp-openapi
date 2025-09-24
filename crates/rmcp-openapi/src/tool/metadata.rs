@@ -16,8 +16,9 @@ pub struct ToolMetadata {
     pub name: String,
     /// Tool title - human-readable display name exposed to MCP clients
     pub title: Option<String>,
-    /// Tool description - exposed to MCP clients  
-    pub description: String,
+    /// Tool description - exposed to MCP clients
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Input parameters schema - exposed to MCP clients as `inputSchema`
     pub parameters: Value,
     /// Output schema - exposed to MCP clients as `outputSchema`
@@ -62,7 +63,7 @@ impl From<&ToolMetadata> for Tool {
 
         Tool {
             name: metadata.name.clone().into(),
-            description: Some(metadata.description.clone().into()),
+            description: metadata.description.clone().map(|d| d.into()),
             input_schema,
             output_schema,
             annotations: None,

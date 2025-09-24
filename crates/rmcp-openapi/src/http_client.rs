@@ -801,7 +801,7 @@ mod tests {
         let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),
@@ -832,7 +832,7 @@ mod tests {
         let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),
@@ -856,7 +856,7 @@ mod tests {
         let tool_metadata_relative = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),
@@ -882,7 +882,7 @@ mod tests {
         let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),
@@ -944,7 +944,7 @@ mod tests {
         let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),
@@ -991,7 +991,7 @@ mod tests {
         let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),
@@ -1031,7 +1031,7 @@ mod tests {
         let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),
@@ -1068,7 +1068,7 @@ mod tests {
         let tool_metadata = crate::ToolMetadata {
             name: "test".to_string(),
             title: None,
-            description: "test".to_string(),
+            description: Some("test".to_string()),
             parameters: json!({}),
             output_schema: None,
             method: "GET".to_string(),

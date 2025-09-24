@@ -52,6 +52,14 @@ pub struct Cli {
         help = "How to handle Authorization headers: compliant (MCP spec, no passthrough), passthrough-warn (pass with warnings), passthrough-silent (pass silently)"
     )]
     pub authorization_mode: AuthorizationMode,
+
+    #[arg(
+        long,
+        env = "RMCP_SKIP_TOOL_DESCRIPTIONS",
+        default_value_t = false,
+        help = "Exclude the tool descriptions from the generated MCP schema"
+    )]
+    pub skip_tool_descriptions: bool,
 }
 
 impl Cli {

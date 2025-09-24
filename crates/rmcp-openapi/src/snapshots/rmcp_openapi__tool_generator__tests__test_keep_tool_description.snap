@@ -1,0 +1,18 @@
+---
+source: crates/rmcp-openapi/src/tool_generator.rs
+expression: metadata
+---
+{
+  "name": "getPetById",
+  "title": "Find pet by ID",
+  "description": "Find pet by ID\n\nReturns a single pet\n\nEndpoint: GET /pet/{petId}",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
+  },
+  "output_schema": null,
+  "method": "get",
+  "path": "/pet/{petId}"
+}

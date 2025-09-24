@@ -35,12 +35,14 @@ impl ToolRegistry {
         spec: Spec,
         tag_filter: Option<&[String]>,
         method_filter: Option<&[reqwest::Method]>,
+        skip_tool_descriptions: bool,
     ) -> Result<usize, Error> {
         // Clear existing tools
         self.clear();
 
         // Convert operations to tool metadata
-        let tools_metadata = spec.to_tool_metadata(tag_filter, method_filter)?;
+        let tools_metadata =
+            spec.to_tool_metadata(tag_filter, method_filter, skip_tool_descriptions)?;
         let mut registered_count = 0;
 
         // Register each tool

@@ -26,7 +26,8 @@ fn create_petstore_mcp_server_with_spec(base_url: Url, spec_path: &str) -> anyho
         None, // tag_filter
         None, // method_filter
         Some(base_url.clone()),
-        None, // default_headers
+        None,  // default_headers
+        false, // skip_tool_descriptions
     )?;
 
     let mut server = Server::builder()

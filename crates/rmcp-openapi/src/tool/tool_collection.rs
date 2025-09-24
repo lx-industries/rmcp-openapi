@@ -145,7 +145,7 @@ mod tests {
         let metadata = ToolMetadata {
             name: name.to_string(),
             title: Some(name.to_string()),
-            description: description.to_string(),
+            description: Some(description.to_string()),
             parameters: json!({
                 "type": "object",
                 "properties": {

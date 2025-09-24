@@ -15,6 +15,8 @@ pub struct Configuration {
     pub tags: Option<Vec<String>>,
     pub methods: Option<Vec<reqwest::Method>>,
     pub authorization_mode: AuthorizationMode,
+    #[builder(default)]
+    pub skip_tool_descriptions: bool,
 }
 
 impl Configuration {
@@ -70,6 +72,7 @@ impl Configuration {
             tags: cli.tags,
             methods: cli.methods,
             authorization_mode: cli.authorization_mode,
+            skip_tool_descriptions: cli.skip_tool_descriptions,
         })
     }
 }
@@ -92,6 +95,7 @@ impl Configuration {
             headers,
             self.tags,
             self.methods,
+            self.skip_tool_descriptions,
         );
 
         // Set the authorization mode
@@ -129,6 +133,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -178,6 +183,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -210,6 +216,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -231,6 +238,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -252,6 +260,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -277,6 +286,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -294,6 +304,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -315,6 +326,7 @@ mod tests {
             tags: None,
             methods: None,
             authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
         };
 
         let result = Configuration::from_cli(cli);

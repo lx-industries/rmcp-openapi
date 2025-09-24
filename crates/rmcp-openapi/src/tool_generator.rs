@@ -31,7 +31,7 @@
 //! #### 2. Precedence Hierarchy Implementation
 //! All description enhancement follows the strict precedence hierarchy:
 //! 1. **Reference description** (highest) - Detailed contextual information
-//! 2. **Reference summary** (medium) - Brief contextual information  
+//! 2. **Reference summary** (medium) - Brief contextual information
 //! 3. **Schema description** (lower) - General schema documentation
 //! 4. **Generated fallback** (lowest) - Auto-generated descriptive text
 //!
@@ -49,7 +49,7 @@
 //! - Parameter descriptions include contextual usage information rather than generic field docs
 //! - Special formatting ensures parameter names are clearly associated with contextual descriptions
 //!
-//! #### Request Body Processing  
+//! #### Request Body Processing
 //! - Request body schemas are enriched with operation-specific documentation
 //! - Content type handling preserves reference metadata through schema conversion
 //! - Complex nested schemas maintain reference context through recursive processing
@@ -416,7 +416,7 @@ impl ReferenceMetadata {
     ///    - Source: `$ref.description` field
     ///    - Rationale: Detailed contextual information is most valuable
     /// 2. **Fallback**: Returns reference summary if no description available
-    ///    - Source: `$ref.summary` field  
+    ///    - Source: `$ref.summary` field
     ///    - Rationale: Brief context is better than no context
     /// 3. **None**: Returns `None` if neither field is available
     ///    - Behavior: Caller must handle absence of reference metadata
@@ -524,7 +524,7 @@ impl ReferenceMetadata {
     /// - **Rationale**: Human-authored contextual information is most valuable for tool users
     ///
     /// ### Priority 2: Reference Summary (Medium)
-    /// - **Source**: `$ref.summary` field from OpenAPI 3.1 reference object  
+    /// - **Source**: `$ref.summary` field from OpenAPI 3.1 reference object
     /// - **Semantic**: Brief contextual summary for this particular reference
     /// - **Behavior**: Used when no reference description is available
     /// - **Special Case**: When `prepend_summary=true` and existing description differs,
@@ -738,6 +738,7 @@ impl ToolGenerator {
         method: String,
         path: String,
         spec: &Spec,
+        skip_tool_description: bool,
     ) -> Result<ToolMetadata, Error> {
         let name = operation.operation_id.clone().unwrap_or_else(|| {
             format!(
@@ -756,7 +757,8 @@ impl ToolGenerator {
         )?;
 
         // Build description from summary, description, and parameters
-        let description = Self::build_description(operation, &method, &path);
+        let description =
+            (!skip_tool_description).then(|| Self::build_description(operation, &method, &path));
 
         // Extract output schema from responses (already returns wrapped Value)
         let output_schema = Self::extract_output_schema(&operation.responses, spec)?;
@@ -2749,13 +2751,20 @@ mod tests {
             "get".to_string(),
             "/pet/{petId}".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
         assert_eq!(metadata.name, "getPetById");
         assert_eq!(metadata.method, "get");
         assert_eq!(metadata.path, "/pet/{petId}");
-        assert!(metadata.description.contains("Find pet by ID"));
+        assert!(
+            metadata
+                .description
+                .clone()
+                .unwrap()
+                .contains("Find pet by ID")
+        );
 
         // Check output_schema is included and correct
         assert!(metadata.output_schema.is_some());
@@ -2867,6 +2876,87 @@ mod tests {
     }
 
     #[test]
+    fn test_skip_tool_description() {
+        let operation = Operation {
+            operation_id: Some("getPetById".to_string()),
+            summary: Some("Find pet by ID".to_string()),
+            description: Some("Returns a single pet".to_string()),
+            tags: vec![],
+            external_docs: None,
+            parameters: vec![],
+            request_body: None,
+            responses: Default::default(),
+            callbacks: Default::default(),
+            deprecated: Some(false),
+            security: vec![],
+            servers: vec![],
+            extensions: Default::default(),
+        };
+
+        let spec = create_test_spec();
+        let metadata = ToolGenerator::generate_tool_metadata(
+            &operation,
+            "get".to_string(),
+            "/pet/{petId}".to_string(),
+            &spec,
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(metadata.name, "getPetById");
+        assert_eq!(metadata.method, "get");
+        assert_eq!(metadata.path, "/pet/{petId}");
+        assert!(metadata.description.is_none());
+
+        // Use snapshot testing for the output schema
+        insta::assert_json_snapshot!("test_skip_tool_description", metadata);
+
+        // Validate against MCP Tool schema
+        validate_tool_against_mcp_schema(&metadata);
+    }
+
+    #[test]
+    fn test_keep_tool_description() {
+        let description = Some("Returns a single pet".to_string());
+        let operation = Operation {
+            operation_id: Some("getPetById".to_string()),
+            summary: Some("Find pet by ID".to_string()),
+            description: description.clone(),
+            tags: vec![],
+            external_docs: None,
+            parameters: vec![],
+            request_body: None,
+            responses: Default::default(),
+            callbacks: Default::default(),
+            deprecated: Some(false),
+            security: vec![],
+            servers: vec![],
+            extensions: Default::default(),
+        };
+
+        let spec = create_test_spec();
+        let metadata = ToolGenerator::generate_tool_metadata(
+            &operation,
+            "get".to_string(),
+            "/pet/{petId}".to_string(),
+            &spec,
+            false,
+        )
+        .unwrap();
+
+        assert_eq!(metadata.name, "getPetById");
+        assert_eq!(metadata.method, "get");
+        assert_eq!(metadata.path, "/pet/{petId}");
+        assert!(metadata.description.is_some());
+
+        // Use snapshot testing for the output schema
+        insta::assert_json_snapshot!("test_keep_tool_description", metadata);
+
+        // Validate against MCP Tool schema
+        validate_tool_against_mcp_schema(&metadata);
+    }
+
+    #[test]
     fn test_array_with_regular_items_schema() {
         // Test regular array with object schema items (not boolean)
         let param = Parameter {
@@ -2949,6 +3039,7 @@ mod tests {
             "post".to_string(),
             "/pets".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3030,6 +3121,7 @@ mod tests {
             "post".to_string(),
             "/pets/batch".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3105,6 +3197,7 @@ mod tests {
             "put".to_string(),
             "/pets/{petId}/name".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3151,6 +3244,7 @@ mod tests {
             "put".to_string(),
             "/pets/{petId}".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3193,6 +3287,7 @@ mod tests {
             "get".to_string(),
             "/pets".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3276,6 +3371,7 @@ mod tests {
             "patch".to_string(),
             "/pets/{petId}/status".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3374,6 +3470,7 @@ mod tests {
             "post".to_string(),
             "/users".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3418,6 +3515,7 @@ mod tests {
             "get".to_string(),
             "/test".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3747,6 +3845,7 @@ mod tests {
             "get".to_string(),
             "/pets/{id}".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -3989,6 +4088,7 @@ mod tests {
             "get".to_string(),
             "/users/{user(id)}".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
@@ -4260,7 +4360,7 @@ mod tests {
         let tool_metadata = ToolMetadata {
             name: "listItems".to_string(),
             title: None,
-            description: "List items".to_string(),
+            description: Some("List items".to_string()),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -4358,6 +4458,7 @@ mod tests {
             "get".to_string(),
             "/data".to_string(),
             &spec,
+            false,
         )
         .unwrap();
 
