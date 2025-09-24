@@ -1,3 +1,18 @@
+## [0.16.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.15.2...v0.16.0) (2025-09-24)
+
+
+### Features
+
+* add support to skip parameter descriptions to save on tokens ([961e58d](https://gitlab.com/lx-industries/rmcp-openapi/commit/961e58d639ee97531d43e290b81510a8a67af902))
+* add support to skip tool descriptions to save on tokens ([8d2f0c7](https://gitlab.com/lx-industries/rmcp-openapi/commit/8d2f0c75d14d886d44302e8097148a06e47958d9))
+* enable support for system root TLS certificates ([32c7d3d](https://gitlab.com/lx-industries/rmcp-openapi/commit/32c7d3dd2ded7a6452cec7bbd4293e71ae358a75))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to v0.6.4 ([9b9448d](https://gitlab.com/lx-industries/rmcp-openapi/commit/9b9448d1f4578e6ee31e149d6131b6de458fea38))
+* **deps:** update rust crate rmcp-actix-web to v0.8.3 ([471c343](https://gitlab.com/lx-industries/rmcp-openapi/commit/471c343828220408186ef7a97e1bb5ffebe2e235))
+
 ## [0.15.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.15.1...v0.15.2) (2025-09-22)
 
 
