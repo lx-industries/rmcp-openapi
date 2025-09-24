@@ -36,6 +36,8 @@ pub struct Server {
     pub instructions: Option<String>,
     #[builder(default)]
     pub skip_tool_descriptions: bool,
+    #[builder(default)]
+    pub skip_parameter_descriptions: bool,
 }
 
 impl Server {
@@ -47,6 +49,7 @@ impl Server {
         tag_filter: Option<Vec<String>>,
         method_filter: Option<Vec<reqwest::Method>>,
         skip_tool_descriptions: bool,
+        skip_parameter_descriptions: bool,
     ) -> Self {
         Self {
             openapi_spec,
@@ -61,6 +64,7 @@ impl Server {
             title: None,
             instructions: None,
             skip_tool_descriptions,
+            skip_parameter_descriptions,
         }
     }
 
@@ -83,6 +87,7 @@ impl Server {
             Some(self.base_url.clone()),
             self.default_headers.clone(),
             self.skip_tool_descriptions,
+            self.skip_parameter_descriptions,
         )?;
 
         self.tool_collection = ToolCollection::from_tools(tools);
@@ -397,6 +402,7 @@ mod tests {
             None,
             None,
             false,
+            false,
         );
         server.tool_collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
@@ -447,6 +453,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             false,
         );
         server.tool_collection = ToolCollection::from_tools(vec![tool]);
@@ -505,6 +512,7 @@ mod tests {
             None,
             None,
             false,
+            false,
         );
 
         assert_eq!(
@@ -536,6 +544,7 @@ mod tests {
             None,
             None,
             false,
+            false,
         );
 
         assert_eq!(server.extract_openapi_title(), Some("My API".to_string()));
@@ -556,6 +565,7 @@ mod tests {
             None,
             None,
             false,
+            false,
         );
 
         assert_eq!(server.extract_openapi_title(), None);
@@ -571,6 +581,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             false,
         );
 
@@ -606,6 +617,7 @@ mod tests {
             None,
             None,
             false,
+            false,
         );
 
         let result = server.get_info();
@@ -626,6 +638,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             false,
         );
 
@@ -657,6 +670,7 @@ mod tests {
             None,
             None,
             None,
+            false,
             false,
         );
 

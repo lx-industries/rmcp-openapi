@@ -739,6 +739,7 @@ impl ToolGenerator {
         path: String,
         spec: &Spec,
         skip_tool_description: bool,
+        skip_parameter_descriptions: bool,
     ) -> Result<ToolMetadata, Error> {
         let name = operation.operation_id.clone().unwrap_or_else(|| {
             format!(
@@ -754,6 +755,7 @@ impl ToolGenerator {
             &method,
             &operation.request_body,
             spec,
+            skip_parameter_descriptions,
         )?;
 
         // Build description from summary, description, and parameters
@@ -1270,6 +1272,7 @@ impl ToolGenerator {
         _method: &str,
         request_body: &Option<ObjectOrReference<RequestBody>>,
         spec: &Spec,
+        skip_parameter_descriptions: bool,
     ) -> Result<Value, Error> {
         let mut properties = serde_json::Map::new();
         let mut required = Vec::new();
@@ -1305,8 +1308,12 @@ impl ToolGenerator {
 
         // Process path parameters (always required)
         for param in path_params {
-            let (param_schema, mut annotations) =
-                Self::convert_parameter_schema(param, ParameterIn::Path, spec)?;
+            let (param_schema, mut annotations) = Self::convert_parameter_schema(
+                param,
+                ParameterIn::Path,
+                spec,
+                skip_parameter_descriptions,
+            )?;
 
             // Sanitize parameter name and add original name annotation if needed
             let sanitized_name = sanitize_property_name(&param.name);
@@ -1322,8 +1329,12 @@ impl ToolGenerator {
 
         // Process query parameters
         for param in &query_params {
-            let (param_schema, mut annotations) =
-                Self::convert_parameter_schema(param, ParameterIn::Query, spec)?;
+            let (param_schema, mut annotations) = Self::convert_parameter_schema(
+                param,
+                ParameterIn::Query,
+                spec,
+                skip_parameter_descriptions,
+            )?;
 
             // Sanitize parameter name and add original name annotation if needed
             let sanitized_name = sanitize_property_name(&param.name);
@@ -1341,8 +1352,12 @@ impl ToolGenerator {
 
         // Process header parameters (optional by default unless explicitly required)
         for param in &header_params {
-            let (param_schema, mut annotations) =
-                Self::convert_parameter_schema(param, ParameterIn::Header, spec)?;
+            let (param_schema, mut annotations) = Self::convert_parameter_schema(
+                param,
+                ParameterIn::Header,
+                spec,
+                skip_parameter_descriptions,
+            )?;
 
             // Sanitize parameter name after prefixing and add original name annotation if needed
             let prefixed_name = format!("header_{}", param.name);
@@ -1362,8 +1377,12 @@ impl ToolGenerator {
 
         // Process cookie parameters (rare, but supported)
         for param in &cookie_params {
-            let (param_schema, mut annotations) =
-                Self::convert_parameter_schema(param, ParameterIn::Cookie, spec)?;
+            let (param_schema, mut annotations) = Self::convert_parameter_schema(
+                param,
+                ParameterIn::Cookie,
+                spec,
+                skip_parameter_descriptions,
+            )?;
 
             // Sanitize parameter name after prefixing and add original name annotation if needed
             let prefixed_name = format!("cookie_{}", param.name);
@@ -1422,6 +1441,7 @@ impl ToolGenerator {
         param: &Parameter,
         location: ParameterIn,
         spec: &Spec,
+        skip_parameter_descriptions: bool,
     ) -> Result<(Value, Annotations), Error> {
         // Convert the parameter schema using the unified converter
         let base_schema = if let Some(schema_ref) = &param.schema {
@@ -1541,7 +1561,9 @@ impl ToolGenerator {
             base_description
         };
 
-        result.insert("description".to_string(), json!(description_with_examples));
+        if !skip_parameter_descriptions {
+            result.insert("description".to_string(), json!(description_with_examples));
+        }
 
         // Add parameter-level example if present
         // Priority: param.example > param.examples > schema.example
@@ -2752,6 +2774,7 @@ mod tests {
             "/pet/{petId}".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -2869,7 +2892,8 @@ mod tests {
 
         let spec = create_test_spec();
         let (result, _annotations) =
-            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec).unwrap();
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, false)
+                .unwrap();
 
         // Use JSON snapshot for the schema
         insta::assert_json_snapshot!("test_array_with_prefix_items_integration", result);
@@ -2900,6 +2924,7 @@ mod tests {
             "/pet/{petId}".to_string(),
             &spec,
             true,
+            false,
         )
         .unwrap();
 
@@ -2941,6 +2966,7 @@ mod tests {
             "/pet/{petId}".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -2954,6 +2980,85 @@ mod tests {
 
         // Validate against MCP Tool schema
         validate_tool_against_mcp_schema(&metadata);
+    }
+
+    #[test]
+    fn test_skip_parameter_descriptions() {
+        let param = Parameter {
+            name: "status".to_string(),
+            location: ParameterIn::Query,
+            description: Some("Filter by status".to_string()),
+            required: Some(false),
+            deprecated: Some(false),
+            allow_empty_value: Some(false),
+            style: None,
+            explode: None,
+            allow_reserved: Some(false),
+            schema: Some(ObjectOrReference::Object(ObjectSchema {
+                schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                enum_values: vec![json!("available"), json!("pending"), json!("sold")],
+                ..Default::default()
+            })),
+            example: Some(json!("available")),
+            examples: Default::default(),
+            content: None,
+            extensions: Default::default(),
+        };
+
+        let spec = create_test_spec();
+        let (schema, _) =
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, true)
+                .unwrap();
+
+        // When skip_parameter_descriptions is true, description should not be present
+        assert!(schema.get("description").is_none());
+
+        // Other properties should still be present
+        assert_eq!(schema.get("type").unwrap(), "string");
+        assert_eq!(schema.get("example").unwrap(), "available");
+
+        insta::assert_json_snapshot!("test_skip_parameter_descriptions", schema);
+    }
+
+    #[test]
+    fn test_keep_parameter_descriptions() {
+        let param = Parameter {
+            name: "status".to_string(),
+            location: ParameterIn::Query,
+            description: Some("Filter by status".to_string()),
+            required: Some(false),
+            deprecated: Some(false),
+            allow_empty_value: Some(false),
+            style: None,
+            explode: None,
+            allow_reserved: Some(false),
+            schema: Some(ObjectOrReference::Object(ObjectSchema {
+                schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                enum_values: vec![json!("available"), json!("pending"), json!("sold")],
+                ..Default::default()
+            })),
+            example: Some(json!("available")),
+            examples: Default::default(),
+            content: None,
+            extensions: Default::default(),
+        };
+
+        let spec = create_test_spec();
+        let (schema, _) =
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, false)
+                .unwrap();
+
+        // When skip_parameter_descriptions is false, description should be present
+        assert!(schema.get("description").is_some());
+        let description = schema.get("description").unwrap().as_str().unwrap();
+        assert!(description.contains("Filter by status"));
+        assert!(description.contains("Example: `\"available\"`"));
+
+        // Other properties should also be present
+        assert_eq!(schema.get("type").unwrap(), "string");
+        assert_eq!(schema.get("example").unwrap(), "available");
+
+        insta::assert_json_snapshot!("test_keep_parameter_descriptions", schema);
     }
 
     #[test]
@@ -2989,7 +3094,8 @@ mod tests {
 
         let spec = create_test_spec();
         let (result, _annotations) =
-            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec).unwrap();
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, false)
+                .unwrap();
 
         // Use JSON snapshot for the schema
         insta::assert_json_snapshot!("test_array_with_regular_items_schema", result);
@@ -3039,6 +3145,7 @@ mod tests {
             "post".to_string(),
             "/pets".to_string(),
             &spec,
+            false,
             false,
         )
         .unwrap();
@@ -3122,6 +3229,7 @@ mod tests {
             "/pets/batch".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -3198,6 +3306,7 @@ mod tests {
             "/pets/{petId}/name".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -3245,6 +3354,7 @@ mod tests {
             "/pets/{petId}".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -3287,6 +3397,7 @@ mod tests {
             "get".to_string(),
             "/pets".to_string(),
             &spec,
+            false,
             false,
         )
         .unwrap();
@@ -3371,6 +3482,7 @@ mod tests {
             "patch".to_string(),
             "/pets/{petId}/status".to_string(),
             &spec,
+            false,
             false,
         )
         .unwrap();
@@ -3471,6 +3583,7 @@ mod tests {
             "/users".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -3515,6 +3628,7 @@ mod tests {
             "get".to_string(),
             "/test".to_string(),
             &spec,
+            false,
             false,
         )
         .unwrap();
@@ -3846,6 +3960,7 @@ mod tests {
             "/pets/{id}".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -4088,6 +4203,7 @@ mod tests {
             "get".to_string(),
             "/users/{user(id)}".to_string(),
             &spec,
+            false,
             false,
         )
         .unwrap();
@@ -4459,6 +4575,7 @@ mod tests {
             "/data".to_string(),
             &spec,
             false,
+            false,
         )
         .unwrap();
 
@@ -4508,9 +4625,13 @@ mod tests {
             extensions: Default::default(),
         };
 
-        let (schema, _) =
-            ToolGenerator::convert_parameter_schema(&param_with_example, ParameterIn::Query, &spec)
-                .unwrap();
+        let (schema, _) = ToolGenerator::convert_parameter_schema(
+            &param_with_example,
+            ParameterIn::Query,
+            &spec,
+            false,
+        )
+        .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
         assert_eq!(description, "Filter by status. Example: `\"active\"`");
 
@@ -4555,6 +4676,7 @@ mod tests {
             &param_with_examples,
             ParameterIn::Query,
             &spec,
+            false,
         )
         .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
@@ -4583,9 +4705,13 @@ mod tests {
             extensions: Default::default(),
         };
 
-        let (schema, _) =
-            ToolGenerator::convert_parameter_schema(&param_no_desc, ParameterIn::Query, &spec)
-                .unwrap();
+        let (schema, _) = ToolGenerator::convert_parameter_schema(
+            &param_no_desc,
+            ParameterIn::Query,
+            &spec,
+            false,
+        )
+        .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
         assert_eq!(description, "limit parameter. Example: `100`");
     }
@@ -4820,8 +4946,12 @@ mod tests {
         };
 
         // Convert the parameter schema
-        let result =
-            ToolGenerator::convert_parameter_schema(&param_with_ref, ParameterIn::Query, &spec);
+        let result = ToolGenerator::convert_parameter_schema(
+            &param_with_ref,
+            ParameterIn::Query,
+            &spec,
+            false,
+        );
 
         assert!(result.is_ok());
         let (schema, _annotations) = result.unwrap();

@@ -60,6 +60,14 @@ pub struct Cli {
         help = "Exclude the tool descriptions from the generated MCP schema"
     )]
     pub skip_tool_descriptions: bool,
+
+    #[arg(
+        long,
+        env = "RMCP_SKIP_PARAMETER_DESCRIPTIONS",
+        default_value_t = false,
+        help = "Exclude the parameter descriptions from the generated MCP schema"
+    )]
+    pub skip_parameter_descriptions: bool,
 }
 
 impl Cli {

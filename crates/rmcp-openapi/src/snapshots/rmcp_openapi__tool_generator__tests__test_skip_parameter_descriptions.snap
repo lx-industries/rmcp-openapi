@@ -1,0 +1,13 @@
+---
+source: crates/rmcp-openapi/src/tool_generator.rs
+expression: schema
+---
+{
+  "type": "string",
+  "enum": [
+    "available",
+    "pending",
+    "sold"
+  ],
+  "example": "available"
+}
