@@ -1,3 +1,10 @@
+## [0.16.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.0...v0.16.1) (2025-09-25)
+
+
+### Bug Fixes
+
+* update rmcp to 0.7.0 with required features and dependencies ([c09be17](https://gitlab.com/lx-industries/rmcp-openapi/commit/c09be175c5aa827041842aa46c061e2ab6e5bd97)), closes [#76](https://gitlab.com/lx-industries/rmcp-openapi/issues/76)
+
 ## [0.16.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.15.2...v0.16.0) (2025-09-24)
 
 
