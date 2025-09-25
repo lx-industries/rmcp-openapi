@@ -1,12 +1,12 @@
 use bon::Builder;
 use rmcp::{
-    RoleServer, ServerHandler,
+    handler::server::ServerHandler,
     model::{
         CallToolRequestParam, CallToolResult, ErrorData, Implementation, InitializeResult,
         ListToolsResult, PaginatedRequestParam, ProtocolVersion, ServerCapabilities,
         ToolsCapability,
     },
-    service::RequestContext,
+    service::{RequestContext, RoleServer},
 };
 use rmcp_actix_web::transport::AuthorizationHeader;
 use serde_json::Value;
