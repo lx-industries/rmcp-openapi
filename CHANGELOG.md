@@ -1,3 +1,13 @@
+## [0.16.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.1...v0.16.2) (2025-09-29)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to v22.20.0 ([c433307](https://gitlab.com/lx-industries/rmcp-openapi/commit/c433307507716fbe4133c75b6f677aa443455dd4))
+* **deps:** update rust crate axum to v0.8.5 ([bc85801](https://gitlab.com/lx-industries/rmcp-openapi/commit/bc85801cb3335db36c5a9772f51d2cd409febd68))
+* **deps:** update rust crate regex to v1.11.3 ([0738473](https://gitlab.com/lx-industries/rmcp-openapi/commit/0738473f2dd320a38b06d46def4c934856c3eb87))
+* **deps:** update rust crate serde to v1.0.228 ([043d64b](https://gitlab.com/lx-industries/rmcp-openapi/commit/043d64b066976ac64f47dd7a1ee3acfc49d34f2d))
+
 ## [0.16.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.0...v0.16.1) (2025-09-25)
 
 
