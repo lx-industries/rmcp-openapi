@@ -1,3 +1,10 @@
+## [0.16.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.3...v0.16.4) (2025-10-04)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp to 0.8.0 ([1514990](https://gitlab.com/lx-industries/rmcp-openapi/commit/151499080fffe09e83f0e8107674f0eea94b4fdb))
+
 ## [0.16.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.2...v0.16.3) (2025-10-04)
 
 
