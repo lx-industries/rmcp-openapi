@@ -8,7 +8,7 @@ expression: error_json
     {
       "type": "constraint-violation",
       "parameter": "request_body",
-      "message": "Parameter 'request_body/status' must be object when provided (null not allowed, omit if not needed)",
+      "message": "Parameter 'request_body/status' is optional but must not be null (expected: object)",
       "field_path": "request_body/status",
       "actual_value": {
         "name": "doggie",

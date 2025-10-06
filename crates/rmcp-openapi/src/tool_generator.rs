@@ -2406,13 +2406,11 @@ impl ToolGenerator {
 
                         if field_is_required {
                             format!(
-                                "Parameter '{}' is required and must be non-null (expected: {})",
-                                field_name, final_expected_type
+                                "Parameter '{field_name}' is required and must not be null (expected: {final_expected_type})"
                             )
                         } else {
                             format!(
-                                "Parameter '{}' must be {} when provided (null not allowed, omit if not needed)",
-                                field_name, final_expected_type
+                                "Parameter '{field_name}' is optional but must not be null (expected: {final_expected_type})"
                             )
                         }
                     } else {
