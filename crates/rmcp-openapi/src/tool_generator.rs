@@ -2103,7 +2103,11 @@ impl ToolGenerator {
         ));
 
         // Validate parameter values against their schemas
-        all_errors.extend(Self::validate_parameter_values(args, properties));
+        all_errors.extend(Self::validate_parameter_values(
+            args,
+            properties,
+            &required_params,
+        ));
 
         // Return all errors if any were found
         if !all_errors.is_empty() {
@@ -2176,11 +2180,16 @@ impl ToolGenerator {
     fn validate_parameter_values(
         args: &serde_json::Map<String, Value>,
         properties: &serde_json::Map<String, Value>,
+        required_params: &std::collections::HashSet<&str>,
     ) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
         for (param_name, param_value) in args {
             if let Some(param_schema) = properties.get(param_name) {
+                // Check if this is a null value to provide better error messages
+                let is_null_value = param_value.is_null();
+                let is_required = required_params.contains(param_name.as_str());
+
                 // Create a schema that wraps the parameter schema
                 let schema = json!({
                     "type": "object",
@@ -2230,9 +2239,30 @@ impl ToolGenerator {
                     // Determine expected type
                     let expected_type = Self::get_expected_type(param_schema);
 
+                    // Generate context-aware error message for null values
+                    let message = if is_null_value && error_message.contains("is not of type") {
+                        if let Some(ref expected_type_str) = expected_type {
+                            if is_required {
+                                format!(
+                                    "Parameter '{}' is required and must be non-null (expected: {})",
+                                    param_name, expected_type_str
+                                )
+                            } else {
+                                format!(
+                                    "Parameter '{}' must be {} when provided (null not allowed, omit if not needed)",
+                                    param_name, expected_type_str
+                                )
+                            }
+                        } else {
+                            error_message
+                        }
+                    } else {
+                        error_message
+                    };
+
                     errors.push(ValidationError::ConstraintViolation {
                         parameter: param_name.clone(),
-                        message: error_message,
+                        message,
                         field_path,
                         actual_value: Some(Box::new(param_value.clone())),
                         expected_type,
