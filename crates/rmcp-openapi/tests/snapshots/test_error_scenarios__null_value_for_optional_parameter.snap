@@ -1,0 +1,32 @@
+---
+source: crates/rmcp-openapi/tests/test_error_scenarios.rs
+expression: error_json
+---
+{
+  "type": "validation-errors",
+  "violations": [
+    {
+      "type": "constraint-violation",
+      "parameter": "request_body",
+      "message": "Parameter 'request_body/status' must be object when provided (null not allowed, omit if not needed)",
+      "field_path": "request_body/status",
+      "actual_value": {
+        "name": "doggie",
+        "photoUrls": [
+          "https://example.com/photo.jpg"
+        ],
+        "status": null
+      },
+      "expected_type": "object",
+      "constraints": [
+        {
+          "type": "required",
+          "properties": [
+            "name",
+            "photoUrls"
+          ]
+        }
+      ]
+    }
+  ]
+}

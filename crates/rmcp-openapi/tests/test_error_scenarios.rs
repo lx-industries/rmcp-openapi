@@ -547,6 +547,86 @@ async fn test_large_response_handling() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Test null value for required parameter
+#[actix_web::test]
+async fn test_null_value_for_required_parameter() -> anyhow::Result<()> {
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
+
+    let tool_metadata = server
+        .get_tool_metadata("addPet")
+        .expect("addPet tool should be registered");
+
+    // Pass null for required 'name' parameter
+    let arguments = json!({
+        "request_body": {
+            "name": null,  // Required field with null value
+            "photoUrls": ["https://example.com/photo.jpg"]
+        }
+    });
+
+    // Extract parameters to trigger validation
+    let result = ToolGenerator::extract_parameters(tool_metadata, &arguments);
+
+    // Should fail with validation error
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(matches!(
+        error,
+        ToolCallValidationError::InvalidParameters { .. }
+    ));
+
+    // Snapshot the error for detailed validation
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
+
+    // Also verify the error message mentions "required" and "non-null"
+    let error_message = error.to_string();
+    assert!(error_message.contains("required"));
+    assert!(error_message.contains("non-null"));
+
+    Ok(())
+}
+
+/// Test null value for optional parameter
+#[actix_web::test]
+async fn test_null_value_for_optional_parameter() -> anyhow::Result<()> {
+    let server = create_server_with_base_url(Url::parse("http://example.com")?)?;
+
+    let tool_metadata = server
+        .get_tool_metadata("addPet")
+        .expect("addPet tool should be registered");
+
+    // Pass null for optional 'status' parameter
+    let arguments = json!({
+        "request_body": {
+            "name": "doggie",
+            "photoUrls": ["https://example.com/photo.jpg"],
+            "status": null  // Optional field with null value
+        }
+    });
+
+    // Extract parameters to trigger validation
+    let result = ToolGenerator::extract_parameters(tool_metadata, &arguments);
+
+    // Should fail with validation error
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(matches!(
+        error,
+        ToolCallValidationError::InvalidParameters { .. }
+    ));
+
+    // Snapshot the error for detailed validation
+    let error_json = serde_json::to_value(&error).unwrap();
+    assert_json_snapshot!(error_json);
+
+    // Verify the error message suggests omitting the parameter
+    let error_message = error.to_string();
+    assert!(error_message.contains("when provided") || error_message.contains("omit"));
+
+    Ok(())
+}
+
 /// Test passing integer for string field
 #[actix_web::test]
 async fn test_integer_for_string_validation_error() -> anyhow::Result<()> {

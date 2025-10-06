@@ -2240,21 +2240,58 @@ impl ToolGenerator {
                     let expected_type = Self::get_expected_type(param_schema);
 
                     // Generate context-aware error message for null values
-                    let message = if is_null_value && error_message.contains("is not of type") {
-                        if let Some(ref expected_type_str) = expected_type {
-                            if is_required {
-                                format!(
-                                    "Parameter '{}' is required and must be non-null (expected: {})",
-                                    param_name, expected_type_str
-                                )
-                            } else {
-                                format!(
-                                    "Parameter '{}' must be {} when provided (null not allowed, omit if not needed)",
-                                    param_name, expected_type_str
-                                )
-                            }
+                    // Check if this is a null value error (either top-level null or nested null in message)
+                    let is_null_error =
+                        is_null_value || error_message.starts_with("null is not of type");
+                    let message = if is_null_error && error_message.contains("is not of type") {
+                        // Extract the field name from field_path if available
+                        let field_name = field_path.as_ref().unwrap_or(param_name);
+
+                        // Determine the expected type from the error message if not available from schema
+                        let type_from_message = if let Some(type_match) =
+                            error_message.strip_prefix("null is not of type ")
+                        {
+                            type_match.trim_matches('"').to_string()
                         } else {
-                            error_message
+                            expected_type.clone().unwrap_or_else(|| "value".to_string())
+                        };
+
+                        let final_expected_type =
+                            expected_type.as_ref().unwrap_or(&type_from_message);
+
+                        // Check if this field is required by looking at the constraints
+                        // Extract the actual field name from field_path (e.g., "request_body/name" -> "name")
+                        let actual_field_name = field_path
+                            .as_ref()
+                            .and_then(|path| path.split('/').next_back())
+                            .unwrap_or(param_name);
+
+                        // For nested fields (field_path contains '/'), only check the constraint
+                        // For top-level fields, use the is_required parameter
+                        let is_nested_field = field_path.as_ref().is_some_and(|p| p.contains('/'));
+
+                        let field_is_required = if is_nested_field {
+                            constraints.iter().any(|c| {
+                                if let ValidationConstraint::Required { properties } = c {
+                                    properties.contains(&actual_field_name.to_string())
+                                } else {
+                                    false
+                                }
+                            })
+                        } else {
+                            is_required
+                        };
+
+                        if field_is_required {
+                            format!(
+                                "Parameter '{}' is required and must be non-null (expected: {})",
+                                field_name, final_expected_type
+                            )
+                        } else {
+                            format!(
+                                "Parameter '{}' must be {} when provided (null not allowed, omit if not needed)",
+                                field_name, final_expected_type
+                            )
                         }
                     } else {
                         error_message

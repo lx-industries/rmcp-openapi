@@ -1,0 +1,31 @@
+---
+source: crates/rmcp-openapi/tests/test_error_scenarios.rs
+expression: error_json
+---
+{
+  "type": "validation-errors",
+  "violations": [
+    {
+      "type": "constraint-violation",
+      "parameter": "request_body",
+      "message": "Parameter 'request_body/name' is required and must be non-null (expected: object)",
+      "field_path": "request_body/name",
+      "actual_value": {
+        "name": null,
+        "photoUrls": [
+          "https://example.com/photo.jpg"
+        ]
+      },
+      "expected_type": "object",
+      "constraints": [
+        {
+          "type": "required",
+          "properties": [
+            "name",
+            "photoUrls"
+          ]
+        }
+      ]
+    }
+  ]
+}
