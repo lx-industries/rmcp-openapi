@@ -1,3 +1,12 @@
+## [0.17.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.5...v0.17.0) (2025-10-06)
+
+
+### Features
+
+* add context-aware null parameter error messages ([04a5074](https://gitlab.com/lx-industries/rmcp-openapi/commit/04a5074fa2c1ec7e9f2a0414d4441a98cf263d7c)), closes [#78](https://gitlab.com/lx-industries/rmcp-openapi/issues/78)
+* add server-side parameter mapping storage ([28d292c](https://gitlab.com/lx-industries/rmcp-openapi/commit/28d292c54d138704843cf7d7debb24b8d9356a99))
+* remove schema annotations from generated schemas ([fb1388f](https://gitlab.com/lx-industries/rmcp-openapi/commit/fb1388f35d4322c9dbb94a1d71335a1aa5b3d5bf))
+
 ## [0.16.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.4...v0.16.5) (2025-10-06)
 
 
