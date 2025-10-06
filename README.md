@@ -399,6 +399,30 @@ Validation errors are returned as MCP protocol errors:
 }
 ```
 
+The library provides clear, context-aware error messages for null values that help distinguish between nullable, optional, and required parameters:
+
+**For required parameters with null values:**
+```json
+{
+  "type": "constraint-violation",
+  "parameter": "request_body",
+  "message": "Parameter 'name' is required and must be non-null (expected: string)",
+  "field_path": "request_body/name",
+  "expected_type": "string"
+}
+```
+
+**For optional parameters with null values:**
+```json
+{
+  "type": "constraint-violation",
+  "parameter": "request_body",
+  "message": "Parameter 'status' must be string when provided (null not allowed, omit if not needed)",
+  "field_path": "request_body/status",
+  "expected_type": "string"
+}
+```
+
 ## Logging Configuration
 
 The server uses structured logging with the `tracing` crate for comprehensive observability and debugging.
