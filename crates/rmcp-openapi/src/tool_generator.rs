@@ -104,6 +104,7 @@
 //! provide meaningful, contextual information to AI assistants rather than generic schema
 //! documentation, significantly improving the quality of human-AI interactions.
 
+use jsonschema::error::{TypeKind, ValidationErrorKind};
 use schemars::schema_for;
 use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
@@ -2357,23 +2358,28 @@ impl ToolGenerator {
 
                     // Generate context-aware error message for null values
                     // Check if this is a null value error (either top-level null or nested null in message)
-                    let is_null_error =
-                        is_null_value || error_message.starts_with("null is not of type");
-                    let message = if is_null_error && error_message.contains("is not of type") {
+                    // This is important because some LLMs might confuse "not required" with "nullable"
+                    let maybe_type_error = match &validation_error.kind {
+                        ValidationErrorKind::Type { kind } => Some(kind),
+                        _ => None,
+                    };
+                    let is_type_error = maybe_type_error.is_some();
+                    let is_null_error = is_null_value
+                        || (is_type_error && validation_error.instance.as_null().is_some());
+                    let message = if is_null_error && let Some(type_error) = maybe_type_error {
                         // Extract the field name from field_path if available
                         let field_name = field_path.as_ref().unwrap_or(param_name);
 
                         // Determine the expected type from the error message if not available from schema
-                        let type_from_message = if let Some(type_match) =
-                            error_message.strip_prefix("null is not of type ")
-                        {
-                            type_match.trim_matches('"').to_string()
-                        } else {
-                            expected_type.clone().unwrap_or_else(|| "value".to_string())
-                        };
-
                         let final_expected_type =
-                            expected_type.as_ref().unwrap_or(&type_from_message);
+                            expected_type.clone().unwrap_or_else(|| match type_error {
+                                TypeKind::Single(json_type) => json_type.to_string(),
+                                TypeKind::Multiple(json_type_set) => json_type_set
+                                    .iter()
+                                    .map(|t| t.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(", "),
+                            });
 
                         // Check if this field is required by looking at the constraints
                         // Extract the actual field name from field_path (e.g., "request_body/name" -> "name")
