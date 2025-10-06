@@ -18,7 +18,5 @@ expression: request_body_schema
     "name"
   ],
   "additionalProperties": true,
-  "description": "User creation data",
-  "x-location": "body",
-  "x-content-type": "application/json"
+  "description": "User creation data"
 }

@@ -5,7 +5,5 @@ expression: request_body_schema
 {
   "type": "object",
   "additionalProperties": true,
-  "description": "Pet object that needs to be added to the store",
-  "x-location": "body",
-  "x-content-type": "application/json"
+  "description": "Pet object that needs to be added to the store"
 }

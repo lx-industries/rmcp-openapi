@@ -16,7 +16,5 @@ expression: request_body_schema
     "status"
   ],
   "additionalProperties": true,
-  "description": "Pet status update",
-  "x-location": "body",
-  "x-content-type": "application/json"
+  "description": "Pet status update"
 }

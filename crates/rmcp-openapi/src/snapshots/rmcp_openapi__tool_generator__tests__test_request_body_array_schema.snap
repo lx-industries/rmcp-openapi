@@ -8,7 +8,5 @@ expression: request_body_schema
     "type": "object",
     "additionalProperties": true
   },
-  "description": "Array of pet objects",
-  "x-location": "body",
-  "x-content-type": "application/json"
+  "description": "Array of pet objects"
 }

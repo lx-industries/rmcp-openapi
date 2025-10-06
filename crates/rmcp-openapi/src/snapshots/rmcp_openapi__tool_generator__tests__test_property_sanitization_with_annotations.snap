@@ -6,12 +6,10 @@ expression: result
   "type": "object",
   "properties": {
     "price": {
-      "type": "number",
-      "x-original-name": "price($)"
+      "type": "number"
     },
     "user_name": {
-      "type": "string",
-      "x-original-name": "user name"
+      "type": "string"
     },
     "validName": {
       "type": "string"

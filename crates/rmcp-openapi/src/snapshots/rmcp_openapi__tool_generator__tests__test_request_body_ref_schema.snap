@@ -5,7 +5,5 @@ expression: request_body_schema
 {
   "type": "object",
   "additionalProperties": true,
-  "description": "Request body data",
-  "x-location": "body",
-  "x-content-type": "application/json"
+  "description": "Request body data"
 }

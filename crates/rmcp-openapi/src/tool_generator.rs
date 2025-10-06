@@ -1052,17 +1052,9 @@ impl ToolGenerator {
                     }
                 };
 
-                // Sanitize property name and add original name annotation if needed
+                // Sanitize property name - no longer add annotations
                 let sanitized_name = sanitize_property_name(prop_name);
-                if sanitized_name != *prop_name {
-                    // Add original name annotation using Annotations
-                    let annotations = Annotations::new().with_original_name(prop_name.clone());
-                    let prop_with_annotation =
-                        Self::apply_annotations_to_schema(prop_schema, annotations);
-                    props_map.insert(sanitized_name, prop_with_annotation);
-                } else {
-                    props_map.insert(prop_name.clone(), prop_schema);
-                }
+                props_map.insert(sanitized_name, prop_schema);
             }
             schema_obj.insert("properties".to_string(), Value::Object(props_map));
         }
@@ -1353,9 +1345,8 @@ impl ToolGenerator {
                 },
             );
 
-            let param_schema_with_annotations =
-                Self::apply_annotations_to_schema(param_schema, annotations);
-            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
+            // No longer apply annotations to schema - use parameter_mappings instead
+            properties.insert(sanitized_name.clone(), param_schema);
             required.push(sanitized_name);
         }
 
@@ -1398,9 +1389,8 @@ impl ToolGenerator {
                 },
             );
 
-            let param_schema_with_annotations =
-                Self::apply_annotations_to_schema(param_schema, annotations);
-            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
+            // No longer apply annotations to schema - use parameter_mappings instead
+            properties.insert(sanitized_name.clone(), param_schema);
             if param.required.unwrap_or(false) {
                 required.push(sanitized_name);
             }
@@ -1446,10 +1436,8 @@ impl ToolGenerator {
                 },
             );
 
-            let param_schema_with_annotations =
-                Self::apply_annotations_to_schema(param_schema, annotations);
-
-            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
+            // No longer apply annotations to schema - use parameter_mappings instead
+            properties.insert(sanitized_name.clone(), param_schema);
             if param.required.unwrap_or(false) {
                 required.push(sanitized_name);
             }
@@ -1495,10 +1483,8 @@ impl ToolGenerator {
                 },
             );
 
-            let param_schema_with_annotations =
-                Self::apply_annotations_to_schema(param_schema, annotations);
-
-            properties.insert(sanitized_name.clone(), param_schema_with_annotations);
+            // No longer apply annotations to schema - use parameter_mappings instead
+            properties.insert(sanitized_name.clone(), param_schema);
             if param.required.unwrap_or(false) {
                 required.push(sanitized_name);
             }
@@ -1520,9 +1506,8 @@ impl ToolGenerator {
                 },
             );
 
-            let body_schema_with_annotations =
-                Self::apply_annotations_to_schema(body_schema, annotations);
-            properties.insert("request_body".to_string(), body_schema_with_annotations);
+            // No longer apply annotations to schema - use parameter_mappings instead
+            properties.insert("request_body".to_string(), body_schema);
             if is_required {
                 required.push("request_body".to_string());
             }
