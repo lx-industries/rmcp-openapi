@@ -1,3 +1,10 @@
+## [0.18.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.17.0...v0.18.0) (2025-10-06)
+
+
+### Features
+
+* more consistent messages for null value validation errors ([3b0c5fc](https://gitlab.com/lx-industries/rmcp-openapi/commit/3b0c5fc49007cb488af55493036ce6f9543d77a1))
+
 ## [0.17.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.5...v0.17.0) (2025-10-06)
 
 
