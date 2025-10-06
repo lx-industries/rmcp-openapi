@@ -1,3 +1,12 @@
+## [0.16.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.4...v0.16.5) (2025-10-06)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate bon to v3.8.0 ([70fa510](https://gitlab.com/lx-industries/rmcp-openapi/commit/70fa510bd30fa6967069e5fdf8cd34838fc323c7))
+* **deps:** update rust crate rmcp-actix-web to v0.8.8 ([4d2a5d8](https://gitlab.com/lx-industries/rmcp-openapi/commit/4d2a5d8b37a6506a9f32215e1bf20878767c047d))
+* **deps:** update rust:1.90.0 docker digest to 976303c ([232f191](https://gitlab.com/lx-industries/rmcp-openapi/commit/232f191d2c9e158a81f987da4ae8dc0d730882b3))
+
 ## [0.16.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.16.3...v0.16.4) (2025-10-04)
 
 
