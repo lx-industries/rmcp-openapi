@@ -750,7 +750,7 @@ impl ToolGenerator {
         });
 
         // Generate parameter schema first so we can include it in description
-        let parameters = Self::generate_parameter_schema(
+        let (parameters, parameter_mappings) = Self::generate_parameter_schema(
             &operation.parameters,
             &method,
             &operation.request_body,
@@ -774,6 +774,7 @@ impl ToolGenerator {
             method,
             path,
             security: None, // TODO: Extract security requirements from OpenAPI spec
+            parameter_mappings,
         })
     }
 
@@ -1273,9 +1274,16 @@ impl ToolGenerator {
         request_body: &Option<ObjectOrReference<RequestBody>>,
         spec: &Spec,
         skip_parameter_descriptions: bool,
-    ) -> Result<Value, Error> {
+    ) -> Result<
+        (
+            Value,
+            std::collections::HashMap<String, crate::tool::ParameterMapping>,
+        ),
+        Error,
+    > {
         let mut properties = serde_json::Map::new();
         let mut required = Vec::new();
+        let mut parameter_mappings = std::collections::HashMap::new();
 
         // Group parameters by location
         let mut path_params = Vec::new();
@@ -1321,6 +1329,30 @@ impl ToolGenerator {
                 annotations = annotations.with_original_name(param.name.clone());
             }
 
+            // Extract explode setting from annotations
+            let explode = annotations
+                .annotations
+                .iter()
+                .find_map(|a| {
+                    if let Annotation::Explode(e) = a {
+                        Some(*e)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(true);
+
+            // Store parameter mapping
+            parameter_mappings.insert(
+                sanitized_name.clone(),
+                crate::tool::ParameterMapping {
+                    sanitized_name: sanitized_name.clone(),
+                    original_name: param.name.clone(),
+                    location: "path".to_string(),
+                    explode,
+                },
+            );
+
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
             properties.insert(sanitized_name.clone(), param_schema_with_annotations);
@@ -1341,6 +1373,30 @@ impl ToolGenerator {
             if sanitized_name != param.name {
                 annotations = annotations.with_original_name(param.name.clone());
             }
+
+            // Extract explode setting from annotations
+            let explode = annotations
+                .annotations
+                .iter()
+                .find_map(|a| {
+                    if let Annotation::Explode(e) = a {
+                        Some(*e)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(true);
+
+            // Store parameter mapping
+            parameter_mappings.insert(
+                sanitized_name.clone(),
+                crate::tool::ParameterMapping {
+                    sanitized_name: sanitized_name.clone(),
+                    original_name: param.name.clone(),
+                    location: "query".to_string(),
+                    explode,
+                },
+            );
 
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
@@ -1365,6 +1421,30 @@ impl ToolGenerator {
             if sanitized_name != prefixed_name {
                 annotations = annotations.with_original_name(param.name.clone());
             }
+
+            // Extract explode setting from annotations
+            let explode = annotations
+                .annotations
+                .iter()
+                .find_map(|a| {
+                    if let Annotation::Explode(e) = a {
+                        Some(*e)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(true);
+
+            // Store parameter mapping
+            parameter_mappings.insert(
+                sanitized_name.clone(),
+                crate::tool::ParameterMapping {
+                    sanitized_name: sanitized_name.clone(),
+                    original_name: param.name.clone(),
+                    location: "header".to_string(),
+                    explode,
+                },
+            );
 
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
@@ -1391,6 +1471,30 @@ impl ToolGenerator {
                 annotations = annotations.with_original_name(param.name.clone());
             }
 
+            // Extract explode setting from annotations
+            let explode = annotations
+                .annotations
+                .iter()
+                .find_map(|a| {
+                    if let Annotation::Explode(e) = a {
+                        Some(*e)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(true);
+
+            // Store parameter mapping
+            parameter_mappings.insert(
+                sanitized_name.clone(),
+                crate::tool::ParameterMapping {
+                    sanitized_name: sanitized_name.clone(),
+                    original_name: param.name.clone(),
+                    location: "cookie".to_string(),
+                    explode,
+                },
+            );
+
             let param_schema_with_annotations =
                 Self::apply_annotations_to_schema(param_schema, annotations);
 
@@ -1402,9 +1506,20 @@ impl ToolGenerator {
 
         // Add request body parameter if defined in the OpenAPI spec
         if let Some(request_body) = request_body
-            && let Some((body_schema, annotations, is_required)) =
+            && let Some((body_schema, _annotations, is_required)) =
                 Self::convert_request_body_to_json_schema(request_body, spec)?
         {
+            // Store parameter mapping for request_body
+            parameter_mappings.insert(
+                "request_body".to_string(),
+                crate::tool::ParameterMapping {
+                    sanitized_name: "request_body".to_string(),
+                    original_name: "request_body".to_string(),
+                    location: "body".to_string(),
+                    explode: false,
+                },
+            );
+
             let body_schema_with_annotations =
                 Self::apply_annotations_to_schema(body_schema, annotations);
             properties.insert("request_body".to_string(), body_schema_with_annotations);
@@ -1428,12 +1543,14 @@ impl ToolGenerator {
             );
         }
 
-        Ok(json!({
+        let schema = json!({
             "type": "object",
             "properties": properties,
             "required": required,
             "additionalProperties": false
-        }))
+        });
+
+        Ok((schema, parameter_mappings))
     }
 
     /// Convert `OpenAPI` parameter schema to JSON Schema for MCP tools
@@ -1624,22 +1741,6 @@ impl ToolGenerator {
         }
 
         Ok((Value::Object(result), annotations))
-    }
-
-    /// Apply annotations to a JSON schema value
-    fn apply_annotations_to_schema(schema: Value, annotations: Annotations) -> Value {
-        match schema {
-            Value::Object(mut obj) => {
-                // Serialize annotations and merge them into the schema object
-                if let Ok(Value::Object(ann_map)) = serde_json::to_value(&annotations) {
-                    for (key, value) in ann_map {
-                        obj.insert(key, value);
-                    }
-                }
-                Value::Object(obj)
-            }
-            _ => schema,
-        }
     }
 
     /// Format examples for inclusion in parameter descriptions
@@ -1920,60 +2021,90 @@ impl ToolGenerator {
                 continue;
             }
 
-            // Determine parameter location from the tool metadata
-            let location = Self::get_parameter_location(tool_metadata, key).map_err(|e| {
-                ToolCallValidationError::RequestConstructionError {
-                    reason: e.to_string(),
-                }
-            })?;
+            // Get parameter mapping from tool metadata
+            let mapping = tool_metadata.parameter_mappings.get(key);
 
-            // Get the original name if it exists
-            let original_name = Self::get_original_parameter_name(tool_metadata, key);
+            if let Some(mapping) = mapping {
+                // Use server-side parameter mapping
+                match mapping.location.as_str() {
+                    "path" => {
+                        path_params.insert(mapping.original_name.clone(), value.clone());
+                    }
+                    "query" => {
+                        query_params.insert(
+                            mapping.original_name.clone(),
+                            QueryParameter::new(value.clone(), mapping.explode),
+                        );
+                    }
+                    "header" => {
+                        header_params.insert(mapping.original_name.clone(), value.clone());
+                    }
+                    "cookie" => {
+                        cookie_params.insert(mapping.original_name.clone(), value.clone());
+                    }
+                    "body" => {
+                        body_params.insert(mapping.original_name.clone(), value.clone());
+                    }
+                    _ => {
+                        return Err(ToolCallValidationError::RequestConstructionError {
+                            reason: format!("Unknown parameter location for parameter: {key}"),
+                        });
+                    }
+                }
+            } else {
+                // Fallback to schema annotations for backward compatibility
+                let location = Self::get_parameter_location(tool_metadata, key).map_err(|e| {
+                    ToolCallValidationError::RequestConstructionError {
+                        reason: e.to_string(),
+                    }
+                })?;
 
-            match location.as_str() {
-                "path" => {
-                    path_params.insert(original_name.unwrap_or_else(|| key.clone()), value.clone());
-                }
-                "query" => {
-                    let param_name = original_name.unwrap_or_else(|| key.clone());
-                    let explode = Self::get_parameter_explode(tool_metadata, key);
-                    query_params.insert(param_name, QueryParameter::new(value.clone(), explode));
-                }
-                "header" => {
-                    // Use original name if available, otherwise remove "header_" prefix
-                    let header_name = if let Some(orig) = original_name {
-                        orig
-                    } else if key.starts_with("header_") {
-                        key.strip_prefix("header_").unwrap_or(key).to_string()
-                    } else {
-                        key.clone()
-                    };
-                    header_params.insert(header_name, value.clone());
-                }
-                "cookie" => {
-                    // Use original name if available, otherwise remove "cookie_" prefix
-                    let cookie_name = if let Some(orig) = original_name {
-                        orig
-                    } else if key.starts_with("cookie_") {
-                        key.strip_prefix("cookie_").unwrap_or(key).to_string()
-                    } else {
-                        key.clone()
-                    };
-                    cookie_params.insert(cookie_name, value.clone());
-                }
-                "body" => {
-                    // Remove "body_" prefix if present
-                    let body_name = if key.starts_with("body_") {
-                        key.strip_prefix("body_").unwrap_or(key).to_string()
-                    } else {
-                        key.clone()
-                    };
-                    body_params.insert(body_name, value.clone());
-                }
-                _ => {
-                    return Err(ToolCallValidationError::RequestConstructionError {
-                        reason: format!("Unknown parameter location for parameter: {key}"),
-                    });
+                let original_name = Self::get_original_parameter_name(tool_metadata, key);
+
+                match location.as_str() {
+                    "path" => {
+                        path_params
+                            .insert(original_name.unwrap_or_else(|| key.clone()), value.clone());
+                    }
+                    "query" => {
+                        let param_name = original_name.unwrap_or_else(|| key.clone());
+                        let explode = Self::get_parameter_explode(tool_metadata, key);
+                        query_params
+                            .insert(param_name, QueryParameter::new(value.clone(), explode));
+                    }
+                    "header" => {
+                        let header_name = if let Some(orig) = original_name {
+                            orig
+                        } else if key.starts_with("header_") {
+                            key.strip_prefix("header_").unwrap_or(key).to_string()
+                        } else {
+                            key.clone()
+                        };
+                        header_params.insert(header_name, value.clone());
+                    }
+                    "cookie" => {
+                        let cookie_name = if let Some(orig) = original_name {
+                            orig
+                        } else if key.starts_with("cookie_") {
+                            key.strip_prefix("cookie_").unwrap_or(key).to_string()
+                        } else {
+                            key.clone()
+                        };
+                        cookie_params.insert(cookie_name, value.clone());
+                    }
+                    "body" => {
+                        let body_name = if key.starts_with("body_") {
+                            key.strip_prefix("body_").unwrap_or(key).to_string()
+                        } else {
+                            key.clone()
+                        };
+                        body_params.insert(body_name, value.clone());
+                    }
+                    _ => {
+                        return Err(ToolCallValidationError::RequestConstructionError {
+                            reason: format!("Unknown parameter location for parameter: {key}"),
+                        });
+                    }
                 }
             }
         }
@@ -4562,6 +4693,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/items".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         // Pass incorrect parameter names

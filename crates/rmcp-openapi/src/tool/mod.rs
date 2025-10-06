@@ -1,7 +1,7 @@
 pub mod metadata;
 pub mod tool_collection;
 
-pub use metadata::ToolMetadata;
+pub use metadata::{ParameterMapping, ToolMetadata};
 pub use tool_collection::ToolCollection;
 
 use crate::config::Authorization;

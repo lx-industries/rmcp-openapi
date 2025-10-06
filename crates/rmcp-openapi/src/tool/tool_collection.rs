@@ -157,6 +157,7 @@ mod tests {
             method: "GET".to_string(),
             path: format!("/{}", name),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
         Tool::new(metadata, None, None).unwrap()
     }

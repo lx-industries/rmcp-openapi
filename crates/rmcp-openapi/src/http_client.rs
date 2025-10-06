@@ -807,6 +807,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/pets/{id}".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         let mut path_params = HashMap::new();
@@ -838,6 +839,7 @@ mod tests {
             method: "GET".to_string(),
             path: "https://api.example.com/pets/123".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         let extracted_params = ExtractedParameters {
@@ -862,6 +864,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/pets/123".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         let result = client.build_url(&tool_metadata_relative, &extracted_params);
@@ -888,6 +891,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/search".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         // Test various query parameter values that need encoding
@@ -950,6 +954,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/search".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         let mut query_params = HashMap::new();
@@ -997,6 +1002,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/users/{userId}/pets/{petId}".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         let mut path_params = HashMap::new();
@@ -1037,6 +1043,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/pets".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         let extracted_params = ExtractedParameters {
@@ -1074,6 +1081,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/search".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         // Test explode=true (should generate separate parameters)

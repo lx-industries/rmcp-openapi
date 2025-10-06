@@ -366,6 +366,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/pet/{petId}".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         let tool2_metadata = ToolMetadata {
@@ -388,6 +389,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/pet/findByStatus".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         // Create OpenApiTool instances
@@ -441,6 +443,7 @@ mod tests {
             method: "GET".to_string(),
             path: "/pet/{petId}".to_string(),
             security: None,
+            parameter_mappings: std::collections::HashMap::new(),
         };
 
         // Create OpenApiTool instance

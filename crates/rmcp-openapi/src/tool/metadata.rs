@@ -1,6 +1,19 @@
 use rmcp::model::Tool;
 use serde_json::Value;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
+
+/// Parameter mapping information for converting between MCP and OpenAPI parameters
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct ParameterMapping {
+    /// The sanitized parameter name used in MCP
+    pub sanitized_name: String,
+    /// The original parameter name from OpenAPI
+    pub original_name: String,
+    /// The location of the parameter (query, header, path, cookie, body)
+    pub location: String,
+    /// Whether the parameter should be exploded (for arrays/objects)
+    pub explode: bool,
+}
 
 /// Internal metadata for tools generated from OpenAPI operations.
 ///
@@ -30,6 +43,9 @@ pub struct ToolMetadata {
     /// Security requirements from OpenAPI spec - internal only, not exposed to MCP
     #[serde(skip_serializing_if = "Option::is_none")]
     pub security: Option<Vec<String>>,
+    /// Parameter mappings for converting between MCP and OpenAPI parameters - internal only, not exposed to MCP
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    pub parameter_mappings: HashMap<String, ParameterMapping>,
 }
 
 impl ToolMetadata {
