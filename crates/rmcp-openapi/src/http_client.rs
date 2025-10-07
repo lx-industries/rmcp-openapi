@@ -74,6 +74,11 @@ impl HttpClient {
     ///
     /// Returns an error if the base URL is invalid
     pub fn with_base_url(mut self, base_url: Url) -> Result<Self, Error> {
+        // Always terminate the path of the base_url with '/'
+        let mut base_url = base_url;
+        if !base_url.path().ends_with('/') {
+            base_url.set_path(&format!("{}/", base_url.path()));
+        }
         self.base_url = Some(base_url);
         Ok(self)
     }
@@ -346,9 +351,16 @@ impl HttpClient {
             path = path.replace(&placeholder, &value_str);
         }
 
+        let mut path: &str = path.as_ref();
+
         // Combine with base URL if available
         if let Some(base_url) = &self.base_url {
-            base_url.join(&path).map_err(|e| {
+            // Strip the starting '/' in path to make sure the call to Url::join will not
+            // set the path starting at the root
+            if path.starts_with('/') {
+                path = &path[1..];
+            }
+            base_url.join(path).map_err(|e| {
                 Error::Http(format!(
                     "Failed to join URL '{base_url}' with path '{path}': {e}"
                 ))
@@ -356,7 +368,7 @@ impl HttpClient {
         } else {
             // Assume the path is already a complete URL
             if path.starts_with("http") {
-                Url::parse(&path).map_err(|e| Error::Http(format!("Invalid URL '{path}': {e}")))
+                Url::parse(path).map_err(|e| Error::Http(format!("Invalid URL '{path}': {e}")))
             } else {
                 Err(Error::Http(
                     "No base URL configured and path is not a complete URL".to_string(),
@@ -888,6 +900,46 @@ mod tests {
 
         let url = client.build_url(&tool_metadata, &extracted_params).unwrap();
         assert_eq!(url.to_string(), "https://api.example.com/pets/123");
+    }
+
+    #[test]
+    fn test_build_url_with_base_url_containing_path() {
+        let test_cases = vec![
+            "https://api.example.com/api/v4",
+            "https://api.example.com/api/v4/",
+        ];
+
+        for base_url in test_cases {
+            let base_url = Url::parse(base_url).unwrap();
+            let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+            let tool_metadata = crate::ToolMetadata {
+                name: "test".to_string(),
+                title: None,
+                description: Some("test".to_string()),
+                parameters: json!({}),
+                output_schema: None,
+                method: "GET".to_string(),
+                path: "/pets/{id}".to_string(),
+                security: None,
+                parameter_mappings: std::collections::HashMap::new(),
+            };
+
+            let mut path_params = HashMap::new();
+            path_params.insert("id".to_string(), json!(123));
+
+            let extracted_params = ExtractedParameters {
+                path: path_params,
+                query: HashMap::new(),
+                headers: HashMap::new(),
+                cookies: HashMap::new(),
+                body: HashMap::new(),
+                config: crate::tool_generator::RequestConfig::default(),
+            };
+
+            let url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+            assert_eq!(url.to_string(), "https://api.example.com/api/v4/pets/123");
+        }
     }
 
     #[test]
