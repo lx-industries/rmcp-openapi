@@ -1,3 +1,24 @@
+## [0.19.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.18.0...v0.19.0) (2025-10-10)
+
+
+### Features
+
+* add MCP tool annotations based on HTTP method semantics ([2c8e47e](https://gitlab.com/lx-industries/rmcp-openapi/commit/2c8e47e4efb5b57f22e3142aa655f56439d2413d)), closes [#73](https://gitlab.com/lx-industries/rmcp-openapi/issues/73)
+* add support for MCP tool image responses ([cdac021](https://gitlab.com/lx-industries/rmcp-openapi/commit/cdac021b3c2dfacaf84219c5efaff43905bd5e86))
+
+
+### Bug Fixes
+
+* return error when image Content-Type header is missing ([e6ba324](https://gitlab.com/lx-industries/rmcp-openapi/commit/e6ba324cc9af41657aa63d679883f6804e71588a))
+* suppress [secure] positive dead code warnings in test mocks ([0fbbcd7](https://gitlab.com/lx-industries/rmcp-openapi/commit/0fbbcd7d1e9f9258c7c1f5f77797c593e541da5a))
+* **tests:** fix outdated SSE integration test snapshots ([29d56ae](https://gitlab.com/lx-industries/rmcp-openapi/commit/29d56aed58bd379b400bd4658756639d4959438f))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate bon to v3.8.1 ([0d0e1f8](https://gitlab.com/lx-industries/rmcp-openapi/commit/0d0e1f88f371d03bf7954995662eb0d6ebf7ddab))
+* **deps:** update rust crate rmcp to v0.8.1 ([5e5437d](https://gitlab.com/lx-industries/rmcp-openapi/commit/5e5437d1fccfe447116232d144acbdb01567e11f))
+
 ## [0.18.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.17.0...v0.18.0) (2025-10-06)
 
 
