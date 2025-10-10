@@ -231,7 +231,13 @@ expression: responses
               }
             }
           },
-          "annotations": null,
+          "annotations": {
+            "title": null,
+            "readOnlyHint": false,
+            "destructiveHint": false,
+            "idempotentHint": false,
+            "openWorldHint": true
+          },
           "meta": null
         },
         {
@@ -445,7 +451,13 @@ expression: responses
               }
             }
           },
-          "annotations": null,
+          "annotations": {
+            "title": null,
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
           "meta": null
         },
         {
@@ -643,7 +655,13 @@ expression: responses
               }
             }
           },
-          "annotations": null,
+          "annotations": {
+            "title": null,
+            "readOnlyHint": true,
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true
+          },
           "meta": null
         }
       ]
