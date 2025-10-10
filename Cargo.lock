@@ -2243,6 +2243,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "axum",
+ "base64",
  "bon",
  "heck",
  "http 1.3.1",

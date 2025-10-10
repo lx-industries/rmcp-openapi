@@ -85,6 +85,26 @@ impl Tool {
         // Execute the HTTP request using the (potentially auth-enhanced) HTTP client
         match client.execute_tool_call(&self.metadata, arguments).await {
             Ok(response) => {
+                // Check if response is an image and return image content
+                if response.is_image()
+                    && let Some(bytes) = &response.body_bytes
+                {
+                    // Base64 encode the image data
+                    use base64::{Engine as _, engine::general_purpose::STANDARD};
+                    let base64_data = STANDARD.encode(bytes);
+
+                    // Get the MIME type from content_type, defaulting to image/png if missing
+                    let mime_type = response.content_type.as_deref().unwrap_or("image/png");
+
+                    // Return image content
+                    return Ok(CallToolResult {
+                        content: vec![Content::image(base64_data, mime_type)],
+                        structured_content: None,
+                        is_error: Some(!response.is_success),
+                        meta: None,
+                    });
+                }
+
                 // Check if the tool has an output schema
                 let structured_content = if self.metadata.output_schema.is_some() {
                     // Try to parse the response body as JSON

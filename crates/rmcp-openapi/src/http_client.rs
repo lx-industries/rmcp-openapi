@@ -553,6 +553,21 @@ impl HttpClient {
         request_body: &str,
     ) -> Result<HttpResponse, Error> {
         let status = response.status();
+
+        // Extract Content-Type header before consuming headers
+        let content_type = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string());
+
+        // Check if response is binary based on content type
+        let is_binary_content = content_type
+            .as_ref()
+            .and_then(|ct| ct.parse::<mime::Mime>().ok())
+            .map(|mime_type| matches!(mime_type.type_(), mime::IMAGE | mime::AUDIO | mime::VIDEO))
+            .unwrap_or(false);
+
         let headers = response
             .headers()
             .iter()
@@ -564,10 +579,31 @@ impl HttpClient {
             })
             .collect();
 
-        let body = response
-            .text()
-            .await
-            .map_err(|e| Error::Http(format!("Failed to read response body: {e}")))?;
+        // Read response body based on content type
+        let (body, body_bytes) = if is_binary_content {
+            // For binary content, read as bytes
+            let bytes = response
+                .bytes()
+                .await
+                .map_err(|e| Error::Http(format!("Failed to read response body: {e}")))?;
+
+            // Store bytes and provide a descriptive text body
+            let body_text = format!(
+                "[Binary content: {} bytes, Content-Type: {}]",
+                bytes.len(),
+                content_type.as_ref().unwrap_or(&"unknown".to_string())
+            );
+
+            (body_text, Some(bytes.to_vec()))
+        } else {
+            // For text content, read as text
+            let text = response
+                .text()
+                .await
+                .map_err(|e| Error::Http(format!("Failed to read response body: {e}")))?;
+
+            (text, None)
+        };
 
         let is_success = status.is_success();
         let status_code = status.as_u16();
@@ -615,7 +651,9 @@ impl HttpClient {
             status_code,
             status_text: enhanced_status_text,
             headers,
+            content_type,
             body,
+            body_bytes,
             is_success,
             request_method: method.to_string(),
             request_url: url.to_string(),
@@ -636,7 +674,9 @@ pub struct HttpResponse {
     pub status_code: u16,
     pub status_text: String,
     pub headers: HashMap<String, String>,
+    pub content_type: Option<String>,
     pub body: String,
+    pub body_bytes: Option<Vec<u8>>,
     pub is_success: bool,
     pub request_method: String,
     pub request_url: String,
@@ -652,6 +692,30 @@ impl HttpResponse {
     pub fn json(&self) -> Result<Value, Error> {
         serde_json::from_str(&self.body)
             .map_err(|e| Error::Http(format!("Failed to parse response as JSON: {e}")))
+    }
+
+    /// Check if the response contains image content
+    ///
+    /// Uses the mime crate to properly parse and validate image content types.
+    #[must_use]
+    pub fn is_image(&self) -> bool {
+        self.content_type
+            .as_ref()
+            .and_then(|ct| ct.parse::<mime::Mime>().ok())
+            .map(|mime_type| mime_type.type_() == mime::IMAGE)
+            .unwrap_or(false)
+    }
+
+    /// Check if the response contains binary content (image, audio, or video)
+    ///
+    /// Uses the mime crate to properly parse and validate binary content types.
+    #[must_use]
+    pub fn is_binary(&self) -> bool {
+        self.content_type
+            .as_ref()
+            .and_then(|ct| ct.parse::<mime::Mime>().ok())
+            .map(|mime_type| matches!(mime_type.type_(), mime::IMAGE | mime::AUDIO | mime::VIDEO))
+            .unwrap_or(false)
     }
 
     /// Get a formatted response summary for MCP
@@ -1143,5 +1207,103 @@ mod tests {
 
         println!("Exploded URL: {url_exploded_string}");
         println!("Non-exploded URL: {url_not_exploded_string}");
+    }
+
+    #[test]
+    fn test_is_image_helper() {
+        // Test various image content types
+        let response_png = HttpResponse {
+            status_code: 200,
+            status_text: "OK".to_string(),
+            headers: HashMap::new(),
+            content_type: Some("image/png".to_string()),
+            body: String::new(),
+            body_bytes: None,
+            is_success: true,
+            request_method: "GET".to_string(),
+            request_url: "http://example.com".to_string(),
+            request_body: String::new(),
+        };
+        assert!(response_png.is_image());
+
+        let response_jpeg = HttpResponse {
+            content_type: Some("image/jpeg".to_string()),
+            ..response_png.clone()
+        };
+        assert!(response_jpeg.is_image());
+
+        // Test with charset parameter
+        let response_with_charset = HttpResponse {
+            content_type: Some("image/png; charset=utf-8".to_string()),
+            ..response_png.clone()
+        };
+        assert!(response_with_charset.is_image());
+
+        // Test non-image content types
+        let response_json = HttpResponse {
+            content_type: Some("application/json".to_string()),
+            ..response_png.clone()
+        };
+        assert!(!response_json.is_image());
+
+        let response_text = HttpResponse {
+            content_type: Some("text/plain".to_string()),
+            ..response_png.clone()
+        };
+        assert!(!response_text.is_image());
+
+        // Test with no content type
+        let response_no_ct = HttpResponse {
+            content_type: None,
+            ..response_png
+        };
+        assert!(!response_no_ct.is_image());
+    }
+
+    #[test]
+    fn test_is_binary_helper() {
+        let base_response = HttpResponse {
+            status_code: 200,
+            status_text: "OK".to_string(),
+            headers: HashMap::new(),
+            content_type: None,
+            body: String::new(),
+            body_bytes: None,
+            is_success: true,
+            request_method: "GET".to_string(),
+            request_url: "http://example.com".to_string(),
+            request_body: String::new(),
+        };
+
+        // Test image types
+        let response_image = HttpResponse {
+            content_type: Some("image/png".to_string()),
+            ..base_response.clone()
+        };
+        assert!(response_image.is_binary());
+
+        // Test audio types
+        let response_audio = HttpResponse {
+            content_type: Some("audio/mpeg".to_string()),
+            ..base_response.clone()
+        };
+        assert!(response_audio.is_binary());
+
+        // Test video types
+        let response_video = HttpResponse {
+            content_type: Some("video/mp4".to_string()),
+            ..base_response.clone()
+        };
+        assert!(response_video.is_binary());
+
+        // Test non-binary types
+        let response_json = HttpResponse {
+            content_type: Some("application/json".to_string()),
+            ..base_response.clone()
+        };
+        assert!(!response_json.is_binary());
+
+        // Test with no content type
+        assert!(!base_response.is_binary());
     }
 }
