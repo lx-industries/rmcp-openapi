@@ -1,5 +1,4 @@
-use rmcp::model::Content;
-use rmcp_openapi::{config::Authorization, Tool, ToolMetadata};
+use rmcp_openapi::{Tool, ToolMetadata, config::Authorization};
 use serde_json::json;
 
 mod common;
@@ -14,8 +13,7 @@ use mockito::Mock;
 fn create_test_png_bytes() -> Vec<u8> {
     vec![
         // PNG signature
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-        // IHDR chunk
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // IHDR chunk
         0x00, 0x00, 0x00, 0x0D, // Length: 13 bytes
         0x49, 0x48, 0x44, 0x52, // "IHDR"
         0x00, 0x00, 0x00, 0x01, // Width: 1
@@ -25,8 +23,8 @@ fn create_test_png_bytes() -> Vec<u8> {
         // IDAT chunk (minimal data)
         0x00, 0x00, 0x00, 0x0A, // Length: 10 bytes
         0x49, 0x44, 0x41, 0x54, // "IDAT"
-        0x78, 0x9C, 0x62, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01,
-        0x0D, 0x0A, 0x2D, 0xB4, // CRC
+        0x78, 0x9C, 0x62, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D,
+        0xB4, // CRC
         // IEND chunk
         0x00, 0x00, 0x00, 0x00, // Length: 0
         0x49, 0x45, 0x4E, 0x44, // "IEND"
@@ -38,17 +36,13 @@ fn create_test_png_bytes() -> Vec<u8> {
 fn create_test_jpeg_bytes() -> Vec<u8> {
     vec![
         // SOI marker
-        0xFF, 0xD8,
-        // APP0 marker (JFIF)
-        0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
-        0x00, 0x01, 0x00, 0x00,
-        // SOF0 marker (baseline DCT)
+        0xFF, 0xD8, // APP0 marker (JFIF)
+        0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00,
+        0x01, 0x00, 0x00, // SOF0 marker (baseline DCT)
         0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00,
         // SOS marker (start of scan)
-        0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00,
-        // Minimal scan data
-        0xD2, 0x7F,
-        // EOI marker
+        0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, // Minimal scan data
+        0xD2, 0x7F, // EOI marker
         0xFF, 0xD9,
     ]
 }
@@ -57,27 +51,26 @@ fn create_test_jpeg_bytes() -> Vec<u8> {
 fn create_test_gif_bytes() -> Vec<u8> {
     vec![
         // GIF header
-        b'G', b'I', b'F', b'8', b'9', b'a',
-        // Logical screen descriptor
+        b'G', b'I', b'F', b'8', b'9', b'a', // Logical screen descriptor
         0x01, 0x00, // Width: 1
         0x01, 0x00, // Height: 1
-        0x00,       // Packed fields (no global color table)
-        0x00,       // Background color index
-        0x00,       // Pixel aspect ratio
+        0x00, // Packed fields (no global color table)
+        0x00, // Background color index
+        0x00, // Pixel aspect ratio
         // Image descriptor
-        0x2C,       // Image separator
+        0x2C, // Image separator
         0x00, 0x00, // Left
         0x00, 0x00, // Top
         0x01, 0x00, // Width: 1
         0x01, 0x00, // Height: 1
-        0x00,       // Packed fields
+        0x00, // Packed fields
         // Image data
-        0x02,       // LZW minimum code size
-        0x02,       // Data sub-block length
+        0x02, // LZW minimum code size
+        0x02, // Data sub-block length
         0x4C, 0x01, // Compressed data
-        0x00,       // Block terminator
+        0x00, // Block terminator
         // Trailer
-        0x3B,       // GIF trailer
+        0x3B, // GIF trailer
     ]
 }
 
@@ -86,10 +79,7 @@ fn create_test_gif_bytes() -> Vec<u8> {
 // ============================================================================
 
 /// Create a Tool instance for testing image endpoints
-fn create_image_tool(
-    mock_server: &MockImageServer,
-    path: &str,
-) -> anyhow::Result<Tool> {
+fn create_image_tool(mock_server: &MockImageServer, path: &str) -> anyhow::Result<Tool> {
     let metadata = ToolMetadata {
         name: "get_image".to_string(),
         title: None,
@@ -106,10 +96,7 @@ fn create_image_tool(
 }
 
 /// Create a Tool instance for testing text endpoints
-fn create_text_tool(
-    mock_server: &MockImageServer,
-    path: &str,
-) -> anyhow::Result<Tool> {
+fn create_text_tool(mock_server: &MockImageServer, path: &str) -> anyhow::Result<Tool> {
     let metadata = ToolMetadata {
         name: "get_text".to_string(),
         title: None,
@@ -126,10 +113,7 @@ fn create_text_tool(
 }
 
 /// Create a Tool instance for testing JSON endpoints
-fn create_json_tool(
-    mock_server: &MockImageServer,
-    path: &str,
-) -> anyhow::Result<Tool> {
+fn create_json_tool(mock_server: &MockImageServer, path: &str) -> anyhow::Result<Tool> {
     let metadata = ToolMetadata {
         name: "get_json".to_string(),
         title: None,
@@ -151,12 +135,7 @@ fn create_json_tool(
 
 impl MockImageServer {
     /// Mock an image endpoint with specified content type and bytes
-    pub fn mock_image_endpoint(
-        &mut self,
-        path: &str,
-        content_type: &str,
-        bytes: &[u8],
-    ) -> Mock {
+    pub fn mock_image_endpoint(&mut self, path: &str, content_type: &str, bytes: &[u8]) -> Mock {
         self.server
             .mock("GET", path)
             .with_status(200)
@@ -222,9 +201,12 @@ async fn test_png_image_response() {
     match &call_result.content[0].raw {
         RawContent::Image(img) => {
             // Verify base64 encoding
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-            assert_eq!(decoded, png_bytes, "Decoded data should match original PNG bytes");
+            assert_eq!(
+                decoded, png_bytes,
+                "Decoded data should match original PNG bytes"
+            );
 
             // Verify MIME type
             assert_eq!(&img.mime_type, "image/png");
@@ -258,10 +240,13 @@ async fn test_jpeg_image_response() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Image(img) => {
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-        assert_eq!(decoded, jpeg_bytes, "Decoded data should match original JPEG bytes");
-        assert_eq!(&img.mime_type, "image/jpeg");
+            assert_eq!(
+                decoded, jpeg_bytes,
+                "Decoded data should match original JPEG bytes"
+            );
+            assert_eq!(&img.mime_type, "image/jpeg");
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }
@@ -289,10 +274,13 @@ async fn test_gif_image_response() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Image(img) => {
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-        assert_eq!(decoded, gif_bytes, "Decoded data should match original GIF bytes");
-        assert_eq!(&img.mime_type, "image/gif");
+            assert_eq!(
+                decoded, gif_bytes,
+                "Decoded data should match original GIF bytes"
+            );
+            assert_eq!(&img.mime_type, "image/gif");
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }
@@ -309,15 +297,11 @@ async fn test_webp_image_response() {
     // Create minimal WebP RIFF header
     let webp_bytes = vec![
         // RIFF header
-        b'R', b'I', b'F', b'F',
-        0x1A, 0x00, 0x00, 0x00, // File size - 8 (26 bytes)
-        b'W', b'E', b'B', b'P',
-        // VP8 chunk
-        b'V', b'P', b'8', b' ',
-        0x0E, 0x00, 0x00, 0x00, // Chunk size (14 bytes)
+        b'R', b'I', b'F', b'F', 0x1A, 0x00, 0x00, 0x00, // File size - 8 (26 bytes)
+        b'W', b'E', b'B', b'P', // VP8 chunk
+        b'V', b'P', b'8', b' ', 0x0E, 0x00, 0x00, 0x00, // Chunk size (14 bytes)
         // Minimal VP8 bitstream
-        0x9D, 0x01, 0x2A, 0x01, 0x00, 0x01, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x9D, 0x01, 0x2A, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
 
     let _mock = mock_server.mock_image_endpoint("/image.webp", "image/webp", &webp_bytes);
@@ -333,10 +317,13 @@ async fn test_webp_image_response() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Image(img) => {
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-        assert_eq!(decoded, webp_bytes, "Decoded data should match original WebP bytes");
-        assert_eq!(&img.mime_type, "image/webp");
+            assert_eq!(
+                decoded, webp_bytes,
+                "Decoded data should match original WebP bytes"
+            );
+            assert_eq!(&img.mime_type, "image/webp");
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }
@@ -366,10 +353,13 @@ async fn test_svg_xml_image_response() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Image(img) => {
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-        assert_eq!(decoded, svg_bytes, "Decoded data should match original SVG bytes");
-        assert_eq!(&img.mime_type, "image/svg+xml");
+            assert_eq!(
+                decoded, svg_bytes,
+                "Decoded data should match original SVG bytes"
+            );
+            assert_eq!(&img.mime_type, "image/svg+xml");
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }
@@ -386,7 +376,7 @@ async fn test_bmp_image_response() {
     // Create minimal 1x1 BMP
     let bmp_bytes = vec![
         // BMP Header
-        b'B', b'M',             // Signature
+        b'B', b'M', // Signature
         0x46, 0x00, 0x00, 0x00, // File size: 70 bytes
         0x00, 0x00, 0x00, 0x00, // Reserved
         0x36, 0x00, 0x00, 0x00, // Pixel data offset: 54 bytes
@@ -394,8 +384,8 @@ async fn test_bmp_image_response() {
         0x28, 0x00, 0x00, 0x00, // Header size: 40 bytes
         0x01, 0x00, 0x00, 0x00, // Width: 1 pixel
         0x01, 0x00, 0x00, 0x00, // Height: 1 pixel
-        0x01, 0x00,             // Color planes: 1
-        0x18, 0x00,             // Bits per pixel: 24
+        0x01, 0x00, // Color planes: 1
+        0x18, 0x00, // Bits per pixel: 24
         0x00, 0x00, 0x00, 0x00, // Compression: none
         0x10, 0x00, 0x00, 0x00, // Image size: 16 bytes
         0x13, 0x0B, 0x00, 0x00, // Horizontal resolution
@@ -419,10 +409,13 @@ async fn test_bmp_image_response() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Image(img) => {
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-        assert_eq!(decoded, bmp_bytes, "Decoded data should match original BMP bytes");
-        assert_eq!(&img.mime_type, "image/bmp");
+            assert_eq!(
+                decoded, bmp_bytes,
+                "Decoded data should match original BMP bytes"
+            );
+            assert_eq!(&img.mime_type, "image/bmp");
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }
@@ -442,7 +435,8 @@ async fn test_image_with_charset_parameter() {
 
     let png_bytes = create_test_png_bytes();
     // Mock with content-type including charset parameter
-    let _mock = mock_server.mock_image_endpoint("/image.png", "image/png; charset=utf-8", &png_bytes);
+    let _mock =
+        mock_server.mock_image_endpoint("/image.png", "image/png; charset=utf-8", &png_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.png").expect("Failed to create tool");
     let result = tool.call(&json!({}), Authorization::None).await;
@@ -456,11 +450,11 @@ async fn test_image_with_charset_parameter() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Image(img) => {
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-        assert_eq!(decoded, png_bytes);
-        // MIME type should include the full content-type as received
-        assert_eq!(&img.mime_type, "image/png; charset=utf-8");
+            assert_eq!(decoded, png_bytes);
+            // MIME type should include the full content-type as received
+            assert_eq!(&img.mime_type, "image/png; charset=utf-8");
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }
@@ -489,7 +483,10 @@ async fn test_text_response_not_converted() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Text(txt) => {
-            assert!(txt.text.contains(text_content), "Should contain the text content");
+            assert!(
+                txt.text.contains(text_content),
+                "Should contain the text content"
+            );
         }
         _ => panic!("Expected Text content, got: {:?}", call_result.content[0]),
     }
@@ -518,7 +515,10 @@ async fn test_json_response_not_converted() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Text(txt) => {
-            assert!(txt.text.contains("This is JSON data"), "Should contain the JSON content");
+            assert!(
+                txt.text.contains("This is JSON data"),
+                "Should contain the JSON content"
+            );
         }
         _ => panic!("Expected Text content, got: {:?}", call_result.content[0]),
     }
@@ -549,10 +549,15 @@ async fn test_error_image_response_404() {
     use rmcp::model::RawContent;
     match &call_result.content[0].raw {
         RawContent::Text(txt) => {
-            assert!(txt.text.contains("404") || txt.text.contains("Image not found"),
-                    "Error message should mention 404 or error details");
+            assert!(
+                txt.text.contains("404") || txt.text.contains("Image not found"),
+                "Error message should mention 404 or error details"
+            );
         }
-        _ => panic!("Expected Text content for error, got: {:?}", call_result.content[0]),
+        _ => panic!(
+            "Expected Text content for error, got: {:?}",
+            call_result.content[0]
+        ),
     }
 }
 
@@ -580,13 +585,19 @@ async fn test_base64_encoding_correctness() {
             assert_eq!(&img.mime_type, "image/png");
 
             // Decode and verify byte-for-byte correctness
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
-            assert_eq!(decoded, test_bytes, "Decoded bytes should exactly match original");
+            assert_eq!(
+                decoded, test_bytes,
+                "Decoded bytes should exactly match original"
+            );
 
             // Also verify the base64 string is valid RFC 4648
             let expected_base64 = STANDARD.encode(&test_bytes);
-            assert_eq!(&img.data, &expected_base64, "Base64 encoding should match expected");
+            assert_eq!(
+                &img.data, &expected_base64,
+                "Base64 encoding should match expected"
+            );
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }
@@ -618,10 +629,13 @@ async fn test_empty_image_response() {
             assert_eq!(&img.mime_type, "image/png");
 
             // Empty data should produce empty base64 string
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
             assert_eq!(decoded.len(), 0, "Decoded empty image should have 0 bytes");
-            assert_eq!(&img.data, "", "Base64 encoding of empty bytes should be empty string");
+            assert_eq!(
+                &img.data, "",
+                "Base64 encoding of empty bytes should be empty string"
+            );
         }
         _ => panic!("Expected Image content, got: {:?}", call_result.content[0]),
     }

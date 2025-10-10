@@ -93,8 +93,15 @@ impl Tool {
                     use base64::{Engine as _, engine::general_purpose::STANDARD};
                     let base64_data = STANDARD.encode(bytes);
 
-                    // Get the MIME type from content_type, defaulting to image/png if missing
-                    let mime_type = response.content_type.as_deref().unwrap_or("image/png");
+                    // Get the MIME type - it must be present for image responses
+                    let mime_type = response.content_type.as_deref().ok_or_else(|| {
+                        crate::error::ToolCallError::Execution(
+                            crate::error::ToolCallExecutionError::ResponseParsingError {
+                                reason: "Image response missing Content-Type header".to_string(),
+                                raw_response: None,
+                            },
+                        )
+                    })?;
 
                     // Return image content
                     return Ok(CallToolResult {
