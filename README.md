@@ -25,6 +25,7 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Comprehensive Testing**: Includes integration tests with JavaScript and Python MCP clients
 - **Built with Official SDK**: Uses the official Rust MCP SDK for reliable protocol compliance
 - **Authorization Header Handling**: Configurable authorization modes to balance MCP compliance with proxy requirements
+- **MCP Tool Annotations**: Automatic annotation hints based on HTTP method semantics for better AI understanding
 
 ## Security
 
@@ -302,6 +303,28 @@ Example generated tools for Petstore API:
 - `getPetById`: Find pet by ID
 - `updatePet`: Update an existing pet
 - `deletePet`: Delete a pet
+
+### MCP Tool Annotations
+
+The server automatically generates MCP tool annotation hints based on the HTTP method of each OpenAPI operation. These annotations help AI assistants understand the semantic properties of each tool:
+
+| HTTP Method | Read-Only | Destructive | Idempotent | Example Use Case |
+|-------------|-----------|-------------|------------|------------------|
+| GET, HEAD, OPTIONS | ✓ | ✗ | ✓ | Fetching data, metadata |
+| POST | ✗ | ✗ | ✗ | Creating new resources |
+| PUT | ✗ | ✓ | ✓ | Replacing/updating resources |
+| PATCH | ✗ | ✓ | ✗ | Partial updates |
+| DELETE | ✗ | ✓ | ✓ | Removing resources |
+
+All tools include `openWorldHint: true` since they interact with external HTTP APIs.
+
+**Example**: A `getPetById` tool (GET operation) will have:
+- `readOnlyHint: true` - Safe read operation
+- `destructiveHint: false` - Doesn't modify data
+- `idempotentHint: true` - Multiple calls return same result
+- `openWorldHint: true` - Calls external API
+
+These annotations follow [HTTP semantics (RFC 9110)](https://www.rfc-editor.org/rfc/rfc9110.html) and the [MCP specification](https://modelcontextprotocol.io/docs/concepts/tools).
 
 ### Output Schema Support
 
