@@ -6,10 +6,12 @@ use url::Url;
 /// Core infrastructure only - test-specific mock methods are defined
 /// directly in the test files that use them to avoid false positive
 /// dead code warnings from cross-compilation unit dependencies.
+#[allow(dead_code)]
 pub struct MockPetstoreServer {
     pub server: mockito::Server,
 }
 
+#[allow(dead_code)]
 impl MockPetstoreServer {
     /// Create a new mock server instance with a specific port
     pub async fn new_with_port(port: u16) -> Self {
@@ -38,10 +40,12 @@ impl Drop for MockPetstoreServer {
 /// Core infrastructure only - test-specific mock methods are defined
 /// directly in the test files that use them to avoid false positive
 /// dead code warnings from cross-compilation unit dependencies.
+#[allow(dead_code)]
 pub struct MockImageServer {
     pub server: mockito::Server,
 }
 
+#[allow(dead_code)]
 impl MockImageServer {
     /// Create a new mock server instance with a specific port
     pub async fn new_with_port(port: u16) -> Self {
