@@ -579,10 +579,10 @@ async fn test_null_value_for_required_parameter() -> anyhow::Result<()> {
     let error_json = serde_json::to_value(&error).unwrap();
     assert_json_snapshot!(error_json);
 
-    // Also verify the error message mentions "required" and "non-null"
+    // Also verify the error message mentions "required" and "must not be null"
     let error_message = error.to_string();
     assert!(error_message.contains("required"));
-    assert!(error_message.contains("non-null"));
+    assert!(error_message.contains("must not be null"));
 
     Ok(())
 }
@@ -620,9 +620,9 @@ async fn test_null_value_for_optional_parameter() -> anyhow::Result<()> {
     let error_json = serde_json::to_value(&error).unwrap();
     assert_json_snapshot!(error_json);
 
-    // Verify the error message suggests omitting the parameter
+    // Verify the error message mentions "optional" and "must not be null"
     let error_message = error.to_string();
-    assert!(error_message.contains("when provided") || error_message.contains("omit"));
+    assert!(error_message.contains("optional") && error_message.contains("must not be null"));
 
     Ok(())
 }
