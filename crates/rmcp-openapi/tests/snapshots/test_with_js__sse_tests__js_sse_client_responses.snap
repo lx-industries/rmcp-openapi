@@ -45,9 +45,7 @@ expression: responses
                   "photoUrls"
                 ],
                 "additionalProperties": true,
-                "description": "Pet object that needs to be added to the store",
-                "x-location": "body",
-                "x-content-type": "application/json"
+                "description": "Pet object that needs to be added to the store"
               }
             },
             "required": [
@@ -249,10 +247,7 @@ expression: responses
                     "sold"
                   ]
                 },
-                "description": "Status values that need to be considered for filter",
-                "x-parameter-location": "query",
-                "x-parameter-required": true,
-                "x-parameter-explode": true
+                "description": "Status values that need to be considered for filter"
               },
               "timeout_seconds": {
                 "type": "integer",
@@ -458,10 +453,7 @@ expression: responses
                 "type": "integer",
                 "format": "int64",
                 "minimum": 1,
-                "description": "ID of pet to return",
-                "x-parameter-location": "path",
-                "x-parameter-required": true,
-                "x-parameter-explode": true
+                "description": "ID of pet to return"
               }
             },
             "required": [
