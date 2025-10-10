@@ -19,6 +19,7 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Parameter Mapping**: Intelligent mapping of OpenAPI parameters (path, query, body) to MCP tool parameters
 - **Output Schema Support**: Automatic generation of output schemas from OpenAPI response definitions
 - **Structured Content**: Returns parsed JSON responses as structured content when output schemas are defined
+- **Image Response Support**: Automatic detection and handling of binary image responses with base64 encoding and MIME type preservation
 - **Dual Usage Modes**: Use as a standalone MCP server or integrate as a Rust library
 - **Transport Support**: StreamableHttp transport for MCP communication (default), with optional deprecated SSE transport
 - **Comprehensive Testing**: Includes integration tests with JavaScript and Python MCP clients
