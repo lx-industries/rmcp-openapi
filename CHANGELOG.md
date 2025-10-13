@@ -1,3 +1,15 @@
+## [0.19.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.19.0...v0.19.1) (2025-10-13)
+
+
+### Bug Fixes
+
+* **http_client:** merge base_url with path correctly ([c623a03](https://gitlab.com/lx-industries/rmcp-openapi/commit/c623a0321ea386e007939c5b4ea36948d3fad76a))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate regex to v1.12.1 ([c63a649](https://gitlab.com/lx-industries/rmcp-openapi/commit/c63a6492583894b7804fae9927b46fbec81c5ba6))
+
 ## [0.19.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.18.0...v0.19.0) (2025-10-10)
 
 

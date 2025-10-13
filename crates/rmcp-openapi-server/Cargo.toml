@@ -2,7 +2,7 @@
 name = "rmcp-openapi-server"
 description = "MCP server executable for OpenAPI specifications"
 readme = "../../README.md"
-version = "0.19.0"
+version = "0.19.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -28,7 +28,7 @@ transport-sse = [
 
 [dependencies]
 # Library dependency
-rmcp-openapi = { version = "0.19.0", path = "../rmcp-openapi" }
+rmcp-openapi = { version = "0.19.1", path = "../rmcp-openapi" }
 
 # Server-specific dependencies
 actix-web.workspace = true
