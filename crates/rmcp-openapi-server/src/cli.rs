@@ -44,6 +44,26 @@ pub struct Cli {
     )]
     pub methods: Option<Vec<reqwest::Method>>,
 
+    /// Filter operations by OperationId
+    #[arg(
+        long,
+        num_args(1..),
+        value_delimiter = ',',
+        conflicts_with = "operationids_exclude",
+        help = "Only include operations with these OperationIds (comma-separated)"
+    )]
+    pub operationids_include: Option<Vec<String>>,
+
+    /// Filter operations by OperationId
+    #[arg(
+        long,
+        num_args(1..),
+        value_delimiter = ',',
+        conflicts_with = "operationids_include",
+        help = "Exclude operations with these OperationIds (comma-separated)"
+    )]
+    pub operationids_exclude: Option<Vec<String>>,
+
     /// Authorization mode for handling Authorization headers
     #[arg(
         long,

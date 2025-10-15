@@ -14,9 +14,12 @@ use serde_json::Value;
 use reqwest::header::HeaderMap;
 use url::Url;
 
-use crate::config::{Authorization, AuthorizationMode};
 use crate::error::Error;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
+use crate::{
+    config::{Authorization, AuthorizationMode},
+    spec::Filters,
+};
 use tracing::{debug, info, info_span, warn};
 
 #[derive(Clone, Builder)]
@@ -26,8 +29,7 @@ pub struct Server {
     pub tool_collection: ToolCollection,
     pub base_url: Url,
     pub default_headers: Option<HeaderMap>,
-    pub tag_filter: Option<Vec<String>>,
-    pub method_filter: Option<Vec<reqwest::Method>>,
+    pub filters: Option<Filters>,
     #[builder(default)]
     pub authorization_mode: AuthorizationMode,
     pub name: Option<String>,
@@ -46,8 +48,7 @@ impl Server {
         openapi_spec: serde_json::Value,
         base_url: Url,
         default_headers: Option<HeaderMap>,
-        tag_filter: Option<Vec<String>>,
-        method_filter: Option<Vec<reqwest::Method>>,
+        filters: Option<Filters>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
     ) -> Self {
@@ -56,8 +57,7 @@ impl Server {
             tool_collection: ToolCollection::new(),
             base_url,
             default_headers,
-            tag_filter,
-            method_filter,
+            filters,
             authorization_mode: AuthorizationMode::default(),
             name: None,
             version: None,
@@ -82,8 +82,7 @@ impl Server {
 
         // Generate OpenApiTool instances directly
         let tools = spec.to_openapi_tools(
-            self.tag_filter.as_deref(),
-            self.method_filter.as_deref(),
+            self.filters.as_ref(),
             Some(self.base_url.clone()),
             self.default_headers.clone(),
             self.skip_tool_descriptions,
@@ -402,7 +401,6 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
-            None,
             false,
             false,
         );
@@ -453,7 +451,6 @@ mod tests {
         let mut server = Server::new(
             serde_json::Value::Null,
             url::Url::parse("http://example.com").unwrap(),
-            None,
             None,
             None,
             false,
@@ -513,7 +510,6 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
-            None,
             false,
             false,
         );
@@ -545,7 +541,6 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
-            None,
             false,
             false,
         );
@@ -566,7 +561,6 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
-            None,
             false,
             false,
         );
@@ -581,7 +575,6 @@ mod tests {
         let server = Server::new(
             serde_json::Value::Null,
             url::Url::parse("http://example.com").unwrap(),
-            None,
             None,
             None,
             false,
@@ -618,7 +611,6 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
-            None,
             false,
             false,
         );
@@ -638,7 +630,6 @@ mod tests {
         let server = Server::new(
             serde_json::Value::Null,
             url::Url::parse("http://example.com").unwrap(),
-            None,
             None,
             None,
             false,
@@ -670,7 +661,6 @@ mod tests {
         let mut server = Server::new(
             openapi_spec,
             url::Url::parse("http://example.com").unwrap(),
-            None,
             None,
             None,
             false,

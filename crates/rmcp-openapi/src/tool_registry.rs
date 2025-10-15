@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::spec::Spec;
+use crate::spec::{Filters, Spec};
 use crate::tool::ToolMetadata;
 use std::collections::HashMap;
 
@@ -33,8 +33,7 @@ impl ToolRegistry {
     pub fn register_from_spec(
         &mut self,
         spec: Spec,
-        tag_filter: Option<&[String]>,
-        method_filter: Option<&[reqwest::Method]>,
+        filters: Option<&Filters>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
     ) -> Result<usize, Error> {
@@ -42,12 +41,8 @@ impl ToolRegistry {
         self.clear();
 
         // Convert operations to tool metadata
-        let tools_metadata = spec.to_tool_metadata(
-            tag_filter,
-            method_filter,
-            skip_tool_descriptions,
-            skip_parameter_descriptions,
-        )?;
+        let tools_metadata =
+            spec.to_tool_metadata(filters, skip_tool_descriptions, skip_parameter_descriptions)?;
         let mut registered_count = 0;
 
         // Register each tool

@@ -23,8 +23,7 @@ impl Spec {
     /// Convert all operations to MCP tool metadata
     pub fn to_tool_metadata(
         &self,
-        tag_filter: Option<&[String]>,
-        method_filter: Option<&[reqwest::Method]>,
+        filters: Option<&Filters>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
     ) -> Result<Vec<ToolMetadata>, Error> {
@@ -46,30 +45,61 @@ impl Spec {
 
                 for (method, operation_ref) in operations {
                     if let Some(operation) = operation_ref {
-                        // Filter by methods if specified
-                        if let Some(filter_methods) = method_filter
-                            && !filter_methods.contains(&method)
-                        {
-                            continue; // Skip this operation
-                        }
+                        if let Some(filters) = filters {
+                            // Filter by methods if specified
+                            match &filters.methods {
+                                Some(Filter::Include(m)) if !m.contains(&method) => continue,
+                                Some(Filter::Exclude(m)) if m.contains(&method) => continue,
+                                _ => {}
+                            }
 
-                        // Filter by tags if specified (with kebab-case normalization)
-                        if let Some(filter_tags) = tag_filter {
-                            if !operation.tags.is_empty() {
-                                // Normalize both filter tags and operation tags before comparison
-                                let normalized_filter_tags: Vec<String> =
-                                    filter_tags.iter().map(|tag| normalize_tag(tag)).collect();
+                            // Filter by tags if specified (with kebab-case normalization)
+                            match (&filters.tags, operation.tags.is_empty()) {
+                                (Some(Filter::Include(tags)), false) => {
+                                    let normalized_filter_tags: Vec<String> =
+                                        tags.iter().map(|tag| normalize_tag(tag)).collect();
 
-                                let has_matching_tag = operation.tags.iter().any(|operation_tag| {
-                                    let normalized_operation_tag = normalize_tag(operation_tag);
-                                    normalized_filter_tags.contains(&normalized_operation_tag)
-                                });
+                                    let has_matching_tag =
+                                        operation.tags.iter().any(|operation_tag| {
+                                            let normalized_operation_tag =
+                                                normalize_tag(operation_tag);
+                                            normalized_filter_tags
+                                                .contains(&normalized_operation_tag)
+                                        });
 
-                                if !has_matching_tag {
-                                    continue; // Skip this operation
+                                    if !has_matching_tag {
+                                        continue; // Skip this operation
+                                    }
                                 }
-                            } else {
-                                continue; // Skip operations without tags when filtering
+                                (Some(Filter::Exclude(tags)), false) => {
+                                    let normalized_filter_tags: Vec<String> =
+                                        tags.iter().map(|tag| normalize_tag(tag)).collect();
+
+                                    let has_matching_tag =
+                                        operation.tags.iter().any(|operation_tag| {
+                                            let normalized_operation_tag =
+                                                normalize_tag(operation_tag);
+                                            normalized_filter_tags
+                                                .contains(&normalized_operation_tag)
+                                        });
+
+                                    if has_matching_tag {
+                                        continue; // Skip this operation
+                                    }
+                                }
+                                (_, true) => continue, // Skip operations without tags when filtering
+                                _ => {}
+                            }
+
+                            // Filter by OperationId
+                            match (operation.operation_id.as_ref(), &filters.operations_id) {
+                                (Some(op), Some(Filter::Include(ops))) if !ops.contains(op) => {
+                                    continue;
+                                }
+                                (Some(op), Some(Filter::Exclude(ops))) if ops.contains(op) => {
+                                    continue;
+                                }
+                                _ => {}
                             }
                         }
 
@@ -97,20 +127,15 @@ impl Spec {
     /// Returns an error if any operations cannot be converted or OpenApiTool instances cannot be created
     pub fn to_openapi_tools(
         &self,
-        tag_filter: Option<&[String]>,
-        method_filter: Option<&[reqwest::Method]>,
+        filters: Option<&Filters>,
         base_url: Option<url::Url>,
         default_headers: Option<reqwest::header::HeaderMap>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
     ) -> Result<Vec<crate::tool::Tool>, Error> {
         // First generate the tool metadata using existing method
-        let tools_metadata = self.to_tool_metadata(
-            tag_filter,
-            method_filter,
-            skip_tool_descriptions,
-            skip_parameter_descriptions,
-        )?;
+        let tools_metadata =
+            self.to_tool_metadata(filters, skip_tool_descriptions, skip_parameter_descriptions)?;
 
         // Then convert to Tool instances
         crate::tool_generator::ToolGenerator::generate_openapi_tools(
@@ -190,6 +215,19 @@ impl Spec {
 
         operation_ids
     }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Filters {
+    pub tags: Option<Filter<String>>,
+    pub methods: Option<Filter<reqwest::Method>>,
+    pub operations_id: Option<Filter<String>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Filter<T> {
+    Include(Vec<T>),
+    Exclude(Vec<T>),
 }
 
 #[cfg(test)]
@@ -448,7 +486,7 @@ mod tests {
     fn test_tag_filtering_no_filter() {
         let spec = create_test_spec_with_tags();
         let tools = spec
-            .to_tool_metadata(None, None, false, false)
+            .to_tool_metadata(None, false, false)
             .expect("Failed to generate tools");
 
         // All operations should be included
@@ -465,9 +503,12 @@ mod tests {
     #[test]
     fn test_tag_filtering_single_tag() {
         let spec = create_test_spec_with_tags();
-        let filter_tags = vec!["pet".to_string()];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["pet".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Only pet operations should be included
@@ -484,9 +525,12 @@ mod tests {
     #[test]
     fn test_tag_filtering_multiple_tags() {
         let spec = create_test_spec_with_tags();
-        let filter_tags = vec!["pet".to_string(), "user".to_string()];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["pet".to_string(), "user".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Pet and user operations should be included
@@ -503,9 +547,12 @@ mod tests {
     #[test]
     fn test_tag_filtering_or_logic() {
         let spec = create_test_spec_with_tags();
-        let filter_tags = vec!["list".to_string()]; // listPets has both "pet" and "list" tags
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["list".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Only operations with "list" tag should be included
@@ -519,9 +566,12 @@ mod tests {
     #[test]
     fn test_tag_filtering_no_matching_tags() {
         let spec = create_test_spec_with_tags();
-        let filter_tags = vec!["nonexistent".to_string()];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["nonexistent".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // No operations should be included
@@ -531,9 +581,12 @@ mod tests {
     #[test]
     fn test_tag_filtering_excludes_operations_without_tags() {
         let spec = create_test_spec_with_tags();
-        let filter_tags = vec!["admin".to_string()];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["admin".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Only admin operations should be included, public endpoint (no tags) should be excluded
@@ -547,9 +600,12 @@ mod tests {
     #[test]
     fn test_tag_normalization_all_cases_match() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filter_tags = vec!["user-management".to_string()]; // kebab-case filter
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["user-management".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // All userManagement variants should match user-management filter
@@ -567,9 +623,12 @@ mod tests {
     #[test]
     fn test_tag_normalization_camel_case_filter() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filter_tags = vec!["userManagement".to_string()]; // camelCase filter
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["userManagement".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // All userManagement variants should match camelCase filter
@@ -586,9 +645,12 @@ mod tests {
     #[test]
     fn test_tag_normalization_snake_case_filter() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filter_tags = vec!["user_management".to_string()]; // snake_case filter
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["user_management".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // All userManagement variants should match snake_case filter
@@ -598,9 +660,12 @@ mod tests {
     #[test]
     fn test_tag_normalization_acronyms() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filter_tags = vec!["xml-http-request".to_string()]; // kebab-case filter for acronym
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["xml-http-request".to_string()])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Should match XMLHttpRequest tag
@@ -613,12 +678,15 @@ mod tests {
     #[test]
     fn test_tag_normalization_multiple_mixed_filters() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filter_tags = vec![
-            "user-management".to_string(), // kebab-case
-            "HTTPSConnection".to_string(), // PascalCase with acronym
-        ];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec![
+                "user-management".to_string(),
+                "HTTPSConnection".to_string(),
+            ])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Should match all userManagement variants + mixedCaseOperation (for HTTPSConnection)
@@ -636,21 +704,31 @@ mod tests {
     #[test]
     fn test_tag_filtering_empty_filter_list() {
         let spec = create_test_spec_with_tags();
-        let filter_tags: Vec<String> = vec![];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec![])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Empty filter should exclude all operations
+        dbg!(&tools);
         assert_eq!(tools.len(), 0);
     }
 
     #[test]
     fn test_tag_filtering_complex_scenario() {
         let spec = create_test_spec_with_tags();
-        let filter_tags = vec!["management".to_string(), "list".to_string()];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec![
+                "management".to_string(),
+                "list".to_string(),
+            ])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), None, false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Should include adminPanel (has "management") and listPets (has "list")
@@ -668,7 +746,7 @@ mod tests {
     fn test_method_filtering_no_filter() {
         let spec = create_test_spec_with_methods();
         let tools = spec
-            .to_tool_metadata(None, None, false, false)
+            .to_tool_metadata(None, false, false)
             .expect("Failed to generate tools");
 
         // All operations should be included (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
@@ -691,9 +769,12 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filter_methods = vec![Method::GET];
+        let filters = Some(Filters {
+            methods: Some(Filter::Include(vec![Method::GET])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(None, Some(&filter_methods), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Only GET operations should be included
@@ -716,9 +797,12 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filter_methods = vec![Method::GET, Method::POST];
+        let filters = Some(Filters {
+            methods: Some(Filter::Include(vec![Method::GET, Method::POST])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(None, Some(&filter_methods), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Only GET and POST operations should be included
@@ -741,9 +825,16 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filter_methods = vec![Method::HEAD, Method::OPTIONS, Method::PATCH];
+        let filters = Some(Filters {
+            methods: Some(Filter::Include(vec![
+                Method::HEAD,
+                Method::OPTIONS,
+                Method::PATCH,
+            ])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(None, Some(&filter_methods), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Only HEAD, OPTIONS, and PATCH operations should be included
@@ -766,10 +857,13 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filter_tags = vec!["user".to_string()];
-        let filter_methods = vec![Method::GET, Method::POST];
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec!["user".to_string()])),
+            methods: Some(Filter::Include(vec![Method::GET, Method::POST])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(Some(&filter_tags), Some(&filter_methods), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Only user operations with GET and POST methods should be included
@@ -792,9 +886,12 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filter_methods = vec![Method::TRACE]; // No TRACE operations in the spec
+        let filters = Some(Filters {
+            methods: Some(Filter::Include(vec![Method::TRACE])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(None, Some(&filter_methods), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // No operations should be included
@@ -804,12 +901,149 @@ mod tests {
     #[test]
     fn test_method_filtering_empty_filter_list() {
         let spec = create_test_spec_with_methods();
-        let filter_methods: Vec<reqwest::Method> = vec![];
+        let filters = Some(Filters {
+            methods: Some(Filter::Include(vec![])),
+            ..Default::default()
+        });
         let tools = spec
-            .to_tool_metadata(None, Some(&filter_methods), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
 
         // Empty filter should exclude all operations
         assert_eq!(tools.len(), 0);
+    }
+
+    #[test]
+    fn test_operations_include_filter_empty_filter_list() {
+        let spec = create_test_spec_with_methods();
+        let filters = Some(Filters {
+            methods: Some(Filter::Include(vec![])),
+            ..Default::default()
+        });
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false)
+            .expect("Failed to generate tools");
+
+        // Empty include filter should exclude all operations
+        assert_eq!(tools.len(), 0);
+    }
+
+    #[test]
+    fn test_operations_include_filter_two_operations_filter_list() {
+        let spec = create_test_spec_with_methods();
+        let filters = Some(Filters {
+            operations_id: Some(Filter::Include(vec![
+                "listUsers".to_owned(),
+                "patchPet".to_owned(),
+            ])),
+            ..Default::default()
+        });
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false)
+            .expect("Failed to generate tools");
+
+        assert_eq!(tools.len(), 2);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"listUsers")); // GET /users (has user tag)
+        assert!(tool_names.contains(&"patchPet")); // POST /users (has user tag)
+    }
+
+    #[test]
+    fn test_operations_exclude_filter_empty_filter_list() {
+        let spec = create_test_spec_with_methods();
+        let filters = Some(Filters {
+            operations_id: Some(Filter::Exclude(vec![])),
+            ..Default::default()
+        });
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false)
+            .expect("Failed to generate tools");
+
+        // Empty include filter should exclude all operations
+        assert_eq!(tools.len(), 9);
+    }
+
+    #[test]
+    fn test_operations_exclude_filter_three_operations_filter_list() {
+        let spec = create_test_spec_with_methods();
+        let filters = Some(Filters {
+            operations_id: Some(Filter::Exclude(vec![
+                "createUser".to_owned(),
+                "deleteUser".to_owned(),
+                "healthCheck".to_owned(),
+            ])),
+            ..Default::default()
+        });
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false)
+            .expect("Failed to generate tools");
+
+        assert_eq!(tools.len(), 6);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"listUsers"));
+        assert!(tool_names.contains(&"updateUser"));
+        assert!(tool_names.contains(&"listPets"));
+        assert!(tool_names.contains(&"createPet"));
+        assert!(tool_names.contains(&"patchPet"));
+        assert!(tool_names.contains(&"healthOptions"))
+    }
+
+    #[test]
+    fn test_all_filters_combined_1() {
+        let spec = create_test_spec_with_tags();
+        let filters = Some(Filters {
+            tags: Some(Filter::Include(vec![
+                "pet".to_owned(),
+                "user".to_owned(),
+                "admin".to_owned(),
+            ])),
+            methods: Some(Filter::Include(vec![Method::GET, Method::POST])),
+            operations_id: Some(Filter::Exclude(vec![
+                "listPets".to_owned(),
+                "createPet".to_owned(),
+                "publicEndpoint".to_owned(),
+            ])),
+        });
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false)
+            .expect("Failed to generate tools");
+
+        assert_eq!(tools.len(), 2);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+
+        assert!(tool_names.contains(&"listUsers"));
+        assert!(tool_names.contains(&"adminPanel"));
+    }
+
+    #[test]
+    fn test_all_filters_combined_2() {
+        let spec = create_test_spec_with_methods();
+        let filters = Some(Filters {
+            tags: Some(Filter::Exclude(vec!["health".to_owned()])),
+            methods: Some(Filter::Exclude(vec![Method::GET, Method::POST])),
+            operations_id: Some(Filter::Include(vec![
+                "listUsers".to_owned(),
+                "updateUser".to_owned(),
+                "deleteUser".to_owned(),
+                "listPets".to_owned(),
+                "patchPet".to_owned(),
+                "healthCheck".to_owned(),
+                "healthOptions".to_owned(),
+            ])),
+        });
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false)
+            .expect("Failed to generate tools");
+
+        assert_eq!(tools.len(), 3);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+
+        assert!(tool_names.contains(&"updateUser"));
+        assert!(tool_names.contains(&"deleteUser"));
+        assert!(tool_names.contains(&"patchPet"));
     }
 }

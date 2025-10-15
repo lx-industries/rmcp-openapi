@@ -2,7 +2,10 @@ use crate::cli::Cli;
 use crate::spec_loader::SpecLocation;
 use bon::Builder;
 use reqwest::header::HeaderMap;
-use rmcp_openapi::{AuthorizationMode, CliError, Error, Server};
+use rmcp_openapi::{
+    AuthorizationMode, CliError, Error, Server,
+    spec::{Filter, Filters},
+};
 use url::Url;
 
 #[derive(Debug, Clone, Builder)]
@@ -12,8 +15,7 @@ pub struct Configuration {
     pub port: u16,
     pub bind_address: String,
     pub default_headers: HeaderMap,
-    pub tags: Option<Vec<String>>,
-    pub methods: Option<Vec<reqwest::Method>>,
+    pub filters: Option<Filters>,
     pub authorization_mode: AuthorizationMode,
     #[builder(default)]
     pub skip_tool_descriptions: bool,
@@ -65,14 +67,37 @@ impl Configuration {
             }
         }
 
+        let filters = {
+            let mut f = Filters::default();
+
+            if let Some(tags) = cli.tags {
+                f.tags = Some(Filter::Include(tags));
+            }
+
+            if let Some(methods) = cli.methods {
+                f.methods = Some(Filter::Include(methods));
+            }
+
+            f.operations_id = match (cli.operationids_include, cli.operationids_exclude) {
+                (Some(op), None) => Some(Filter::Include(op)),
+                (None, Some(op)) => Some(Filter::Exclude(op)),
+                _ => None,
+            };
+
+            if f.tags.is_some() || f.methods.is_some() || f.operations_id.is_some() {
+                Some(f)
+            } else {
+                None
+            }
+        };
+
         Ok(Configuration {
             spec_location: cli.spec,
             base_url,
             port: cli.port,
             bind_address: cli.bind_address,
             default_headers,
-            tags: cli.tags,
-            methods: cli.methods,
+            filters,
             authorization_mode: cli.authorization_mode,
             skip_tool_descriptions: cli.skip_tool_descriptions,
             skip_parameter_descriptions: cli.skip_parameter_descriptions,
@@ -96,8 +121,7 @@ impl Configuration {
             openapi_spec,
             self.base_url,
             headers,
-            self.tags,
-            self.methods,
+            self.filters,
             self.skip_tool_descriptions,
             self.skip_parameter_descriptions,
         );
@@ -136,6 +160,8 @@ mod tests {
             ],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
@@ -187,6 +213,8 @@ mod tests {
             ],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
@@ -221,6 +249,8 @@ mod tests {
             headers: vec!["InvalidHeaderNoEquals".to_string()],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
@@ -244,6 +274,8 @@ mod tests {
             headers: vec![": value".to_string()],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
@@ -267,6 +299,8 @@ mod tests {
             headers: vec!["X-Empty-Header:".to_string()],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
@@ -294,6 +328,8 @@ mod tests {
             headers: vec![],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
@@ -313,6 +349,8 @@ mod tests {
             headers: vec!["Invalid Header Name: value".to_string()],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
@@ -336,6 +374,8 @@ mod tests {
             headers: vec!["Valid-Header: invalid\x00value".to_string()],
             tags: None,
             methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,

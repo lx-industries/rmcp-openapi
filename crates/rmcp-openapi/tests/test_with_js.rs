@@ -25,8 +25,7 @@ fn create_petstore_mcp_server_with_spec(base_url: Url, spec_path: &str) -> anyho
 
     // Generate OpenApiTool instances directly (synchronously)
     let tools = spec.to_openapi_tools(
-        None, // tag_filter
-        None, // method_filter
+        None, // filters
         Some(base_url.clone()),
         None,  // default_headers
         false, // skip_tool_descriptions
