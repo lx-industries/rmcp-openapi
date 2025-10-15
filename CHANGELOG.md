@@ -1,3 +1,13 @@
+## [0.19.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.19.1...v0.19.2) (2025-10-15)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate clap to v4.5.49 ([563d587](https://gitlab.com/lx-industries/rmcp-openapi/commit/563d58772eac4f90f69d9cc1e0d8907aef57dead))
+* **deps:** update rust crate regex to v1.12.2 ([ad3a138](https://gitlab.com/lx-industries/rmcp-openapi/commit/ad3a13855302163a0d8788b6054ec224d5c229e3))
+* **deps:** update rust crate reqwest to v0.12.24 ([40e5197](https://gitlab.com/lx-industries/rmcp-openapi/commit/40e5197abb29083665f509559bf01124fed987f7))
+* **deps:** update rust crate rmcp-actix-web to v0.8.9 ([a693588](https://gitlab.com/lx-industries/rmcp-openapi/commit/a693588c9409d75b60c20b2ac046af68e2ef4b18))
+
 ## [0.19.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.19.0...v0.19.1) (2025-10-13)
 
 
