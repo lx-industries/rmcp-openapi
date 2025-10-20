@@ -68,7 +68,7 @@ impl Configuration {
         }
 
         let filters = {
-            let mut f = Filters::default();
+            let mut f = Filters::builder().build();
 
             if let Some(tags) = cli.tags {
                 f.tags = Some(Filter::Include(tags));

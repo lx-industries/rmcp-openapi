@@ -2,6 +2,7 @@ use crate::error::Error;
 use crate::normalize_tag;
 use crate::tool::ToolMetadata;
 use crate::tool_generator::ToolGenerator;
+use bon::Builder;
 use oas3::Spec as Oas3Spec;
 use reqwest::Method;
 use serde_json::Value;
@@ -217,7 +218,7 @@ impl Spec {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Builder, Debug, Clone)]
 pub struct Filters {
     pub tags: Option<Filter<String>>,
     pub methods: Option<Filter<reqwest::Method>>,
@@ -503,10 +504,11 @@ mod tests {
     #[test]
     fn test_tag_filtering_single_tag() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["pet".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["pet".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -525,10 +527,11 @@ mod tests {
     #[test]
     fn test_tag_filtering_multiple_tags() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["pet".to_string(), "user".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["pet".to_string(), "user".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -547,10 +550,11 @@ mod tests {
     #[test]
     fn test_tag_filtering_or_logic() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["list".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["list".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -566,10 +570,11 @@ mod tests {
     #[test]
     fn test_tag_filtering_no_matching_tags() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["nonexistent".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["nonexistent".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -581,10 +586,11 @@ mod tests {
     #[test]
     fn test_tag_filtering_excludes_operations_without_tags() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["admin".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["admin".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -600,10 +606,11 @@ mod tests {
     #[test]
     fn test_tag_normalization_all_cases_match() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["user-management".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["user-management".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -623,10 +630,11 @@ mod tests {
     #[test]
     fn test_tag_normalization_camel_case_filter() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["userManagement".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["userManagement".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -645,10 +653,11 @@ mod tests {
     #[test]
     fn test_tag_normalization_snake_case_filter() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["user_management".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["user_management".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -660,10 +669,11 @@ mod tests {
     #[test]
     fn test_tag_normalization_acronyms() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["xml-http-request".to_string()])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["xml-http-request".to_string()]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -678,13 +688,14 @@ mod tests {
     #[test]
     fn test_tag_normalization_multiple_mixed_filters() {
         let spec = create_test_spec_with_mixed_case_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec![
-                "user-management".to_string(),
-                "HTTPSConnection".to_string(),
-            ])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec![
+                    "user-management".to_string(),
+                    "HTTPSConnection".to_string(),
+                ]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -704,10 +715,7 @@ mod tests {
     #[test]
     fn test_tag_filtering_empty_filter_list() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec![])),
-            ..Default::default()
-        });
+        let filters = Some(Filters::builder().tags(Filter::Include(vec![])).build());
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -720,13 +728,14 @@ mod tests {
     #[test]
     fn test_tag_filtering_complex_scenario() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec![
-                "management".to_string(),
-                "list".to_string(),
-            ])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec![
+                    "management".to_string(),
+                    "list".to_string(),
+                ]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -769,10 +778,11 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            methods: Some(Filter::Include(vec![Method::GET])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .methods(Filter::Include(vec![Method::GET]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -797,10 +807,11 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            methods: Some(Filter::Include(vec![Method::GET, Method::POST])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .methods(Filter::Include(vec![Method::GET, Method::POST]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -825,14 +836,15 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            methods: Some(Filter::Include(vec![
-                Method::HEAD,
-                Method::OPTIONS,
-                Method::PATCH,
-            ])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .methods(Filter::Include(vec![
+                    Method::HEAD,
+                    Method::OPTIONS,
+                    Method::PATCH,
+                ]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -857,11 +869,12 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec!["user".to_string()])),
-            methods: Some(Filter::Include(vec![Method::GET, Method::POST])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec!["user".to_string()]))
+                .methods(Filter::Include(vec![Method::GET, Method::POST]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -886,10 +899,11 @@ mod tests {
         use reqwest::Method;
 
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            methods: Some(Filter::Include(vec![Method::TRACE])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .methods(Filter::Include(vec![Method::TRACE]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -901,10 +915,7 @@ mod tests {
     #[test]
     fn test_method_filtering_empty_filter_list() {
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            methods: Some(Filter::Include(vec![])),
-            ..Default::default()
-        });
+        let filters = Some(Filters::builder().methods(Filter::Include(vec![])).build());
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -916,10 +927,7 @@ mod tests {
     #[test]
     fn test_operations_include_filter_empty_filter_list() {
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            methods: Some(Filter::Include(vec![])),
-            ..Default::default()
-        });
+        let filters = Some(Filters::builder().methods(Filter::Include(vec![])).build());
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -931,13 +939,14 @@ mod tests {
     #[test]
     fn test_operations_include_filter_two_operations_filter_list() {
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            operations_id: Some(Filter::Include(vec![
-                "listUsers".to_owned(),
-                "patchPet".to_owned(),
-            ])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .operations_id(Filter::Include(vec![
+                    "listUsers".to_owned(),
+                    "patchPet".to_owned(),
+                ]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -952,10 +961,11 @@ mod tests {
     #[test]
     fn test_operations_exclude_filter_empty_filter_list() {
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            operations_id: Some(Filter::Exclude(vec![])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .operations_id(Filter::Exclude(vec![]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -967,14 +977,15 @@ mod tests {
     #[test]
     fn test_operations_exclude_filter_three_operations_filter_list() {
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            operations_id: Some(Filter::Exclude(vec![
-                "createUser".to_owned(),
-                "deleteUser".to_owned(),
-                "healthCheck".to_owned(),
-            ])),
-            ..Default::default()
-        });
+        let filters = Some(
+            Filters::builder()
+                .operations_id(Filter::Exclude(vec![
+                    "createUser".to_owned(),
+                    "deleteUser".to_owned(),
+                    "healthCheck".to_owned(),
+                ]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -993,19 +1004,21 @@ mod tests {
     #[test]
     fn test_all_filters_combined_1() {
         let spec = create_test_spec_with_tags();
-        let filters = Some(Filters {
-            tags: Some(Filter::Include(vec![
-                "pet".to_owned(),
-                "user".to_owned(),
-                "admin".to_owned(),
-            ])),
-            methods: Some(Filter::Include(vec![Method::GET, Method::POST])),
-            operations_id: Some(Filter::Exclude(vec![
-                "listPets".to_owned(),
-                "createPet".to_owned(),
-                "publicEndpoint".to_owned(),
-            ])),
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Include(vec![
+                    "pet".to_owned(),
+                    "user".to_owned(),
+                    "admin".to_owned(),
+                ]))
+                .methods(Filter::Include(vec![Method::GET, Method::POST]))
+                .operations_id(Filter::Exclude(vec![
+                    "listPets".to_owned(),
+                    "createPet".to_owned(),
+                    "publicEndpoint".to_owned(),
+                ]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");
@@ -1021,19 +1034,21 @@ mod tests {
     #[test]
     fn test_all_filters_combined_2() {
         let spec = create_test_spec_with_methods();
-        let filters = Some(Filters {
-            tags: Some(Filter::Exclude(vec!["health".to_owned()])),
-            methods: Some(Filter::Exclude(vec![Method::GET, Method::POST])),
-            operations_id: Some(Filter::Include(vec![
-                "listUsers".to_owned(),
-                "updateUser".to_owned(),
-                "deleteUser".to_owned(),
-                "listPets".to_owned(),
-                "patchPet".to_owned(),
-                "healthCheck".to_owned(),
-                "healthOptions".to_owned(),
-            ])),
-        });
+        let filters = Some(
+            Filters::builder()
+                .tags(Filter::Exclude(vec!["health".to_owned()]))
+                .methods(Filter::Exclude(vec![Method::GET, Method::POST]))
+                .operations_id(Filter::Include(vec![
+                    "listUsers".to_owned(),
+                    "updateUser".to_owned(),
+                    "deleteUser".to_owned(),
+                    "listPets".to_owned(),
+                    "patchPet".to_owned(),
+                    "healthCheck".to_owned(),
+                    "healthOptions".to_owned(),
+                ]))
+                .build(),
+        );
         let tools = spec
             .to_tool_metadata(filters.as_ref(), false, false)
             .expect("Failed to generate tools");

@@ -201,7 +201,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .openapi_spec(openapi_json)
         .base_url(base_url)
         .default_headers(headers)
-        .tag_filter(Some(vec!["user".to_string(), "pets".to_string()]))
+        .filters(
+            Filters::builder()
+                .tags(Filter::Include(vec![
+                    "user".to_string(),
+                    "pets".to_string(),
+                ]))
+                .build(),
+        )
         .build();
 
     // Parse specification and generate tools
