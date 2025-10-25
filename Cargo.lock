@@ -2152,9 +2152,9 @@ dependencies = [
 
 [[package]]
 name = "rmcp-actix-web"
-version = "0.8.9"
+version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6eeaa946cbe6e616a521b893bdc16b745cdfaba459df0a240ba4e2c95fe2c58f"
+checksum = "bf701acfcffebbc153b28329b2bf50f5dd1271546b02a406777ebb646447f1f0"
 dependencies = [
  "actix-rt",
  "actix-web",
