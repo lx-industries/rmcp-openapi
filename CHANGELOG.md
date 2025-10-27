@@ -1,3 +1,11 @@
+## [0.20.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.19.4...v0.20.0) (2025-10-27)
+
+
+### Features
+
+* builder pattern for the new filter struct ([ca683e8](https://gitlab.com/lx-industries/rmcp-openapi/commit/ca683e8fa91456f75daf43c9c4399d6db6d91402))
+* filtering by OperationId, refactoring of the filtering models ([9bb65a7](https://gitlab.com/lx-industries/rmcp-openapi/commit/9bb65a75900486022a3b858cdd77263562f91e2e))
+
 ## [0.19.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.19.3...v0.19.4) (2025-10-27)
 
 
