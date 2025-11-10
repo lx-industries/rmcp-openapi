@@ -1,3 +1,16 @@
+## [0.20.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.2...v0.20.3) (2025-11-10)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 5cd9156 ([19a4527](https://gitlab.com/lx-industries/rmcp-openapi/commit/19a452708ca98d0b8ae1611a7eaf62e2ca59f760))
+* **deps:** update node.js to dcf0610 ([0f33ab7](https://gitlab.com/lx-industries/rmcp-openapi/commit/0f33ab75abfb3c0b34f555b0bea316b9e2af5a4a))
+* **deps:** update rust crate rmcp to v0.8.5 ([93322f3](https://gitlab.com/lx-industries/rmcp-openapi/commit/93322f3a03cf899639f05f9a4d898412594d8f70))
+* **deps:** update rust crate schemars to v1.1.0 ([3aa5c80](https://gitlab.com/lx-industries/rmcp-openapi/commit/3aa5c80335177423d24c2470f82393c41ba58183))
+* **deps:** update rust crate tokio-util to v0.7.17 ([cbb075c](https://gitlab.com/lx-industries/rmcp-openapi/commit/cbb075c6c32124d68045b49a35c3229cf4eadb62))
+* **deps:** update rust:1.91.0 docker digest to 087fe68 ([1f31274](https://gitlab.com/lx-industries/rmcp-openapi/commit/1f31274e40b1bf27a4073980c44027b3c3434ca4))
+* **deps:** update rust:1.91.0 docker digest to a0dba1c ([86c288a](https://gitlab.com/lx-industries/rmcp-openapi/commit/86c288a3ed09256e213649215d22d5a2208c3cc3))
+
 ## [0.20.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.1...v0.20.2) (2025-11-03)
 
 
