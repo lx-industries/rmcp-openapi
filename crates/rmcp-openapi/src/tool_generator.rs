@@ -2343,7 +2343,7 @@ impl ToolGenerator {
                 for validation_error in validation_errors {
                     // Extract error details
                     let error_message = validation_error.to_string();
-                    let instance_path_str = validation_error.instance_path.to_string();
+                    let instance_path_str = validation_error.instance_path().to_string();
                     let field_path = if instance_path_str.is_empty() || instance_path_str == "/" {
                         Some(param_name.clone())
                     } else {
@@ -2359,13 +2359,13 @@ impl ToolGenerator {
                     // Generate context-aware error message for null values
                     // Check if this is a null value error (either top-level null or nested null in message)
                     // This is important because some LLMs might confuse "not required" with "nullable"
-                    let maybe_type_error = match &validation_error.kind {
+                    let maybe_type_error = match &validation_error.kind() {
                         ValidationErrorKind::Type { kind } => Some(kind),
                         _ => None,
                     };
                     let is_type_error = maybe_type_error.is_some();
                     let is_null_error = is_null_value
-                        || (is_type_error && validation_error.instance.as_null().is_some());
+                        || (is_type_error && validation_error.instance().as_null().is_some());
                     let message = if is_null_error && let Some(type_error) = maybe_type_error {
                         // Extract the field name from field_path if available
                         let field_name = field_path.as_ref().unwrap_or(param_name);
