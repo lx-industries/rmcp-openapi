@@ -1,3 +1,15 @@
+## [0.20.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.3...v0.20.4) (2025-11-24)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 4ad2c2b ([612af0d](https://gitlab.com/lx-industries/rmcp-openapi/commit/612af0dabfed44e368d22290a382e9403d2d7368))
+* **deps:** update rust crate actix-web to v4.12.0 ([2f6774d](https://gitlab.com/lx-industries/rmcp-openapi/commit/2f6774dd0c1a7a446074d40023cba1a86357cec9))
+* **deps:** update rust crate axum to v0.8.7 ([455ec4f](https://gitlab.com/lx-industries/rmcp-openapi/commit/455ec4f129a61d050ecf2cc2a129531a59191831))
+* **deps:** update rust crate oas3 to 0.20.0 ([43b49f3](https://gitlab.com/lx-industries/rmcp-openapi/commit/43b49f3b8ecb3573fe4125e31e2bf39e50d452e1))
+* **deps:** update rust crate rmcp-actix-web to v0.8.14 ([2899b41](https://gitlab.com/lx-industries/rmcp-openapi/commit/2899b41ceb3570c8d417e9a6151ef5d28f493fb9))
+* **deps:** update rust docker tag to v1.91.1 ([be4f9a8](https://gitlab.com/lx-industries/rmcp-openapi/commit/be4f9a802e16b7a95fd79a130438561ab4d7d51d))
+
 ## [0.20.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.2...v0.20.3) (2025-11-10)
 
 
