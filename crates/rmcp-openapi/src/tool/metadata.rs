@@ -180,6 +180,7 @@ impl From<&ToolMetadata> for Tool {
             annotations: metadata.generate_annotations(),
             title: metadata.title.clone(),
             icons: None,
+            meta: None,
         }
     }
 }
