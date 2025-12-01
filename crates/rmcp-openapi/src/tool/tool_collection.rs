@@ -138,7 +138,7 @@ impl<'a> IntoIterator for &'a ToolCollection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tool::ToolMetadata;
+    use crate::{HttpClient, tool::ToolMetadata};
     use serde_json::json;
 
     fn create_test_tool(name: &str, description: &str) -> Tool {
@@ -159,7 +159,7 @@ mod tests {
             security: None,
             parameter_mappings: std::collections::HashMap::new(),
         };
-        Tool::new(metadata, None, None).unwrap()
+        Tool::new(metadata, HttpClient::new()).unwrap()
     }
 
     #[test]

@@ -8,10 +8,8 @@ use crate::config::Authorization;
 use crate::error::Error;
 use crate::http_client::HttpClient;
 use crate::security::SecurityObserver;
-use reqwest::header::HeaderMap;
 use rmcp::model::{CallToolResult, Tool as McpTool};
 use serde_json::Value;
-use url::Url;
 
 /// Self-contained tool with embedded HTTP client
 #[derive(Clone)]
@@ -22,21 +20,7 @@ pub struct Tool {
 
 impl Tool {
     /// Create tool with HTTP configuration
-    pub fn new(
-        metadata: ToolMetadata,
-        base_url: Option<Url>,
-        default_headers: Option<HeaderMap>,
-    ) -> Result<Self, Error> {
-        let mut http_client = HttpClient::new();
-
-        if let Some(url) = base_url {
-            http_client = http_client.with_base_url(url)?;
-        }
-
-        if let Some(headers) = default_headers {
-            http_client = http_client.with_default_headers(headers);
-        }
-
+    pub fn new(metadata: ToolMetadata, http_client: HttpClient) -> Result<Self, Error> {
         Ok(Self {
             metadata,
             http_client,

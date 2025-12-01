@@ -2,7 +2,6 @@ use reqwest::header::{self, HeaderMap, HeaderValue};
 use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info, info_span};
 use url::Url;
@@ -16,7 +15,7 @@ use crate::tool_generator::{ExtractedParameters, QueryParameter, ToolGenerator};
 /// HTTP client for executing `OpenAPI` requests
 #[derive(Clone)]
 pub struct HttpClient {
-    client: Arc<Client>,
+    client: Client,
     base_url: Option<Url>,
     default_headers: HeaderMap,
 }
@@ -41,7 +40,7 @@ impl HttpClient {
             .expect("Failed to create HTTP client");
 
         Self {
-            client: Arc::new(client),
+            client,
             base_url: None,
             default_headers: HeaderMap::new(),
         }
@@ -62,7 +61,7 @@ impl HttpClient {
             .expect("Failed to create HTTP client");
 
         Self {
-            client: Arc::new(client),
+            client,
             base_url: None,
             default_headers: HeaderMap::new(),
         }

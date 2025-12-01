@@ -1,4 +1,4 @@
-use rmcp_openapi::{Tool, ToolMetadata, config::Authorization};
+use rmcp_openapi::{HttpClient, Tool, ToolMetadata, config::Authorization};
 use serde_json::json;
 
 mod common;
@@ -92,7 +92,8 @@ fn create_image_tool(mock_server: &MockImageServer, path: &str) -> anyhow::Resul
         parameter_mappings: std::collections::HashMap::new(),
     };
 
-    Ok(Tool::new(metadata, Some(mock_server.base_url()), None)?)
+    let http_client = HttpClient::new().with_base_url(mock_server.base_url())?;
+    Ok(Tool::new(metadata, http_client)?)
 }
 
 /// Create a Tool instance for testing text endpoints
@@ -109,7 +110,8 @@ fn create_text_tool(mock_server: &MockImageServer, path: &str) -> anyhow::Result
         parameter_mappings: std::collections::HashMap::new(),
     };
 
-    Ok(Tool::new(metadata, Some(mock_server.base_url()), None)?)
+    let http_client = HttpClient::new().with_base_url(mock_server.base_url())?;
+    Ok(Tool::new(metadata, http_client)?)
 }
 
 /// Create a Tool instance for testing JSON endpoints
@@ -126,7 +128,8 @@ fn create_json_tool(mock_server: &MockImageServer, path: &str) -> anyhow::Result
         parameter_mappings: std::collections::HashMap::new(),
     };
 
-    Ok(Tool::new(metadata, Some(mock_server.base_url()), None)?)
+    let http_client = HttpClient::new().with_base_url(mock_server.base_url())?;
+    Ok(Tool::new(metadata, http_client)?)
 }
 
 // ============================================================================

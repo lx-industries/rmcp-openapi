@@ -110,6 +110,7 @@ use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
+use crate::HttpClient;
 use crate::error::{
     Error, ErrorResponse, ToolCallValidationError, ValidationConstraint, ValidationError,
 };
@@ -791,8 +792,18 @@ impl ToolGenerator {
     ) -> Result<Vec<crate::tool::Tool>, Error> {
         let mut openapi_tools = Vec::with_capacity(tools_metadata.len());
 
+        let mut http_client = HttpClient::new();
+
+        if let Some(url) = base_url {
+            http_client = http_client.with_base_url(url)?;
+        }
+
+        if let Some(headers) = default_headers {
+            http_client = http_client.with_default_headers(headers);
+        }
+
         for metadata in tools_metadata {
-            let tool = crate::tool::Tool::new(metadata, base_url.clone(), default_headers.clone())?;
+            let tool = crate::tool::Tool::new(metadata, http_client.clone())?;
             openapi_tools.push(tool);
         }
 

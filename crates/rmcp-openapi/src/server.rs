@@ -342,7 +342,7 @@ impl ServerHandler for Server {
 mod tests {
     use super::*;
     use crate::error::ToolCallValidationError;
-    use crate::{ToolCallError, ToolMetadata};
+    use crate::{HttpClient, ToolCallError, ToolMetadata};
     use serde_json::json;
 
     #[test]
@@ -392,8 +392,9 @@ mod tests {
         };
 
         // Create OpenApiTool instances
-        let tool1 = Tool::new(tool1_metadata, None, None).unwrap();
-        let tool2 = Tool::new(tool2_metadata, None, None).unwrap();
+        let http_client = HttpClient::new();
+        let tool1 = Tool::new(tool1_metadata, http_client.clone()).unwrap();
+        let tool2 = Tool::new(tool2_metadata, http_client.clone()).unwrap();
 
         // Create server with tools
         let mut server = Server::new(
@@ -445,7 +446,7 @@ mod tests {
         };
 
         // Create OpenApiTool instance
-        let tool = Tool::new(tool_metadata, None, None).unwrap();
+        let tool = Tool::new(tool_metadata, HttpClient::new()).unwrap();
 
         // Create server with tool
         let mut server = Server::new(
