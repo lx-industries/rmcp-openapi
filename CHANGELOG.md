@@ -1,3 +1,15 @@
+## [0.20.6](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.5...v0.20.6) (2025-12-01)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate actix-web to v4.12.1 ([8bb1e34](https://gitlab.com/lx-industries/rmcp-openapi/commit/8bb1e3492ed82da364054d1dd648215fc64b9fc7))
+* **deps:** update rust crate insta to v1.44.3 ([417f710](https://gitlab.com/lx-industries/rmcp-openapi/commit/417f710174fa3c2923660d8877bf7c49e8b2d97b))
+* **deps:** update rust crate jsonschema to v0.37.3 ([ff2faeb](https://gitlab.com/lx-industries/rmcp-openapi/commit/ff2faebabd14d290f5b2b12e3589fb7e6d31cf8b))
+* **deps:** update rust crate jsonschema to v0.37.4 ([9ff785c](https://gitlab.com/lx-industries/rmcp-openapi/commit/9ff785cbfb41c2cfe496257ab104d9087c178261))
+* **deps:** update rust crate mockito to v1.7.1 ([9d7e683](https://gitlab.com/lx-industries/rmcp-openapi/commit/9d7e683f283c9632ef0e40769ced93749ce640e4))
+* **deps:** update tokio-tracing monorepo ([02435be](https://gitlab.com/lx-industries/rmcp-openapi/commit/02435be663eac516b09cbe1e25caa1c0e117c8ad))
+
 ## [0.20.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.4...v0.20.5) (2025-11-26)
 
 
