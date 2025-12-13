@@ -21,7 +21,7 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Structured Content**: Returns parsed JSON responses as structured content when output schemas are defined
 - **Image Response Support**: Automatic detection and handling of binary image responses with base64 encoding and MIME type preservation
 - **Dual Usage Modes**: Use as a standalone MCP server or integrate as a Rust library
-- **Transport Support**: StreamableHttp transport for MCP communication (default), with optional deprecated SSE transport
+- **Transport Support**: StreamableHttp transport for MCP communication
 - **Comprehensive Testing**: Includes integration tests with JavaScript and Python MCP clients
 - **Built with Official SDK**: Uses the official Rust MCP SDK for reliable protocol compliance
 - **Authorization Header Handling**: Configurable authorization modes to balance MCP compliance with proxy requirements
@@ -108,7 +108,6 @@ rmcp-openapi = "0.8.2"
 
 - **`rustls-tls`** (default): Use rustls for TLS support
 - **`native-tls`**: Use native TLS implementation
-- **`transport-sse`**: Enable deprecated SSE (Server-Sent Events) transport for backward compatibility
 
 ### Security Features
 
@@ -117,17 +116,8 @@ rmcp-openapi = "0.8.2"
 ### Usage Examples
 
 ```toml
-# Default configuration (StreamableHttp transport only)
 [dependencies]
 rmcp-openapi = "0.13.0"
-
-# Enable deprecated SSE transport for backward compatibility
-[dependencies]
-rmcp-openapi = { version = "0.13.0", features = ["transport-sse"] }
-
-# Server with SSE transport
-[dependencies]
-rmcp-openapi-server = { version = "0.13.0", features = ["transport-sse"] }
 ```
 
 ## Usage as a Library
@@ -236,13 +226,7 @@ rmcp-openapi-server --help
 
 ### MCP Client Connection
 
-The server exposes a StreamableHttp endpoint for MCP clients by default.
-
-If you enable the deprecated `transport-sse` feature, an SSE endpoint is also available:
-
-```
-http://localhost:8080/sse
-```
+The server exposes a StreamableHttp endpoint for MCP clients.
 
 ### Example with Claude Desktop
 
@@ -257,41 +241,6 @@ Add to your Claude Desktop MCP configuration:
     }
   }
 }
-```
-
-### Example with JavaScript MCP Client (Deprecated SSE Transport)
-
-**Note**: This example uses the deprecated SSE transport. Enable the `transport-sse` feature to use this.
-
-```javascript
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SseClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-
-const client = new Client(
-  {
-    name: "my-client",
-    version: "1.0.0"
-  },
-  {
-    capabilities: {}
-  }
-);
-
-const transport = new SseClientTransport(
-  new URL("http://localhost:8080/sse")
-);
-
-await client.connect(transport);
-
-// List available tools
-const tools = await client.listTools();
-console.log("Available tools:", tools.tools.map(t => t.name));
-
-// Call a tool
-const result = await client.callTool({
-  name: "getPetById",
-  arguments: { petId: 123 }
-});
 ```
 
 ### Generated Tools

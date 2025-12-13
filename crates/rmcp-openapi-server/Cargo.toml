@@ -19,12 +19,6 @@ default = ["rustls-tls"]
 authorization-token-passthrough = ["rmcp-openapi/authorization-token-passthrough"]
 rustls-tls = ["rmcp-openapi/rustls-tls"]
 native-tls = ["rmcp-openapi/native-tls"]
-# Enable deprecated SSE transport for backward compatibility
-transport-sse = [
-    "rmcp/transport-sse-server",
-    "rmcp-actix-web/transport-sse",
-    "rmcp-openapi/transport-sse",
-]
 
 [dependencies]
 # Library dependency

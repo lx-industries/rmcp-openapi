@@ -275,6 +275,7 @@ impl ServerHandler for Server {
         );
 
         Ok(ListToolsResult {
+            meta: None,
             tools,
             next_cursor: None,
         })
