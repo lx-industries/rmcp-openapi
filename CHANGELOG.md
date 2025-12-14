@@ -1,3 +1,20 @@
+## [0.21.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.7...v0.21.0) (2025-12-14)
+
+
+### Features
+
+* use common http client for all tools to lower memory footprint ([d1e4d58](https://gitlab.com/lx-industries/rmcp-openapi/commit/d1e4d58e40786f63927a3d612141c9677f443c65))
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to 9a2ed90 ([47e85a1](https://gitlab.com/lx-industries/rmcp-openapi/commit/47e85a194e961947333b7f25be40b672d8f5e118))
+* **deps:** update node.js to v24.12.0 ([875947b](https://gitlab.com/lx-industries/rmcp-openapi/commit/875947b1d0b9d88a1a90809a0c589cc8efeb2553))
+* **deps:** update rust crate reqwest to v0.12.25 ([dc2ad34](https://gitlab.com/lx-industries/rmcp-openapi/commit/dc2ad340520231da2ad6ffdc1b8160f5a6155bff))
+* **deps:** update rust docker tag to v1.92.0 ([fe22a3c](https://gitlab.com/lx-industries/rmcp-openapi/commit/fe22a3c4465fee755e10a98ec9d3c6cd3910361e))
+* **deps:** update rust:1.91.1 docker digest to 867f1d1 ([b18797a](https://gitlab.com/lx-industries/rmcp-openapi/commit/b18797af9de5dce4c1a194ea7a41deda347c7c31))
+* **deps:** upgrade rmcp to 0.11.0 and rmcp-actix-web to 0.9.0 ([8260365](https://gitlab.com/lx-industries/rmcp-openapi/commit/82603651fd5a927bf6f876fda82c3e1fdcadad1b))
+
 ## [0.20.7](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.20.6...v0.20.7) (2025-12-08)
 
 
