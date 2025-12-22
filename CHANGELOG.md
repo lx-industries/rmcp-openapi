@@ -1,3 +1,10 @@
+## [0.21.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.1...v0.21.2) (2025-12-22)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate axum to v0.8.8 ([364f568](https://gitlab.com/lx-industries/rmcp-openapi/commit/364f56801f014998508f859b599c8d8c5f5296da))
+
 ## [0.21.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.0...v0.21.1) (2025-12-20)
 
 
