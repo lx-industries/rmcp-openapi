@@ -5235,4 +5235,71 @@ mod tests {
             "Response containing pet data on successful operation"
         );
     }
+
+    #[test]
+    fn test_self_referencing_schema_does_not_overflow() {
+        // Create a spec with a self-referencing schema (like a tree node)
+        // This should be handled gracefully, not cause a stack overflow
+        let mut spec = create_test_spec();
+
+        // Create a "Node" schema that references itself via children
+        let node_schema = ObjectSchema {
+            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+            properties: {
+                let mut props = BTreeMap::new();
+                props.insert(
+                    "name".to_string(),
+                    ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                        ..Default::default()
+                    }),
+                );
+                // Self-reference: children is an array of Node
+                props.insert(
+                    "children".to_string(),
+                    ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::Array)),
+                        items: Some(Box::new(Schema::Object(Box::new(ObjectOrReference::Ref {
+                            ref_path: "#/components/schemas/Node".to_string(),
+                            summary: None,
+                            description: None,
+                        })))),
+                        ..Default::default()
+                    }),
+                );
+                props
+            },
+            ..Default::default()
+        };
+
+        // Add the schema to components
+        if let Some(ref mut components) = spec.components {
+            components
+                .schemas
+                .insert("Node".to_string(), ObjectOrReference::Object(node_schema));
+        }
+
+        // Now try to convert a reference to this self-referencing schema
+        let mut visited = HashSet::new();
+        let result = ToolGenerator::convert_schema_to_json_schema(
+            &Schema::Object(Box::new(ObjectOrReference::Ref {
+                ref_path: "#/components/schemas/Node".to_string(),
+                summary: None,
+                description: None,
+            })),
+            &spec,
+            &mut visited,
+        );
+
+        // Should return an error about circular reference, not overflow the stack
+        assert!(
+            result.is_err(),
+            "Expected circular reference error, got: {result:?}"
+        );
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("Circular reference"),
+            "Expected circular reference error message, got: {error}"
+        );
+    }
 }
