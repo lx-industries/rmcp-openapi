@@ -1,3 +1,19 @@
+## [0.21.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.2...v0.21.3) (2025-12-27)
+
+
+### Bug Fixes
+
+* prevent stack overflow on self-referencing schemas ([56b5aad](https://gitlab.com/lx-industries/rmcp-openapi/commit/56b5aad6d2050434b30d57ccd650b8613c80b904)), closes [#84](https://gitlab.com/lx-industries/rmcp-openapi/issues/84)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate jsonschema to 0.38.0 ([5011b63](https://gitlab.com/lx-industries/rmcp-openapi/commit/5011b635c4b4e436feb76a151d75c53cdeaf0153))
+* **deps:** update rust crate reqwest to v0.12.28 ([5400346](https://gitlab.com/lx-industries/rmcp-openapi/commit/5400346837dff56fdc79928963e4266296549cc3))
+* **deps:** update rust crate schemars to v1.2.0 ([6acc981](https://gitlab.com/lx-industries/rmcp-openapi/commit/6acc981c7b54e03d5706277360e749d0b4dd0d20))
+* **deps:** update rust crate serde_json to v1.0.146 ([b05d835](https://gitlab.com/lx-industries/rmcp-openapi/commit/b05d835321e8a020806240e038c9232fb1ef9722))
+* **deps:** update rust crate serde_json to v1.0.147 ([3f1ca83](https://gitlab.com/lx-industries/rmcp-openapi/commit/3f1ca833d2e39f1307094ea4431a6e09287854ce))
+
 ## [0.21.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.1...v0.21.2) (2025-12-22)
 
 
