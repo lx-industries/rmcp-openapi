@@ -971,7 +971,13 @@ impl ToolGenerator {
                 }
                 ObjectOrReference::Ref { ref_path, .. } => {
                     let resolved = Self::resolve_reference(ref_path, spec, visited)?;
-                    Self::convert_object_schema_to_json_schema(&resolved, spec, visited)
+                    let result =
+                        Self::convert_object_schema_to_json_schema(&resolved, spec, visited);
+                    // Remove after conversion completes to allow the same schema to be
+                    // referenced again elsewhere (non-circular reuse is valid).
+                    // The ref was in `visited` during conversion to detect self-references.
+                    visited.remove(ref_path);
+                    result
                 }
             },
             Schema::Boolean(bool_schema) => {
@@ -1033,7 +1039,11 @@ impl ToolGenerator {
                     }
                     ObjectOrReference::Ref { ref_path, .. } => {
                         let resolved = Self::resolve_reference(ref_path, spec, visited)?;
-                        Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?
+                        let result =
+                            Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?;
+                        // Remove after conversion to allow schema reuse (see convert_schema_to_json_schema)
+                        visited.remove(ref_path);
+                        result
                     }
                 };
                 one_of_schemas.push(schema_json);
@@ -1060,7 +1070,11 @@ impl ToolGenerator {
                     }
                     ObjectOrReference::Ref { ref_path, .. } => {
                         let resolved = Self::resolve_reference(ref_path, spec, visited)?;
-                        Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?
+                        let result =
+                            Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?;
+                        // Remove after conversion to allow schema reuse (see convert_schema_to_json_schema)
+                        visited.remove(ref_path);
+                        result
                     }
                 };
 
@@ -1092,11 +1106,10 @@ impl ToolGenerator {
                 }
                 Some(Schema::Object(schema_ref)) => {
                     // Additional properties must match this schema
-                    let mut visited = HashSet::new();
                     let additional_props_schema = Self::convert_schema_to_json_schema(
                         &Schema::Object(schema_ref.clone()),
                         spec,
-                        &mut visited,
+                        visited,
                     )?;
                     schema_obj.insert("additionalProperties".to_string(), additional_props_schema);
                 }
@@ -1249,8 +1262,10 @@ impl ToolGenerator {
             }
         };
 
-        // Remove from visited set before returning (for other resolution paths)
-        visited.remove(ref_path);
+        // NOTE: We intentionally do NOT remove from visited here.
+        // The ref must stay in visited during the entire conversion process
+        // to detect cycles when the converted schema contains self-references.
+        // The caller is responsible for removing after conversion is complete.
 
         Ok(resolved_schema)
     }
@@ -2634,7 +2649,11 @@ impl ToolGenerator {
             }
             ObjectOrReference::Ref { ref_path, .. } => {
                 let resolved = Self::resolve_reference(ref_path, spec, &mut visited)?;
-                Self::convert_object_schema_to_json_schema(&resolved, spec, &mut visited)?
+                let result =
+                    Self::convert_object_schema_to_json_schema(&resolved, spec, &mut visited)?;
+                // Remove after conversion to allow schema reuse (see convert_schema_to_json_schema)
+                visited.remove(ref_path);
+                result
             }
         };
 
