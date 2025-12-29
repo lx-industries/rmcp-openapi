@@ -7,6 +7,7 @@ pub mod spec;
 pub mod tool;
 pub mod tool_generator;
 pub mod tool_registry;
+pub mod transformer;
 
 pub use config::{Authorization, AuthorizationMode};
 pub use error::{CliError, Error, ToolCallError};
@@ -17,6 +18,7 @@ pub use spec::Spec;
 pub use tool::{Tool, ToolCollection, ToolMetadata};
 pub use tool_generator::{ExtractedParameters, RequestConfig, ToolGenerator};
 pub use tool_registry::{ToolRegistry, ToolRegistryStats};
+pub use transformer::ResponseTransformer;
 
 /// Normalize tag strings to kebab-case for consistent filtering
 /// Converts any case format (camelCase, PascalCase, snake_case, etc.) to kebab-case

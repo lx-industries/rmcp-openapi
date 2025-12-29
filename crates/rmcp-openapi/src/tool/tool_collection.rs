@@ -1,8 +1,10 @@
 use super::Tool;
 use crate::config::Authorization;
-use crate::error::{ToolCallError, ToolCallValidationError};
+use crate::error::{Error, ToolCallError, ToolCallValidationError};
+use crate::transformer::ResponseTransformer;
 use rmcp::model::{CallToolResult, Tool as McpTool};
 use serde_json::Value;
+use std::sync::Arc;
 use tracing::debug_span;
 
 /// Collection of tools with built-in validation and lookup capabilities
@@ -63,17 +65,54 @@ impl ToolCollection {
         self.tools.iter().map(McpTool::from).collect()
     }
 
+    /// Set a response transformer for a specific tool, overriding the global one.
+    ///
+    /// The transformer's `transform_schema` method is immediately applied to the tool's
+    /// output schema. The `transform_response` method will be applied to responses
+    /// when the tool is called.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tool is not found
+    pub fn set_tool_transformer(
+        &mut self,
+        tool_name: &str,
+        transformer: Arc<dyn ResponseTransformer>,
+    ) -> Result<(), Error> {
+        let tool = self
+            .tools
+            .iter_mut()
+            .find(|t| t.metadata.name == tool_name)
+            .ok_or_else(|| Error::ToolNotFound(tool_name.to_string()))?;
+
+        // Transform the existing output schema
+        if let Some(schema) = tool.metadata.output_schema.take() {
+            tool.metadata.output_schema = Some(transformer.transform_schema(schema));
+        }
+
+        tool.response_transformer = Some(transformer);
+        Ok(())
+    }
+
     /// Call a tool by name with validation
     ///
     /// This method encapsulates all tool validation logic:
     /// - Tool not found errors with suggestions
     /// - Parameter validation
     /// - Tool execution
+    ///
+    /// # Arguments
+    ///
+    /// * `tool_name` - The name of the tool to call
+    /// * `arguments` - The tool call arguments
+    /// * `authorization` - Authorization configuration
+    /// * `server_transformer` - Optional server-level response transformer
     pub async fn call_tool(
         &self,
         tool_name: &str,
         arguments: &Value,
         authorization: Authorization,
+        server_transformer: Option<&dyn ResponseTransformer>,
     ) -> Result<CallToolResult, ToolCallError> {
         let span = debug_span!(
             "tool_execution",
@@ -85,7 +124,8 @@ impl ToolCollection {
         // First validate that the tool exists
         if let Some(tool) = self.get_tool(tool_name) {
             // Tool exists, delegate to the tool's call method
-            tool.call(arguments, authorization).await
+            tool.call(arguments, authorization, server_transformer)
+                .await
         } else {
             // Tool not found - generate suggestions and return validation error
             let tool_names: Vec<&str> = self
@@ -231,7 +271,7 @@ mod tests {
         let collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
         let result = collection
-            .call_tool("getPetByID", &json!({}), Authorization::default())
+            .call_tool("getPetByID", &json!({}), Authorization::default(), None)
             .await;
         assert!(result.is_err());
 
@@ -259,6 +299,7 @@ mod tests {
                 "completelyDifferentName",
                 &json!({}),
                 Authorization::default(),
+                None,
             )
             .await;
         assert!(result.is_err());

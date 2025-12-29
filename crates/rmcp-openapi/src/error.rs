@@ -408,6 +408,8 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error(transparent)]
     ToolCall(#[from] ToolCallError),
+    #[error("Tool not found: {0}")]
+    ToolNotFound(String),
 }
 
 impl From<ToolCallValidationError> for ErrorData {

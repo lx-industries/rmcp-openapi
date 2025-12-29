@@ -191,7 +191,7 @@ async fn test_png_image_response() {
     let _mock = mock_server.mock_image_endpoint("/image.png", "image/png", &png_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.png").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -233,7 +233,7 @@ async fn test_jpeg_image_response() {
     let _mock = mock_server.mock_image_endpoint("/image.jpg", "image/jpeg", &jpeg_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.jpg").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -267,7 +267,7 @@ async fn test_gif_image_response() {
     let _mock = mock_server.mock_image_endpoint("/image.gif", "image/gif", &gif_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.gif").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -310,7 +310,7 @@ async fn test_webp_image_response() {
     let _mock = mock_server.mock_image_endpoint("/image.webp", "image/webp", &webp_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.webp").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -346,7 +346,7 @@ async fn test_svg_xml_image_response() {
     let _mock = mock_server.mock_image_endpoint("/image.svg", "image/svg+xml", svg_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.svg").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -402,7 +402,7 @@ async fn test_bmp_image_response() {
     let _mock = mock_server.mock_image_endpoint("/image.bmp", "image/bmp", &bmp_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.bmp").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -442,7 +442,7 @@ async fn test_image_with_charset_parameter() {
         mock_server.mock_image_endpoint("/image.png", "image/png; charset=utf-8", &png_bytes);
 
     let tool = create_image_tool(&mock_server, "/image.png").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -475,7 +475,7 @@ async fn test_text_response_not_converted() {
     let _mock = mock_server.mock_text_endpoint("/text.txt", text_content);
 
     let tool = create_text_tool(&mock_server, "/text.txt").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -507,7 +507,7 @@ async fn test_json_response_not_converted() {
     let _mock = mock_server.mock_json_endpoint("/data.json", &json_data);
 
     let tool = create_json_tool(&mock_server, "/data.json").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -538,7 +538,7 @@ async fn test_error_image_response_404() {
     let _mock = mock_server.mock_image_not_found("/missing.png");
 
     let tool = create_image_tool(&mock_server, "/missing.png").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -574,7 +574,7 @@ async fn test_base64_encoding_correctness() {
     let _mock = mock_server.mock_image_endpoint("/test.png", "image/png", &test_bytes);
 
     let tool = create_image_tool(&mock_server, "/test.png").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();
@@ -618,7 +618,7 @@ async fn test_empty_image_response() {
     let _mock = mock_server.mock_image_endpoint("/empty.png", "image/png", &empty_bytes);
 
     let tool = create_image_tool(&mock_server, "/empty.png").expect("Failed to create tool");
-    let result = tool.call(&json!({}), Authorization::None).await;
+    let result = tool.call(&json!({}), Authorization::None, None).await;
 
     assert!(result.is_ok(), "Tool call should succeed");
     let call_result = result.unwrap();

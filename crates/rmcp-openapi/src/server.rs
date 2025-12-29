@@ -10,12 +10,14 @@ use rmcp::{
 };
 use rmcp_actix_web::transport::AuthorizationHeader;
 use serde_json::Value;
+use std::sync::Arc;
 
 use reqwest::header::HeaderMap;
 use url::Url;
 
 use crate::error::Error;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
+use crate::transformer::ResponseTransformer;
 use crate::{
     config::{Authorization, AuthorizationMode},
     spec::Filters,
@@ -40,6 +42,13 @@ pub struct Server {
     pub skip_tool_descriptions: bool,
     #[builder(default)]
     pub skip_parameter_descriptions: bool,
+    /// Global response transformer applied to all tools.
+    ///
+    /// Uses dynamic dispatch (`Arc<dyn>`) because:
+    /// - Transformer runs once per HTTP call (10-1000ms latency)
+    /// - Vtable lookup overhead (~1ns) is unmeasurable
+    /// - Avoids viral generics throughout Server, Tool, ToolCollection
+    pub response_transformer: Option<Arc<dyn ResponseTransformer>>,
 }
 
 impl Server {
@@ -65,6 +74,7 @@ impl Server {
             instructions: None,
             skip_tool_descriptions,
             skip_parameter_descriptions,
+            response_transformer: None,
         }
     }
 
@@ -89,6 +99,21 @@ impl Server {
             self.skip_parameter_descriptions,
         )?;
 
+        // Apply global transformer to schemas if present
+        let tools = if let Some(ref transformer) = self.response_transformer {
+            tools
+                .into_iter()
+                .map(|mut tool| {
+                    if let Some(schema) = tool.metadata.output_schema.take() {
+                        tool.metadata.output_schema = Some(transformer.transform_schema(schema));
+                    }
+                    tool
+                })
+                .collect()
+        } else {
+            tools
+        };
+
         self.tool_collection = ToolCollection::from_tools(tools);
 
         info!(
@@ -97,6 +122,24 @@ impl Server {
         );
 
         Ok(())
+    }
+
+    /// Set a response transformer for a specific tool, overriding the global one.
+    ///
+    /// The transformer's `transform_schema` method is immediately applied to the tool's
+    /// output schema. The `transform_response` method will be applied to responses
+    /// when the tool is called.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the tool is not found
+    pub fn set_tool_transformer(
+        &mut self,
+        tool_name: &str,
+        transformer: Arc<dyn ResponseTransformer>,
+    ) -> Result<(), Error> {
+        self.tool_collection
+            .set_tool_transformer(tool_name, transformer)
     }
 
     /// Get the number of loaded tools
@@ -311,10 +354,21 @@ impl ServerHandler for Server {
         // Create Authorization enum from mode and header
         let authorization = Authorization::from_mode(self.authorization_mode, auth_header);
 
+        // Get the server-level transformer as a reference for the tool call
+        let server_transformer = self
+            .response_transformer
+            .as_ref()
+            .map(|t| t.as_ref() as &dyn ResponseTransformer);
+
         // Delegate all tool validation and execution to the tool collection
         match self
             .tool_collection
-            .call_tool(&request.name, &arguments_value, authorization)
+            .call_tool(
+                &request.name,
+                &arguments_value,
+                authorization,
+                server_transformer,
+            )
             .await
         {
             Ok(result) => {

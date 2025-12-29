@@ -8,14 +8,18 @@ use crate::config::Authorization;
 use crate::error::Error;
 use crate::http_client::HttpClient;
 use crate::security::SecurityObserver;
+use crate::transformer::ResponseTransformer;
 use rmcp::model::{CallToolResult, Tool as McpTool};
 use serde_json::Value;
+use std::sync::Arc;
 
 /// Self-contained tool with embedded HTTP client
 #[derive(Clone)]
 pub struct Tool {
     pub metadata: ToolMetadata,
     http_client: HttpClient,
+    /// Per-tool response transformer, overrides the global server transformer
+    pub(crate) response_transformer: Option<Arc<dyn ResponseTransformer>>,
 }
 
 impl Tool {
@@ -24,14 +28,22 @@ impl Tool {
         Ok(Self {
             metadata,
             http_client,
+            response_transformer: None,
         })
     }
 
     /// Execute tool and return MCP-compliant result
+    ///
+    /// # Arguments
+    ///
+    /// * `arguments` - The tool call arguments
+    /// * `authorization` - Authorization configuration
+    /// * `server_transformer` - Optional server-level response transformer (used if no per-tool transformer is set)
     pub async fn call(
         &self,
         arguments: &Value,
         authorization: Authorization,
+        server_transformer: Option<&dyn ResponseTransformer>,
     ) -> Result<CallToolResult, crate::error::ToolCallError> {
         use rmcp::model::Content;
         use serde_json::json;
@@ -66,6 +78,13 @@ impl Tool {
             self.http_client.clone()
         };
 
+        // Determine which transformer to use: per-tool takes precedence over server-level
+        let transformer = self
+            .response_transformer
+            .as_ref()
+            .map(|t| t.as_ref() as &dyn ResponseTransformer)
+            .or(server_transformer);
+
         // Execute the HTTP request using the (potentially auth-enhanced) HTTP client
         match client.execute_tool_call(&self.metadata, arguments).await {
             Ok(response) => {
@@ -87,7 +106,7 @@ impl Tool {
                         )
                     })?;
 
-                    // Return image content
+                    // Return image content (transformers don't apply to binary responses)
                     return Ok(CallToolResult {
                         content: vec![Content::image(base64_data, mime_type)],
                         structured_content: None,
@@ -101,10 +120,17 @@ impl Tool {
                     // Try to parse the response body as JSON
                     match response.json() {
                         Ok(json_value) => {
+                            // Apply transformer to the response body if present
+                            let transformed_body = if let Some(t) = transformer {
+                                t.transform_response(json_value)
+                            } else {
+                                json_value
+                            };
+
                             // Wrap the response in our standard HTTP response structure
                             Some(json!({
                                 "status": response.status_code,
-                                "body": json_value
+                                "body": transformed_body
                             }))
                         }
                         Err(_) => None, // If parsing fails, fall back to text content

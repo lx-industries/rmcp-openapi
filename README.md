@@ -26,6 +26,7 @@ This enables AI assistants to interact with REST APIs through a standardized int
 - **Built with Official SDK**: Uses the official Rust MCP SDK for reliable protocol compliance
 - **Authorization Header Handling**: Configurable authorization modes to balance MCP compliance with proxy requirements
 - **MCP Tool Annotations**: Automatic annotation hints based on HTTP method semantics for better AI understanding
+- **Response Transformers**: Modify/filter tool call responses before returning to the LLM to reduce token count or improve LLM comprehension
 
 ## Security
 
@@ -211,6 +212,83 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+### Response Transformers
+
+Response transformers allow you to modify/filter tool call responses before they are returned to the LLM. Common use cases include:
+
+- Removing irrelevant fields to reduce token count
+- Removing null value fields
+- Making responses more suitable for LLM consumption
+
+```rust
+use rmcp_openapi::{ResponseTransformer, Server};
+use serde_json::Value;
+use std::sync::Arc;
+use url::Url;
+
+/// Transformer that removes null fields from responses
+struct RemoveNulls;
+
+impl ResponseTransformer for RemoveNulls {
+    fn transform_response(&self, response: Value) -> Value {
+        remove_nulls(response)
+    }
+
+    fn transform_schema(&self, schema: Value) -> Value {
+        // Mark all fields as optional since they may be removed
+        mark_fields_optional(schema)
+    }
+}
+
+fn remove_nulls(value: Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let filtered: serde_json::Map<String, Value> = map
+                .into_iter()
+                .filter(|(_, v)| !v.is_null())
+                .map(|(k, v)| (k, remove_nulls(v)))
+                .collect();
+            Value::Object(filtered)
+        }
+        Value::Array(arr) => Value::Array(arr.into_iter().map(remove_nulls).collect()),
+        other => other,
+    }
+}
+
+fn mark_fields_optional(schema: Value) -> Value {
+    // Implementation would remove required fields from schema
+    schema
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let openapi_json = serde_json::json!({
+        "openapi": "3.0.3",
+        "info": {"title": "Pet Store", "version": "1.0.0"},
+        "paths": {}
+    });
+
+    // Global transformer applied to all tools
+    let mut server = Server::builder()
+        .openapi_spec(openapi_json)
+        .base_url(Url::parse("https://api.example.com")?)
+        .response_transformer(Arc::new(RemoveNulls))
+        .build();
+
+    server.load_openapi_spec()?;
+
+    // Per-tool override (takes precedence over global transformer)
+    // server.set_tool_transformer("verbose-endpoint", Arc::new(AggressiveFilter))?;
+
+    Ok(())
+}
+```
+
+#### Transformer Resolution Order
+
+1. Per-tool transformer (if set via `set_tool_transformer()`) takes precedence
+2. Else global server transformer (if set via `.response_transformer()` in builder)
+3. Else no transformation
 
 ## Usage as an MCP Server
 
