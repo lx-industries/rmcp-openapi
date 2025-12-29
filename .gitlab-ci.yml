@@ -21,8 +21,13 @@ workflow:
     on_job_failure: none
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
+    # Skip branch pipeline for release commits to avoid duplicate pipelines.
+    # semantic-release pushes a commit then creates a tag, which would trigger
+    # two pipelines. We keep only the tag pipeline by skipping release commits.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^chore\(release\):/
+      when: never
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # Semantic release job template - common setup for semantic-release jobs
 .semantic-release-template: &semantic-release-template
