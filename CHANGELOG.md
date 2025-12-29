@@ -1,3 +1,10 @@
+## [0.21.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.3...v0.21.4) (2025-12-29)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate serde_json to v1.0.148 ([7d8b16e](https://gitlab.com/lx-industries/rmcp-openapi/commit/7d8b16ea52a6a47af8a4874fe0f0cc751f7be3b3))
+
 ## [0.21.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.2...v0.21.3) (2025-12-27)
 
 
