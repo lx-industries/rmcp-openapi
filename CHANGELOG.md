@@ -1,3 +1,20 @@
+## [0.22.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.4...v0.22.0) (2025-12-30)
+
+
+### Features
+
+* **transformer:** implement ResponseTransformer trait for modifying tool responses ([c712001](https://gitlab.com/lx-industries/rmcp-openapi/commit/c712001f94772ccfd49d8a615316ccc5dff65568)), closes [#85](https://gitlab.com/lx-industries/rmcp-openapi/issues/85)
+
+
+### Bug Fixes
+
+* **ci:** skip branch pipeline for release commits ([7973cfe](https://gitlab.com/lx-industries/rmcp-openapi/commit/7973cfece277cb98830820604d358f6182355dbc))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp-actix-web to v0.9.2 ([a85b612](https://gitlab.com/lx-industries/rmcp-openapi/commit/a85b612f76288d231803921691299c58e0c847d8))
+
 ## [0.21.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.3...v0.21.4) (2025-12-29)
 
 
