@@ -1,3 +1,15 @@
+## [0.22.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.22.0...v0.22.1) (2026-01-05)
+
+
+### Miscellaneous Chores
+
+* **deps:** update node.js to b52a8d1 ([ceb7e91](https://gitlab.com/lx-industries/rmcp-openapi/commit/ceb7e91ffc6bec608e3a903969a09654ed3d3c7f))
+* **deps:** update rust crate clap to v4.5.54 ([fe54c6b](https://gitlab.com/lx-industries/rmcp-openapi/commit/fe54c6bf39b64403ac5e23650dbc76a917994118))
+* **deps:** update rust crate insta to v1.45.1 ([bd82a1a](https://gitlab.com/lx-industries/rmcp-openapi/commit/bd82a1af9768e68e1362986874888681da28f7de))
+* **deps:** update rust crate tokio to v1.49.0 ([92bdcc2](https://gitlab.com/lx-industries/rmcp-openapi/commit/92bdcc2723812cfdaa46ca3eef074ba0a0166b9b))
+* **deps:** update rust:1.92.0 docker digest to 65734d2 ([6d8370d](https://gitlab.com/lx-industries/rmcp-openapi/commit/6d8370dcbe13512259a308047b9032c0a38a5c00))
+* **deps:** update rust:1.92.0 docker digest to 910b9dc ([47b0e7c](https://gitlab.com/lx-industries/rmcp-openapi/commit/47b0e7c5b6c25970f384d4e2a90e2da7708399ec))
+
 ## [0.22.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.21.4...v0.22.0) (2025-12-30)
 
 
