@@ -1917,6 +1917,11 @@ impl ToolGenerator {
     ) -> Result<Option<(Value, Annotations, bool)>, Error> {
         match request_body_ref {
             ObjectOrReference::Object(request_body) => {
+                // Check for multipart/form-data first
+                if let Some(media_type) = request_body.content.get("multipart/form-data") {
+                    return Self::convert_multipart_request_body(request_body, media_type, spec);
+                }
+
                 // Extract schema from request body content
                 // Prioritize application/json content type
                 let schema_info = request_body
@@ -1998,6 +2003,102 @@ impl ToolGenerator {
                 Ok(Some((Value::Object(result), annotations, false)))
             }
         }
+    }
+
+    /// Convert multipart/form-data request body to JSON Schema.
+    ///
+    /// This function handles multipart/form-data content types by:
+    /// 1. Iterating over all properties in the schema
+    /// 2. Detecting file fields (format: binary or byte)
+    /// 3. Transforming file fields to structured file object schemas
+    /// 4. Keeping non-file fields as-is
+    /// 5. Adding file_fields annotation for HTTP client processing
+    fn convert_multipart_request_body(
+        request_body: &RequestBody,
+        media_type: &oas3::spec::MediaType,
+        spec: &Spec,
+    ) -> Result<Option<(Value, Annotations, bool)>, Error> {
+        let Some(schema_ref) = &media_type.schema else {
+            return Ok(None);
+        };
+
+        // Get the properties from the schema
+        let obj_schema = match schema_ref {
+            ObjectOrReference::Object(obj) => obj.clone(),
+            ObjectOrReference::Ref { ref_path, .. } => {
+                // Resolve the reference
+                let mut visited = HashSet::new();
+                Self::resolve_reference(ref_path, spec, &mut visited)?
+            }
+        };
+
+        // Build properties with file field transformation
+        let mut props_map = serde_json::Map::new();
+        let mut file_fields = Vec::new();
+
+        for (prop_name, prop_schema_or_ref) in &obj_schema.properties {
+            let sanitized_name = sanitize_property_name(prop_name);
+
+            let prop_schema = if Self::is_file_field_property(prop_schema_or_ref) {
+                // Track this as a file field
+                file_fields.push(sanitized_name.clone());
+
+                // Get the description from the original schema
+                let description = match prop_schema_or_ref {
+                    ObjectOrReference::Object(obj) => obj.description.as_deref(),
+                    ObjectOrReference::Ref { .. } => None,
+                };
+
+                // Transform to file object schema
+                Self::convert_file_field_to_schema(description)
+            } else {
+                // Convert non-file field using standard conversion
+                let schema = Schema::Object(Box::new(prop_schema_or_ref.clone()));
+                let mut visited = HashSet::new();
+                Self::convert_schema_to_json_schema(&schema, spec, &mut visited)?
+            };
+
+            props_map.insert(sanitized_name, prop_schema);
+        }
+
+        // Build the result schema
+        let mut schema_obj = serde_json::Map::new();
+        schema_obj.insert("type".to_string(), json!("object"));
+
+        if !props_map.is_empty() {
+            schema_obj.insert("properties".to_string(), Value::Object(props_map));
+        }
+
+        // Add required fields
+        if !obj_schema.required.is_empty() {
+            // Sanitize required field names
+            let sanitized_required: Vec<String> = obj_schema
+                .required
+                .iter()
+                .map(|name| sanitize_property_name(name))
+                .collect();
+            schema_obj.insert("required".to_string(), json!(sanitized_required));
+        }
+
+        // Add description
+        let description = obj_schema
+            .description
+            .clone()
+            .or_else(|| request_body.description.clone())
+            .unwrap_or_else(|| "Request body data".to_string());
+        schema_obj.insert("description".to_string(), json!(description));
+
+        // Create annotations with multipart/form-data content type and file fields
+        let mut annotations = Annotations::new()
+            .with_location(Location::Body)
+            .with_content_type("multipart/form-data".to_string());
+
+        if !file_fields.is_empty() {
+            annotations = annotations.with_file_fields(file_fields);
+        }
+
+        let required = request_body.required.unwrap_or(false);
+        Ok(Some((Value::Object(schema_obj), annotations, required)))
     }
 
     /// Extract parameter values from MCP tool call arguments
@@ -2709,11 +2810,7 @@ impl ToolGenerator {
         match schema {
             Schema::Object(obj_or_ref) => match obj_or_ref.as_ref() {
                 ObjectOrReference::Object(obj_schema) => {
-                    if let Some(format) = &obj_schema.format {
-                        format == "binary" || format == "byte"
-                    } else {
-                        false
-                    }
+                    Self::is_file_field_object_schema(obj_schema)
                 }
                 ObjectOrReference::Ref { .. } => {
                     // References need to be resolved first; return false for unresolved refs
@@ -2722,6 +2819,62 @@ impl ToolGenerator {
             },
             Schema::Boolean(_) => false,
         }
+    }
+
+    /// Check if an ObjectSchema represents a file field based on its format.
+    ///
+    /// Returns `true` if the schema has `format: binary` or `format: byte`,
+    /// which indicates a file upload field in multipart/form-data requests.
+    fn is_file_field_object_schema(obj_schema: &ObjectSchema) -> bool {
+        if let Some(format) = &obj_schema.format {
+            format == "binary" || format == "byte"
+        } else {
+            false
+        }
+    }
+
+    /// Check if an ObjectOrReference<ObjectSchema> represents a file field.
+    ///
+    /// This is a convenience method for checking file fields when iterating
+    /// over properties in a multipart/form-data schema.
+    fn is_file_field_property(prop_schema: &ObjectOrReference<ObjectSchema>) -> bool {
+        match prop_schema {
+            ObjectOrReference::Object(obj_schema) => Self::is_file_field_object_schema(obj_schema),
+            ObjectOrReference::Ref { .. } => {
+                // References need to be resolved first; return false for unresolved refs
+                false
+            }
+        }
+    }
+
+    /// Convert a file field to the structured file object schema.
+    ///
+    /// Transforms a file field (format: binary or byte) into a structured
+    /// object schema with `content` (required) and `filename` (optional) properties.
+    /// The content field expects a data URI format (e.g., `data:image/png;base64,...`).
+    ///
+    /// # Arguments
+    /// * `original_description` - The original description from the OpenAPI schema
+    ///
+    /// # Returns
+    /// A JSON Schema value representing the file object structure
+    fn convert_file_field_to_schema(original_description: Option<&str>) -> Value {
+        let description = original_description.unwrap_or("File upload");
+        json!({
+            "type": "object",
+            "description": description,
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "File content as data URI (e.g., data:image/png;base64,...)"
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "Optional filename for the upload"
+                }
+            },
+            "required": ["content"]
+        })
     }
 }
 
