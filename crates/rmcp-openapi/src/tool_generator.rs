@@ -5516,4 +5516,536 @@ mod tests {
             "Expected circular reference error message, got: {error}"
         );
     }
+
+
+    // ==================== Multipart Form Data Tests ====================
+
+    #[test]
+    fn test_multipart_form_data_with_single_file() {
+        // Test that a single binary file field in multipart/form-data is transformed
+        // to the structured file object schema with content and filename properties
+        let request_body = ObjectOrReference::Object(RequestBody {
+            description: Some("File upload request".to_string()),
+            content: {
+                let mut content = BTreeMap::new();
+                content.insert(
+                    "multipart/form-data".to_string(),
+                    MediaType {
+                        extensions: Default::default(),
+                        schema: Some(ObjectOrReference::Object(ObjectSchema {
+                            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                            properties: {
+                                let mut props = BTreeMap::new();
+                                props.insert(
+                                    "file".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("binary".to_string()),
+                                        description: Some("The file to upload".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props
+                            },
+                            required: vec!["file".to_string()],
+                            ..Default::default()
+                        })),
+                        examples: None,
+                        encoding: Default::default(),
+                    },
+                );
+                content
+            },
+            required: Some(true),
+        });
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::convert_request_body_to_json_schema(&request_body, &spec)
+            .unwrap()
+            .unwrap();
+
+        let (schema, annotations, is_required) = result;
+
+        // Verify the schema structure
+        let schema_obj = schema.as_object().unwrap();
+        assert_eq!(schema_obj.get("type").unwrap(), "object");
+
+        // Verify the file field is transformed to the file object schema
+        let file_schema = schema_obj
+            .get("properties")
+            .unwrap()
+            .get("file")
+            .unwrap();
+
+        // Check that it has the expected structure for file fields
+        assert_eq!(file_schema.get("type").unwrap(), "object");
+        assert!(file_schema.get("properties").unwrap().get("content").is_some());
+        assert!(file_schema.get("properties").unwrap().get("filename").is_some());
+        assert!(file_schema.get("required").unwrap().as_array().unwrap().contains(&json!("content")));
+
+        // Check the annotations
+        let annotations_value = serde_json::to_value(&annotations).unwrap();
+        let annotations_obj = annotations_value.as_object().unwrap();
+
+        // Check x-content-type annotation
+        assert_eq!(
+            annotations_obj.get("x-content-type").unwrap(),
+            "multipart/form-data"
+        );
+
+        // Check x-file-fields annotation
+        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        assert_eq!(x_file_fields.len(), 1);
+        assert!(x_file_fields.contains(&json!("file")));
+
+        // Check required flag
+        assert!(is_required);
+
+        // Validate using snapshot
+        insta::assert_json_snapshot!("test_multipart_form_data_with_single_file", schema);
+    }
+
+    #[test]
+    fn test_multipart_form_data_with_multiple_files() {
+        // Test that multiple binary file fields are all transformed correctly
+        let request_body = ObjectOrReference::Object(RequestBody {
+            description: Some("Multiple file upload request".to_string()),
+            content: {
+                let mut content = BTreeMap::new();
+                content.insert(
+                    "multipart/form-data".to_string(),
+                    MediaType {
+                        extensions: Default::default(),
+                        schema: Some(ObjectOrReference::Object(ObjectSchema {
+                            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                            properties: {
+                                let mut props = BTreeMap::new();
+                                props.insert(
+                                    "avatar".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("binary".to_string()),
+                                        description: Some("Profile avatar image".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props.insert(
+                                    "document".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("binary".to_string()),
+                                        description: Some("Supporting document".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props.insert(
+                                    "resume".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("binary".to_string()),
+                                        description: Some("Resume file".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props
+                            },
+                            required: vec!["avatar".to_string(), "resume".to_string()],
+                            ..Default::default()
+                        })),
+                        examples: None,
+                        encoding: Default::default(),
+                    },
+                );
+                content
+            },
+            required: Some(true),
+        });
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::convert_request_body_to_json_schema(&request_body, &spec)
+            .unwrap()
+            .unwrap();
+
+        let (schema, annotations, _is_required) = result;
+
+        // Verify all file fields are transformed
+        let body_properties = schema.get("properties").unwrap();
+        for field_name in ["avatar", "document", "resume"] {
+            let field_schema = body_properties.get(field_name).unwrap();
+            assert_eq!(
+                field_schema.get("type").unwrap(),
+                "object",
+                "Field {field_name} should be transformed to object type"
+            );
+            assert!(
+                field_schema.get("properties").unwrap().get("content").is_some(),
+                "Field {field_name} should have content property"
+            );
+        }
+
+        // Check the annotations contain all file fields
+        let annotations_value = serde_json::to_value(&annotations).unwrap();
+        let annotations_obj = annotations_value.as_object().unwrap();
+
+        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        assert_eq!(x_file_fields.len(), 3);
+        assert!(x_file_fields.contains(&json!("avatar")));
+        assert!(x_file_fields.contains(&json!("document")));
+        assert!(x_file_fields.contains(&json!("resume")));
+
+        // Validate using snapshot
+        insta::assert_json_snapshot!("test_multipart_form_data_with_multiple_files", schema);
+    }
+
+    #[test]
+    fn test_multipart_form_data_mixed_fields() {
+        // Test that binary fields are transformed but regular fields remain unchanged
+        let request_body = ObjectOrReference::Object(RequestBody {
+            description: Some("Profile creation with file upload".to_string()),
+            content: {
+                let mut content = BTreeMap::new();
+                content.insert(
+                    "multipart/form-data".to_string(),
+                    MediaType {
+                        extensions: Default::default(),
+                        schema: Some(ObjectOrReference::Object(ObjectSchema {
+                            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                            properties: {
+                                let mut props = BTreeMap::new();
+                                // Binary file field - should be transformed
+                                props.insert(
+                                    "avatar".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("binary".to_string()),
+                                        description: Some("Profile avatar image".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                // Regular string field - should remain unchanged
+                                props.insert(
+                                    "name".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        description: Some("User's display name".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                // Regular integer field - should remain unchanged
+                                props.insert(
+                                    "age".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::Integer,
+                                        )),
+                                        description: Some("User's age".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                // Email field with format - should remain unchanged
+                                props.insert(
+                                    "email".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("email".to_string()),
+                                        description: Some("User's email address".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props
+                            },
+                            required: vec!["name".to_string(), "avatar".to_string()],
+                            ..Default::default()
+                        })),
+                        examples: None,
+                        encoding: Default::default(),
+                    },
+                );
+                content
+            },
+            required: Some(true),
+        });
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::convert_request_body_to_json_schema(&request_body, &spec)
+            .unwrap()
+            .unwrap();
+
+        let (schema, annotations, _is_required) = result;
+        let body_properties = schema.get("properties").unwrap();
+
+        // Verify avatar (binary) is transformed to file object schema
+        let avatar_schema = body_properties.get("avatar").unwrap();
+        assert_eq!(avatar_schema.get("type").unwrap(), "object");
+        assert!(avatar_schema.get("properties").unwrap().get("content").is_some());
+        assert!(avatar_schema.get("properties").unwrap().get("filename").is_some());
+
+        // Verify name (string) remains a simple string type
+        let name_schema = body_properties.get("name").unwrap();
+        assert_eq!(name_schema.get("type").unwrap(), "string");
+        assert!(name_schema.get("properties").is_none()); // No nested properties
+
+        // Verify age (integer) remains an integer type
+        let age_schema = body_properties.get("age").unwrap();
+        assert_eq!(age_schema.get("type").unwrap(), "integer");
+
+        // Verify email (string with format: email) remains a string type
+        let email_schema = body_properties.get("email").unwrap();
+        assert_eq!(email_schema.get("type").unwrap(), "string");
+        assert_eq!(email_schema.get("format").unwrap(), "email");
+
+        // Check annotations only contains avatar as file field
+        let annotations_value = serde_json::to_value(&annotations).unwrap();
+        let annotations_obj = annotations_value.as_object().unwrap();
+
+        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        assert_eq!(x_file_fields.len(), 1);
+        assert!(x_file_fields.contains(&json!("avatar")));
+
+        // Validate using snapshot
+        insta::assert_json_snapshot!("test_multipart_form_data_mixed_fields", schema);
+    }
+
+    #[test]
+    fn test_multipart_format_byte_detection() {
+        // Test that format: byte is also detected as a file field
+        let request_body = ObjectOrReference::Object(RequestBody {
+            description: Some("Base64 encoded file upload".to_string()),
+            content: {
+                let mut content = BTreeMap::new();
+                content.insert(
+                    "multipart/form-data".to_string(),
+                    MediaType {
+                        extensions: Default::default(),
+                        schema: Some(ObjectOrReference::Object(ObjectSchema {
+                            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                            properties: {
+                                let mut props = BTreeMap::new();
+                                // format: byte should be treated as a file field
+                                props.insert(
+                                    "data".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("byte".to_string()),
+                                        description: Some("Base64 encoded file content".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                // format: binary for comparison
+                                props.insert(
+                                    "attachment".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("binary".to_string()),
+                                        description: Some("Binary file attachment".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props
+                            },
+                            required: vec!["data".to_string()],
+                            ..Default::default()
+                        })),
+                        examples: None,
+                        encoding: Default::default(),
+                    },
+                );
+                content
+            },
+            required: Some(true),
+        });
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::convert_request_body_to_json_schema(&request_body, &spec)
+            .unwrap()
+            .unwrap();
+
+        let (schema, annotations, _is_required) = result;
+        let body_properties = schema.get("properties").unwrap();
+
+        // Verify both byte and binary format fields are transformed
+        let data_schema = body_properties.get("data").unwrap();
+        assert_eq!(data_schema.get("type").unwrap(), "object");
+        assert!(data_schema.get("properties").unwrap().get("content").is_some());
+
+        let attachment_schema = body_properties.get("attachment").unwrap();
+        assert_eq!(attachment_schema.get("type").unwrap(), "object");
+        assert!(attachment_schema.get("properties").unwrap().get("content").is_some());
+
+        // Check annotations contain both fields
+        let annotations_value = serde_json::to_value(&annotations).unwrap();
+        let annotations_obj = annotations_value.as_object().unwrap();
+
+        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        assert_eq!(x_file_fields.len(), 2);
+        assert!(x_file_fields.contains(&json!("data")));
+        assert!(x_file_fields.contains(&json!("attachment")));
+
+        // Validate using snapshot
+        insta::assert_json_snapshot!("test_multipart_format_byte_detection", schema);
+    }
+
+    #[test]
+    fn test_multipart_non_file_fields_unchanged() {
+        // Test that non-file fields under multipart/form-data stay as their original types
+        let request_body = ObjectOrReference::Object(RequestBody {
+            description: Some("Form submission".to_string()),
+            content: {
+                let mut content = BTreeMap::new();
+                content.insert(
+                    "multipart/form-data".to_string(),
+                    MediaType {
+                        extensions: Default::default(),
+                        schema: Some(ObjectOrReference::Object(ObjectSchema {
+                            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+                            properties: {
+                                let mut props = BTreeMap::new();
+                                // Various non-file field types
+                                props.insert(
+                                    "title".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        description: Some("Form title".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props.insert(
+                                    "count".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::Integer,
+                                        )),
+                                        description: Some("Item count".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props.insert(
+                                    "enabled".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::Boolean,
+                                        )),
+                                        description: Some("Enable flag".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props.insert(
+                                    "price".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::Number,
+                                        )),
+                                        description: Some("Price value".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props.insert(
+                                    "uuid".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("uuid".to_string()),
+                                        description: Some("UUID field".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props.insert(
+                                    "date".to_string(),
+                                    ObjectOrReference::Object(ObjectSchema {
+                                        schema_type: Some(SchemaTypeSet::Single(
+                                            SchemaType::String,
+                                        )),
+                                        format: Some("date".to_string()),
+                                        description: Some("Date field".to_string()),
+                                        ..Default::default()
+                                    }),
+                                );
+                                props
+                            },
+                            required: vec!["title".to_string()],
+                            ..Default::default()
+                        })),
+                        examples: None,
+                        encoding: Default::default(),
+                    },
+                );
+                content
+            },
+            required: Some(true),
+        });
+
+        let spec = create_test_spec();
+        let result = ToolGenerator::convert_request_body_to_json_schema(&request_body, &spec)
+            .unwrap()
+            .unwrap();
+
+        let (schema, annotations, _is_required) = result;
+        let body_properties = schema.get("properties").unwrap();
+
+        // Verify string field stays as string
+        let title_schema = body_properties.get("title").unwrap();
+        assert_eq!(title_schema.get("type").unwrap(), "string");
+        assert!(title_schema.get("properties").is_none());
+
+        // Verify integer field stays as integer
+        let count_schema = body_properties.get("count").unwrap();
+        assert_eq!(count_schema.get("type").unwrap(), "integer");
+
+        // Verify boolean field stays as boolean
+        let enabled_schema = body_properties.get("enabled").unwrap();
+        assert_eq!(enabled_schema.get("type").unwrap(), "boolean");
+
+        // Verify number field stays as number
+        let price_schema = body_properties.get("price").unwrap();
+        assert_eq!(price_schema.get("type").unwrap(), "number");
+
+        // Verify string with uuid format stays as string with format
+        let uuid_schema = body_properties.get("uuid").unwrap();
+        assert_eq!(uuid_schema.get("type").unwrap(), "string");
+        assert_eq!(uuid_schema.get("format").unwrap(), "uuid");
+
+        // Verify string with date format stays as string with format
+        let date_schema = body_properties.get("date").unwrap();
+        assert_eq!(date_schema.get("type").unwrap(), "string");
+        assert_eq!(date_schema.get("format").unwrap(), "date");
+
+        // Check that annotations do NOT contain x-file-fields (no file fields present)
+        let annotations_value = serde_json::to_value(&annotations).unwrap();
+        let annotations_obj = annotations_value.as_object().unwrap();
+
+        assert!(
+            annotations_obj.get("x-file-fields").is_none(),
+            "x-file-fields should not be present when there are no file fields"
+        );
+
+        // Verify multipart/form-data content type is still set
+        assert_eq!(
+            annotations_obj.get("x-content-type").unwrap(),
+            "multipart/form-data"
+        );
+
+        // Validate using snapshot
+        insta::assert_json_snapshot!("test_multipart_non_file_fields_unchanged", schema);
+    }
 }

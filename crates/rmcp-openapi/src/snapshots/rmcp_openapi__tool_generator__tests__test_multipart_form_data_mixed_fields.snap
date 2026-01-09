@@ -1,0 +1,44 @@
+---
+source: crates/rmcp-openapi/src/tool_generator.rs
+expression: schema
+---
+{
+  "type": "object",
+  "properties": {
+    "age": {
+      "type": "integer",
+      "description": "User's age"
+    },
+    "avatar": {
+      "type": "object",
+      "description": "Profile avatar image",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "File content as data URI (e.g., data:image/png;base64,...)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "Optional filename for the upload"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "email": {
+      "type": "string",
+      "description": "User's email address",
+      "format": "email"
+    },
+    "name": {
+      "type": "string",
+      "description": "User's display name"
+    }
+  },
+  "required": [
+    "name",
+    "avatar"
+  ],
+  "description": "Profile creation with file upload"
+}

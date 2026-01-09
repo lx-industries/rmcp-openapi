@@ -1,0 +1,47 @@
+---
+source: crates/rmcp-openapi/src/tool_generator.rs
+expression: schema
+---
+{
+  "type": "object",
+  "properties": {
+    "attachment": {
+      "type": "object",
+      "description": "Binary file attachment",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "File content as data URI (e.g., data:image/png;base64,...)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "Optional filename for the upload"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    },
+    "data": {
+      "type": "object",
+      "description": "Base64 encoded file content",
+      "properties": {
+        "content": {
+          "type": "string",
+          "description": "File content as data URI (e.g., data:image/png;base64,...)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "Optional filename for the upload"
+        }
+      },
+      "required": [
+        "content"
+      ]
+    }
+  },
+  "required": [
+    "data"
+  ],
+  "description": "Base64 encoded file upload"
+}
