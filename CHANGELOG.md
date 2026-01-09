@@ -1,3 +1,23 @@
+## [0.23.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.22.1...v0.23.0) (2026-01-09)
+
+
+### Features
+
+* **http_client:** add data URI parsing support ([750193f](https://gitlab.com/lx-industries/rmcp-openapi/commit/750193f601b95932f6903de6e5dcb50f3518f76a))
+* **http_client:** add multipart/form-data request body handling ([275709d](https://gitlab.com/lx-industries/rmcp-openapi/commit/275709da26478a3861665cbb2a67b1e7a4658ed1))
+* **rmcp-openapi-server:** add --stateful CLI flag for MCP transport mode ([37ad168](https://gitlab.com/lx-industries/rmcp-openapi/commit/37ad168fc2b54e51462db4daf03f03b8f664b14a))
+* **tool_generator:** add file field annotation tracking ([a1c74d0](https://gitlab.com/lx-industries/rmcp-openapi/commit/a1c74d0af914b36d3bdbba55acd0e00436571225))
+* **tool_generator:** add is_file_field helper for detecting binary/byte format schemas ([7eb7c13](https://gitlab.com/lx-industries/rmcp-openapi/commit/7eb7c13dce77b9ce66dd0bc410f32f331d3aa359))
+* **tool_generator:** add multipart/form-data schema transformation ([9521b31](https://gitlab.com/lx-industries/rmcp-openapi/commit/9521b31edc13fd3a2b53d22b2a155408db4cb6e8))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate indexmap to v2.13.0 ([975c4aa](https://gitlab.com/lx-industries/rmcp-openapi/commit/975c4aa902e818582b3f441b6293bf0349822014))
+* **deps:** update rust crate rmcp-actix-web to v0.9.3 ([db932a6](https://gitlab.com/lx-industries/rmcp-openapi/commit/db932a61973edc9da7999747d67d5541f398b58e))
+* **deps:** update rust crate tokio-util to v0.7.18 ([3c7ca6d](https://gitlab.com/lx-industries/rmcp-openapi/commit/3c7ca6d270d5a9dde7aff42b95c7523d2f21f293))
+* **deps:** update rust crate url to v2.5.8 ([7f87095](https://gitlab.com/lx-industries/rmcp-openapi/commit/7f87095e5d9b1fadb78b28dc9518930d12eb8150))
+
 ## [0.22.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.22.0...v0.22.1) (2026-01-05)
 
 
