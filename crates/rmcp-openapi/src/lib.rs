@@ -11,7 +11,7 @@ pub mod transformer;
 
 pub use config::{Authorization, AuthorizationMode};
 pub use error::{CliError, Error, ToolCallError};
-pub use http_client::{parse_data_uri, DataUriContent, HttpClient, HttpResponse};
+pub use http_client::{DataUriContent, HttpClient, HttpResponse, parse_data_uri};
 pub use security::SecurityObserver;
 pub use server::Server;
 pub use spec::Spec;

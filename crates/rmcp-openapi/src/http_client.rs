@@ -68,15 +68,15 @@ pub fn parse_data_uri(value: &str, field_name: &str) -> Result<DataUriContent, E
     let base64_marker = ";base64,";
     let marker_pos = remainder.find(base64_marker).ok_or_else(|| {
         // Check if there's a different encoding specified
-        if let Some(semicolon_pos) = remainder.find(';') {
-            if let Some(comma_pos) = remainder[semicolon_pos..].find(',') {
-                let encoding = &remainder[semicolon_pos + 1..semicolon_pos + comma_pos];
-                if !encoding.is_empty() && encoding != "base64" {
-                    return Error::Validation(format!(
-                        "Unsupported encoding '{}' for field '{}': only base64 is supported",
-                        encoding, field_name
-                    ));
-                }
+        if let Some(semicolon_pos) = remainder.find(';')
+            && let Some(comma_pos) = remainder[semicolon_pos..].find(',')
+        {
+            let encoding = &remainder[semicolon_pos + 1..semicolon_pos + comma_pos];
+            if !encoding.is_empty() && encoding != "base64" {
+                return Error::Validation(format!(
+                    "Unsupported encoding '{}' for field '{}': only base64 is supported",
+                    encoding, field_name
+                ));
             }
         }
         format_error()
@@ -646,33 +646,29 @@ impl HttpClient {
 
                 for (key, value) in body {
                     // Check if this is a file field (object with "content" key containing data URI)
-                    if let Some(obj) = value.as_object() {
-                        if let Some(content_value) = obj.get("content") {
-                            if let Some(content_str) = content_value.as_str() {
-                                if content_str.starts_with("data:") {
-                                    // Parse the data URI
-                                    let data_uri = parse_data_uri(content_str, key)?;
+                    if let Some(obj) = value.as_object()
+                        && let Some(content_value) = obj.get("content")
+                        && let Some(content_str) = content_value.as_str()
+                        && content_str.starts_with("data:")
+                    {
+                        // Parse the data URI
+                        let data_uri = parse_data_uri(content_str, key)?;
 
-                                    // Get optional filename
-                                    let filename = obj
-                                        .get("filename")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("file")
-                                        .to_string();
+                        // Get optional filename
+                        let filename = obj
+                            .get("filename")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("file")
+                            .to_string();
 
-                                    // Build the file part
-                                    let part = reqwest::multipart::Part::bytes(data_uri.bytes)
-                                        .file_name(filename)
-                                        .mime_str(&data_uri.mime_type)
-                                        .map_err(|e| {
-                                            Error::Http(format!("Invalid MIME type: {e}"))
-                                        })?;
+                        // Build the file part
+                        let part = reqwest::multipart::Part::bytes(data_uri.bytes)
+                            .file_name(filename)
+                            .mime_str(&data_uri.mime_type)
+                            .map_err(|e| Error::Http(format!("Invalid MIME type: {e}")))?;
 
-                                    form = form.part(key.clone(), part);
-                                    continue;
-                                }
-                            }
-                        }
+                        form = form.part(key.clone(), part);
+                        continue;
                     }
 
                     // Not a file field - add as text part
@@ -1640,7 +1636,10 @@ mod tests {
         let uri = "data:text/html;charset=utf-8;boundary=something;base64,PGh0bWw+";
         let result = super::parse_data_uri(uri, "html_field").unwrap();
 
-        assert_eq!(result.mime_type, "text/html;charset=utf-8;boundary=something");
+        assert_eq!(
+            result.mime_type,
+            "text/html;charset=utf-8;boundary=something"
+        );
         assert_eq!(result.bytes, b"<html>");
     }
 
@@ -1707,7 +1706,10 @@ mod tests {
         };
 
         let result = HttpClient::add_request_body(request, &body, &config);
-        assert!(result.is_ok(), "Should successfully build multipart form with valid file");
+        assert!(
+            result.is_ok(),
+            "Should successfully build multipart form with valid file"
+        );
     }
 
     #[test]
@@ -1733,7 +1735,10 @@ mod tests {
         let result = HttpClient::add_request_body(request, &body, &config);
         assert!(result.is_err(), "Should fail with invalid data URI");
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("Invalid data URI format"), "Error should mention invalid format");
+        assert!(
+            err.contains("Invalid data URI format"),
+            "Error should mention invalid format"
+        );
     }
 
     #[test]
@@ -1759,7 +1764,10 @@ mod tests {
         let result = HttpClient::add_request_body(request, &body, &config);
         assert!(result.is_err(), "Should fail with invalid base64");
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("Invalid base64 content"), "Error should mention invalid base64");
+        assert!(
+            err.contains("Invalid base64 content"),
+            "Error should mention invalid base64"
+        );
     }
 
     #[test]
@@ -1778,7 +1786,10 @@ mod tests {
         };
 
         let result = HttpClient::add_request_body(request, &body, &config);
-        assert!(result.is_ok(), "Should successfully build multipart form with text-only fields");
+        assert!(
+            result.is_ok(),
+            "Should successfully build multipart form with text-only fields"
+        );
     }
 
     #[test]
@@ -1828,7 +1839,10 @@ mod tests {
         };
 
         let result = HttpClient::add_request_body(request, &body, &config);
-        assert!(result.is_ok(), "Should handle file upload without explicit filename");
+        assert!(
+            result.is_ok(),
+            "Should handle file upload without explicit filename"
+        );
     }
 
     #[test]

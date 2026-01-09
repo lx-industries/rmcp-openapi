@@ -5517,7 +5517,6 @@ mod tests {
         );
     }
 
-
     // ==================== Multipart Form Data Tests ====================
 
     #[test]
@@ -5573,17 +5572,32 @@ mod tests {
         assert_eq!(schema_obj.get("type").unwrap(), "object");
 
         // Verify the file field is transformed to the file object schema
-        let file_schema = schema_obj
-            .get("properties")
-            .unwrap()
-            .get("file")
-            .unwrap();
+        let file_schema = schema_obj.get("properties").unwrap().get("file").unwrap();
 
         // Check that it has the expected structure for file fields
         assert_eq!(file_schema.get("type").unwrap(), "object");
-        assert!(file_schema.get("properties").unwrap().get("content").is_some());
-        assert!(file_schema.get("properties").unwrap().get("filename").is_some());
-        assert!(file_schema.get("required").unwrap().as_array().unwrap().contains(&json!("content")));
+        assert!(
+            file_schema
+                .get("properties")
+                .unwrap()
+                .get("content")
+                .is_some()
+        );
+        assert!(
+            file_schema
+                .get("properties")
+                .unwrap()
+                .get("filename")
+                .is_some()
+        );
+        assert!(
+            file_schema
+                .get("required")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .contains(&json!("content"))
+        );
 
         // Check the annotations
         let annotations_value = serde_json::to_value(&annotations).unwrap();
@@ -5596,7 +5610,11 @@ mod tests {
         );
 
         // Check x-file-fields annotation
-        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        let x_file_fields = annotations_obj
+            .get("x-file-fields")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert_eq!(x_file_fields.len(), 1);
         assert!(x_file_fields.contains(&json!("file")));
 
@@ -5686,7 +5704,11 @@ mod tests {
                 "Field {field_name} should be transformed to object type"
             );
             assert!(
-                field_schema.get("properties").unwrap().get("content").is_some(),
+                field_schema
+                    .get("properties")
+                    .unwrap()
+                    .get("content")
+                    .is_some(),
                 "Field {field_name} should have content property"
             );
         }
@@ -5695,7 +5717,11 @@ mod tests {
         let annotations_value = serde_json::to_value(&annotations).unwrap();
         let annotations_obj = annotations_value.as_object().unwrap();
 
-        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        let x_file_fields = annotations_obj
+            .get("x-file-fields")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert_eq!(x_file_fields.len(), 3);
         assert!(x_file_fields.contains(&json!("avatar")));
         assert!(x_file_fields.contains(&json!("document")));
@@ -5791,8 +5817,20 @@ mod tests {
         // Verify avatar (binary) is transformed to file object schema
         let avatar_schema = body_properties.get("avatar").unwrap();
         assert_eq!(avatar_schema.get("type").unwrap(), "object");
-        assert!(avatar_schema.get("properties").unwrap().get("content").is_some());
-        assert!(avatar_schema.get("properties").unwrap().get("filename").is_some());
+        assert!(
+            avatar_schema
+                .get("properties")
+                .unwrap()
+                .get("content")
+                .is_some()
+        );
+        assert!(
+            avatar_schema
+                .get("properties")
+                .unwrap()
+                .get("filename")
+                .is_some()
+        );
 
         // Verify name (string) remains a simple string type
         let name_schema = body_properties.get("name").unwrap();
@@ -5812,7 +5850,11 @@ mod tests {
         let annotations_value = serde_json::to_value(&annotations).unwrap();
         let annotations_obj = annotations_value.as_object().unwrap();
 
-        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        let x_file_fields = annotations_obj
+            .get("x-file-fields")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert_eq!(x_file_fields.len(), 1);
         assert!(x_file_fields.contains(&json!("avatar")));
 
@@ -5843,7 +5885,9 @@ mod tests {
                                             SchemaType::String,
                                         )),
                                         format: Some("byte".to_string()),
-                                        description: Some("Base64 encoded file content".to_string()),
+                                        description: Some(
+                                            "Base64 encoded file content".to_string(),
+                                        ),
                                         ..Default::default()
                                     }),
                                 );
@@ -5884,17 +5928,33 @@ mod tests {
         // Verify both byte and binary format fields are transformed
         let data_schema = body_properties.get("data").unwrap();
         assert_eq!(data_schema.get("type").unwrap(), "object");
-        assert!(data_schema.get("properties").unwrap().get("content").is_some());
+        assert!(
+            data_schema
+                .get("properties")
+                .unwrap()
+                .get("content")
+                .is_some()
+        );
 
         let attachment_schema = body_properties.get("attachment").unwrap();
         assert_eq!(attachment_schema.get("type").unwrap(), "object");
-        assert!(attachment_schema.get("properties").unwrap().get("content").is_some());
+        assert!(
+            attachment_schema
+                .get("properties")
+                .unwrap()
+                .get("content")
+                .is_some()
+        );
 
         // Check annotations contain both fields
         let annotations_value = serde_json::to_value(&annotations).unwrap();
         let annotations_obj = annotations_value.as_object().unwrap();
 
-        let x_file_fields = annotations_obj.get("x-file-fields").unwrap().as_array().unwrap();
+        let x_file_fields = annotations_obj
+            .get("x-file-fields")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert_eq!(x_file_fields.len(), 2);
         assert!(x_file_fields.contains(&json!("data")));
         assert!(x_file_fields.contains(&json!("attachment")));
