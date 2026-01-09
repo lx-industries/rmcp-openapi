@@ -2693,6 +2693,36 @@ impl ToolGenerator {
             }
         }))
     }
+
+    /// Check if a schema represents a file field based on its format.
+    ///
+    /// Returns `true` if the schema has `format: binary` or `format: byte`,
+    /// which indicates a file upload field in multipart/form-data requests.
+    ///
+    /// # Arguments
+    /// * `schema` - The OpenAPI Schema to check
+    ///
+    /// # Returns
+    /// `true` if the schema represents a file field, `false` otherwise
+    #[must_use]
+    pub fn is_file_field(schema: &Schema) -> bool {
+        match schema {
+            Schema::Object(obj_or_ref) => match obj_or_ref.as_ref() {
+                ObjectOrReference::Object(obj_schema) => {
+                    if let Some(format) = &obj_schema.format {
+                        format == "binary" || format == "byte"
+                    } else {
+                        false
+                    }
+                }
+                ObjectOrReference::Ref { .. } => {
+                    // References need to be resolved first; return false for unresolved refs
+                    false
+                }
+            },
+            Schema::Boolean(_) => false,
+        }
+    }
 }
 
 /// Create the error schema structure that all tool errors conform to

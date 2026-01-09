@@ -1,2 +1,5 @@
 /target
 .serena/
+
+# Claude Code superpowers plans
+docs/plans/*.md
