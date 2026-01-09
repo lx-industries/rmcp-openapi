@@ -597,12 +597,12 @@ impl HttpClient {
             return Ok(request);
         }
 
-        // Set content type header
-        request = request.header(header::CONTENT_TYPE, &config.content_type);
-
         // Handle different content types
         match config.content_type.as_str() {
             s if s == mime::APPLICATION_JSON.as_ref() => {
+                // Set content type header for JSON
+                request = request.header(header::CONTENT_TYPE, &config.content_type);
+
                 // For JSON content type, serialize the body
                 if body.len() == 1 && body.contains_key("request_body") {
                     // Use the request_body directly if it's the only parameter
@@ -622,6 +622,9 @@ impl HttpClient {
                 }
             }
             s if s == mime::APPLICATION_WWW_FORM_URLENCODED.as_ref() => {
+                // Set content type header for form-urlencoded
+                request = request.header(header::CONTENT_TYPE, &config.content_type);
+
                 // Handle form data
                 let form_data: Vec<(String, String)> = body
                     .iter()
@@ -637,7 +640,57 @@ impl HttpClient {
                     .collect();
                 request = request.form(&form_data);
             }
+            s if s == mime::MULTIPART_FORM_DATA.as_ref() => {
+                // Build multipart form - reqwest automatically sets Content-Type with boundary
+                let mut form = reqwest::multipart::Form::new();
+
+                for (key, value) in body {
+                    // Check if this is a file field (object with "content" key containing data URI)
+                    if let Some(obj) = value.as_object() {
+                        if let Some(content_value) = obj.get("content") {
+                            if let Some(content_str) = content_value.as_str() {
+                                if content_str.starts_with("data:") {
+                                    // Parse the data URI
+                                    let data_uri = parse_data_uri(content_str, key)?;
+
+                                    // Get optional filename
+                                    let filename = obj
+                                        .get("filename")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("file")
+                                        .to_string();
+
+                                    // Build the file part
+                                    let part = reqwest::multipart::Part::bytes(data_uri.bytes)
+                                        .file_name(filename)
+                                        .mime_str(&data_uri.mime_type)
+                                        .map_err(|e| {
+                                            Error::Http(format!("Invalid MIME type: {e}"))
+                                        })?;
+
+                                    form = form.part(key.clone(), part);
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+
+                    // Not a file field - add as text part
+                    let text_value = match value {
+                        Value::String(s) => s.clone(),
+                        Value::Number(n) => n.to_string(),
+                        Value::Bool(b) => b.to_string(),
+                        _ => value.to_string(),
+                    };
+                    form = form.text(key.clone(), text_value);
+                }
+
+                request = request.multipart(form);
+            }
             _ => {
+                // Set content type header for other content types
+                request = request.header(header::CONTENT_TYPE, &config.content_type);
+
                 // For other content types, try to serialize as JSON
                 let body_object =
                     Value::Object(body.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
