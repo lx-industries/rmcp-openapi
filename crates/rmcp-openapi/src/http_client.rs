@@ -1672,4 +1672,211 @@ mod tests {
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Invalid data URI format"));
     }
+
+    // ==================== Multipart Form Building Tests ====================
+    //
+    // Note: The `add_request_body` function modifies a `reqwest::RequestBuilder`
+    // which is an opaque type. We cannot inspect the actual multipart form content
+    // without sending the request. These tests verify:
+    // 1. Error handling for invalid inputs (e.g., invalid data URIs)
+    // 2. Successful building for valid inputs (returns Ok)
+    //
+    // Full integration testing of multipart uploads would require a mock HTTP
+    // server, which is beyond the scope of unit tests.
+
+    #[test]
+    fn test_add_request_body_multipart_with_valid_file() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/upload");
+
+        let mut body = HashMap::new();
+        // Valid file with data URI
+        body.insert(
+            "file".to_string(),
+            json!({
+                "content": "data:image/png;base64,iVBORw0KGgo=",
+                "filename": "test.png"
+            }),
+        );
+        // Text field
+        body.insert("description".to_string(), json!("Test file upload"));
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::MULTIPART_FORM_DATA.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_ok(), "Should successfully build multipart form with valid file");
+    }
+
+    #[test]
+    fn test_add_request_body_multipart_with_invalid_data_uri() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/upload");
+
+        let mut body = HashMap::new();
+        // Invalid data URI (missing base64 marker)
+        body.insert(
+            "file".to_string(),
+            json!({
+                "content": "data:image/png,notbase64",
+                "filename": "test.png"
+            }),
+        );
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::MULTIPART_FORM_DATA.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_err(), "Should fail with invalid data URI");
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid data URI format"), "Error should mention invalid format");
+    }
+
+    #[test]
+    fn test_add_request_body_multipart_with_invalid_base64() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/upload");
+
+        let mut body = HashMap::new();
+        // Invalid base64 content
+        body.insert(
+            "file".to_string(),
+            json!({
+                "content": "data:image/png;base64,!!!invalid!!!",
+                "filename": "test.png"
+            }),
+        );
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::MULTIPART_FORM_DATA.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_err(), "Should fail with invalid base64");
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid base64 content"), "Error should mention invalid base64");
+    }
+
+    #[test]
+    fn test_add_request_body_multipart_text_only() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/upload");
+
+        let mut body = HashMap::new();
+        body.insert("field1".to_string(), json!("text value"));
+        body.insert("field2".to_string(), json!(123));
+        body.insert("field3".to_string(), json!(true));
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::MULTIPART_FORM_DATA.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_ok(), "Should successfully build multipart form with text-only fields");
+    }
+
+    #[test]
+    fn test_add_request_body_multipart_mixed_content() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/upload");
+
+        let mut body = HashMap::new();
+        // File field
+        body.insert(
+            "image".to_string(),
+            json!({
+                "content": "data:image/jpeg;base64,/9j/4AAQ",
+                "filename": "photo.jpg"
+            }),
+        );
+        // Text fields
+        body.insert("title".to_string(), json!("My Photo"));
+        body.insert("tags".to_string(), json!(["nature", "sunset"]));
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::MULTIPART_FORM_DATA.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_ok(), "Should handle mixed file and text content");
+    }
+
+    #[test]
+    fn test_add_request_body_multipart_without_filename() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/upload");
+
+        let mut body = HashMap::new();
+        // File without explicit filename (should default to "file")
+        body.insert(
+            "upload".to_string(),
+            json!({
+                "content": "data:application/pdf;base64,JVBERi0="
+            }),
+        );
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::MULTIPART_FORM_DATA.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_ok(), "Should handle file upload without explicit filename");
+    }
+
+    #[test]
+    fn test_add_request_body_json() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/api");
+
+        let mut body = HashMap::new();
+        body.insert("name".to_string(), json!("test"));
+        body.insert("value".to_string(), json!(42));
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::APPLICATION_JSON.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_ok(), "Should build JSON body");
+    }
+
+    #[test]
+    fn test_add_request_body_form_urlencoded() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/form");
+
+        let mut body = HashMap::new();
+        body.insert("username".to_string(), json!("user"));
+        body.insert("password".to_string(), json!("secret"));
+
+        let config = crate::tool_generator::RequestConfig {
+            timeout_seconds: 30,
+            content_type: mime::APPLICATION_WWW_FORM_URLENCODED.to_string(),
+        };
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_ok(), "Should build form-urlencoded body");
+    }
+
+    #[test]
+    fn test_add_request_body_empty() {
+        let client = HttpClient::new();
+        let request = client.client.post("http://example.com/api");
+
+        let body = HashMap::new();
+
+        let config = crate::tool_generator::RequestConfig::default();
+
+        let result = HttpClient::add_request_body(request, &body, &config);
+        assert!(result.is_ok(), "Should handle empty body");
+    }
 }
