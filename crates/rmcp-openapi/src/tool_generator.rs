@@ -128,6 +128,7 @@ const X_PARAMETER_REQUIRED: &str = "x-parameter-required";
 const X_CONTENT_TYPE: &str = "x-content-type";
 const X_ORIGINAL_NAME: &str = "x-original-name";
 const X_PARAMETER_EXPLODE: &str = "x-parameter-explode";
+const X_FILE_FIELDS: &str = "x-file-fields";
 
 /// Location type that extends ParameterIn with Body variant
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -169,6 +170,8 @@ pub enum Annotation {
     OriginalName(String),
     /// Parameter explode setting for arrays/objects
     Explode(bool),
+    /// File fields in a multipart/form-data request body
+    FileFields(Vec<String>),
 }
 
 /// Collection of annotations that can be applied to schema objects
@@ -215,6 +218,12 @@ impl Annotations {
         self.annotations.push(Annotation::Explode(explode));
         self
     }
+
+    /// Add file fields annotation for multipart/form-data requests
+    pub fn with_file_fields(mut self, file_fields: Vec<String>) -> Self {
+        self.annotations.push(Annotation::FileFields(file_fields));
+        self
+    }
 }
 
 impl Serialize for Annotations {
@@ -255,6 +264,9 @@ impl Serialize for Annotations {
                 }
                 Annotation::Explode(explode) => {
                     map.serialize_entry(X_PARAMETER_EXPLODE, explode)?;
+                }
+                Annotation::FileFields(file_fields) => {
+                    map.serialize_entry(X_FILE_FIELDS, file_fields)?;
                 }
             }
         }
