@@ -1,3 +1,4 @@
+use base64::prelude::*;
 use reqwest::header::{self, HeaderMap, HeaderValue};
 use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use serde_json::Value;
@@ -11,6 +12,100 @@ use crate::error::{
 };
 use crate::tool::ToolMetadata;
 use crate::tool_generator::{ExtractedParameters, QueryParameter, ToolGenerator};
+
+/// Content extracted from a data URI
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataUriContent {
+    /// The MIME type of the content (e.g., "image/png")
+    pub mime_type: String,
+    /// The decoded bytes of the content
+    pub bytes: Vec<u8>,
+}
+
+/// Parse a data URI and extract its content
+///
+/// Parses data URIs in the format `data:<mime>;base64,<content>`.
+/// Only base64 encoding is supported.
+///
+/// # Arguments
+///
+/// * `value` - The data URI string to parse
+/// * `field_name` - The name of the field (used in error messages)
+///
+/// # Returns
+///
+/// Returns `DataUriContent` with the extracted MIME type and decoded bytes.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The data URI format is invalid
+/// - The encoding is not base64
+/// - The base64 content cannot be decoded
+///
+/// # Example
+///
+/// ```
+/// use rmcp_openapi::http_client::parse_data_uri;
+///
+/// let uri = "data:image/png;base64,iVBORw0KGgo=";
+/// let content = parse_data_uri(uri, "image_field").unwrap();
+/// assert_eq!(content.mime_type, "image/png");
+/// ```
+pub fn parse_data_uri(value: &str, field_name: &str) -> Result<DataUriContent, Error> {
+    let format_error = || {
+        Error::Validation(format!(
+            "Invalid data URI format for field '{}': expected 'data:<mime>;base64,<content>'",
+            field_name
+        ))
+    };
+
+    // Check for data: prefix
+    let remainder = value.strip_prefix("data:").ok_or_else(format_error)?;
+
+    // Find ";base64," to split MIME type (possibly with parameters) from content
+    // This handles cases like "text/plain;charset=utf-8;base64,SGVsbG8="
+    let base64_marker = ";base64,";
+    let marker_pos = remainder.find(base64_marker).ok_or_else(|| {
+        // Check if there's a different encoding specified
+        if let Some(semicolon_pos) = remainder.find(';') {
+            if let Some(comma_pos) = remainder[semicolon_pos..].find(',') {
+                let encoding = &remainder[semicolon_pos + 1..semicolon_pos + comma_pos];
+                if !encoding.is_empty() && encoding != "base64" {
+                    return Error::Validation(format!(
+                        "Unsupported encoding '{}' for field '{}': only base64 is supported",
+                        encoding, field_name
+                    ));
+                }
+            }
+        }
+        format_error()
+    })?;
+
+    let mime_type = &remainder[..marker_pos];
+    let content = &remainder[marker_pos + base64_marker.len()..];
+
+    // Validate MIME type is not empty
+    if mime_type.is_empty() {
+        return Err(Error::Validation(format!(
+            "Invalid data URI format for field '{}': MIME type cannot be empty",
+            field_name
+        )));
+    }
+
+    // Decode base64 content
+    let bytes = BASE64_STANDARD.decode(content).map_err(|e| {
+        Error::Validation(format!(
+            "Invalid base64 content for field '{}': {}",
+            field_name, e
+        ))
+    })?;
+
+    Ok(DataUriContent {
+        mime_type: mime_type.to_string(),
+        bytes,
+    })
+}
 
 /// HTTP client for executing `OpenAPI` requests
 #[derive(Clone)]
@@ -1356,5 +1451,172 @@ mod tests {
 
         // Test with no content type
         assert!(!base_response.is_binary());
+    }
+
+    #[test]
+    fn test_parse_data_uri_valid_png() {
+        // "hello" encoded as base64
+        let uri = "data:image/png;base64,aGVsbG8=";
+        let result = super::parse_data_uri(uri, "test_field").unwrap();
+
+        assert_eq!(result.mime_type, "image/png");
+        assert_eq!(result.bytes, b"hello");
+    }
+
+    #[test]
+    fn test_parse_data_uri_valid_jpeg() {
+        // "world" encoded as base64
+        let uri = "data:image/jpeg;base64,d29ybGQ=";
+        let result = super::parse_data_uri(uri, "image").unwrap();
+
+        assert_eq!(result.mime_type, "image/jpeg");
+        assert_eq!(result.bytes, b"world");
+    }
+
+    #[test]
+    fn test_parse_data_uri_valid_application_json() {
+        // "{}" encoded as base64
+        let uri = "data:application/json;base64,e30=";
+        let result = super::parse_data_uri(uri, "data").unwrap();
+
+        assert_eq!(result.mime_type, "application/json");
+        assert_eq!(result.bytes, b"{}");
+    }
+
+    #[test]
+    fn test_parse_data_uri_missing_data_prefix() {
+        let uri = "image/png;base64,aGVsbG8=";
+        let result = super::parse_data_uri(uri, "test_field");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid data URI format"));
+        assert!(err.contains("test_field"));
+        assert!(err.contains("expected 'data:<mime>;base64,<content>'"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_missing_semicolon() {
+        let uri = "data:image/png,aGVsbG8=";
+        let result = super::parse_data_uri(uri, "my_image");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid data URI format"));
+        assert!(err.contains("my_image"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_missing_comma() {
+        let uri = "data:image/png;base64aGVsbG8=";
+        let result = super::parse_data_uri(uri, "field");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid data URI format"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_unsupported_encoding() {
+        let uri = "data:image/png;ascii,hello";
+        let result = super::parse_data_uri(uri, "test_field");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Unsupported encoding 'ascii'"));
+        assert!(err.contains("test_field"));
+        assert!(err.contains("only base64 is supported"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_unsupported_encoding_utf8() {
+        let uri = "data:text/plain;utf-8,hello world";
+        let result = super::parse_data_uri(uri, "content");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Unsupported encoding 'utf-8'"));
+        assert!(err.contains("content"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_invalid_base64() {
+        // Invalid base64: contains characters that aren't valid base64
+        let uri = "data:image/png;base64,not-valid-base64!!!";
+        let result = super::parse_data_uri(uri, "bad_image");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid base64 content"));
+        assert!(err.contains("bad_image"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_empty_content() {
+        // Empty base64 content is valid and decodes to empty bytes
+        let uri = "data:application/octet-stream;base64,";
+        let result = super::parse_data_uri(uri, "empty").unwrap();
+
+        assert_eq!(result.mime_type, "application/octet-stream");
+        assert!(result.bytes.is_empty());
+    }
+
+    #[test]
+    fn test_parse_data_uri_complex_mime_type() {
+        // MIME type with subtype
+        let uri = "data:application/vnd.api+json;base64,e30=";
+        let result = super::parse_data_uri(uri, "api_data").unwrap();
+
+        assert_eq!(result.mime_type, "application/vnd.api+json");
+        assert_eq!(result.bytes, b"{}");
+    }
+
+    #[test]
+    fn test_parse_data_uri_mime_type_with_parameters() {
+        // MIME type with charset parameter
+        let uri = "data:text/plain;charset=utf-8;base64,SGVsbG8gV29ybGQ=";
+        let result = super::parse_data_uri(uri, "text_field").unwrap();
+
+        assert_eq!(result.mime_type, "text/plain;charset=utf-8");
+        assert_eq!(result.bytes, b"Hello World");
+    }
+
+    #[test]
+    fn test_parse_data_uri_mime_type_with_multiple_parameters() {
+        // MIME type with multiple parameters
+        let uri = "data:text/html;charset=utf-8;boundary=something;base64,PGh0bWw+";
+        let result = super::parse_data_uri(uri, "html_field").unwrap();
+
+        assert_eq!(result.mime_type, "text/html;charset=utf-8;boundary=something");
+        assert_eq!(result.bytes, b"<html>");
+    }
+
+    #[test]
+    fn test_parse_data_uri_empty_mime_type() {
+        // Empty MIME type should be rejected
+        let uri = "data:;base64,SGVsbG8=";
+        let result = super::parse_data_uri(uri, "field");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("MIME type cannot be empty"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_empty_string() {
+        let result = super::parse_data_uri("", "field");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid data URI format"));
+    }
+
+    #[test]
+    fn test_parse_data_uri_just_data_prefix() {
+        let result = super::parse_data_uri("data:", "field");
+
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid data URI format"));
     }
 }
