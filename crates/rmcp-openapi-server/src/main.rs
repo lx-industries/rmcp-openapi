@@ -31,6 +31,7 @@ async fn run() -> Result<(), Error> {
     // Extract values needed after server creation
     let bind_address = config.bind_address.clone();
     let port = config.port;
+    let stateful = config.stateful;
 
     let span = info_span!(
         "server_initialization",
@@ -94,7 +95,7 @@ async fn run() -> Result<(), Error> {
     let service = StreamableHttpService::builder()
         .service_factory(Arc::new(move || Ok(server.clone())))
         .session_manager(LocalSessionManager::default().into())
-        .stateful_mode(false)
+        .stateful_mode(stateful)
         .build();
 
     let http_server = HttpServer::new(move || {

@@ -21,6 +21,8 @@ pub struct Configuration {
     pub skip_tool_descriptions: bool,
     #[builder(default)]
     pub skip_parameter_descriptions: bool,
+    #[builder(default)]
+    pub stateful: bool,
 }
 
 impl Configuration {
@@ -101,6 +103,7 @@ impl Configuration {
             authorization_mode: cli.authorization_mode,
             skip_tool_descriptions: cli.skip_tool_descriptions,
             skip_parameter_descriptions: cli.skip_parameter_descriptions,
+            stateful: cli.stateful,
         })
     }
 }
@@ -165,6 +168,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -218,6 +222,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -254,6 +259,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -279,6 +285,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -304,6 +311,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -333,6 +341,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -354,6 +363,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -379,6 +389,7 @@ mod tests {
             authorization_mode: AuthorizationMode::default(),
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
+            stateful: false,
         };
 
         let result = Configuration::from_cli(cli);

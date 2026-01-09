@@ -88,6 +88,14 @@ pub struct Cli {
         help = "Exclude the parameter descriptions from the generated MCP schema"
     )]
     pub skip_parameter_descriptions: bool,
+
+    #[arg(
+        long,
+        env = "RMCP_STATEFUL",
+        default_value_t = false,
+        help = "Enable stateful session mode for MCP transport (required for Claude Code)"
+    )]
+    pub stateful: bool,
 }
 
 impl Cli {
