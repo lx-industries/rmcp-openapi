@@ -1,3 +1,12 @@
+## [0.23.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.23.0...v0.23.1) (2026-01-12)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate bon to v3.8.2 ([5175ca3](https://gitlab.com/lx-industries/rmcp-openapi/commit/5175ca321c95e85f995ca2192f48c24e4f3c2771))
+* **deps:** update rust crate insta to v1.46.0 ([bf66d8c](https://gitlab.com/lx-industries/rmcp-openapi/commit/bf66d8c1a0800950c0da83bc5ddaa1e408c2a3a4))
+* **deps:** update rust crate serde_json to v1.0.149 ([b562b60](https://gitlab.com/lx-industries/rmcp-openapi/commit/b562b60c04ae5bbe927b9b39e3ea2cad01baf44d))
+
 ## [0.23.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.22.1...v0.23.0) (2026-01-09)
 
 
