@@ -1,3 +1,11 @@
+## [0.23.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.23.1...v0.23.2) (2026-01-13)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate reqwest to 0.13 ([fab33fa](https://gitlab.com/lx-industries/rmcp-openapi/commit/fab33faac19b52cd22b9f892d3a73c0de363e689))
+* **deps:** update rust crate rmcp-actix-web to v0.9.4 ([2da6dc5](https://gitlab.com/lx-industries/rmcp-openapi/commit/2da6dc5581181323c7594d8a23426ba1c92a9f34))
+
 ## [0.23.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.23.0...v0.23.1) (2026-01-12)
 
 
