@@ -1,3 +1,21 @@
+## [0.24.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.23.3...v0.24.0) (2026-01-20)
+
+
+### Features
+
+* **filter:** add dynamic tool filtering based on request context ([a7f9842](https://gitlab.com/lx-industries/rmcp-openapi/commit/a7f9842aa73f97dd26d4d554b0fce87e637c002e)), closes [#88](https://gitlab.com/lx-industries/rmcp-openapi/issues/88)
+
+
+### Bug Fixes
+
+* **tests:** add missing sse_retry field for rmcp 0.13.0 compatibility ([31d517c](https://gitlab.com/lx-industries/rmcp-openapi/commit/31d517c952b97954053be4e0e5c068e74df6e610))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rmcp crates ([a916cc4](https://gitlab.com/lx-industries/rmcp-openapi/commit/a916cc4ff539bc65e5c50db84b43fa5033945b0c))
+* **deps:** update rust crate thiserror to v2.0.18 ([e7dd2c1](https://gitlab.com/lx-industries/rmcp-openapi/commit/e7dd2c189936fccb798f72eb32709b1b8011e88f))
+
 ## [0.23.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.23.2...v0.23.3) (2026-01-19)
 
 
