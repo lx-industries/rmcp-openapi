@@ -2229,6 +2229,7 @@ version = "0.23.3"
 dependencies = [
  "actix-web",
  "anyhow",
+ "async-trait",
  "axum",
  "base64",
  "bon",

@@ -29,6 +29,7 @@ mime = "0.3.17"
 url.workspace = true
 tracing.workspace = true
 strsim = "0.11.1"
+async-trait = "0.1"
 http.workspace = true
 bon = "3.7"
 jsonschema = "0.40.0"

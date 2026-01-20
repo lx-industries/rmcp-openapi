@@ -16,6 +16,7 @@ use reqwest::header::HeaderMap;
 use url::Url;
 
 use crate::error::Error;
+use crate::filter::ToolFilter;
 use crate::tool::{Tool, ToolCollection, ToolMetadata};
 use crate::transformer::ResponseTransformer;
 use crate::{
@@ -49,6 +50,9 @@ pub struct Server {
     /// - Vtable lookup overhead (~1ns) is unmeasurable
     /// - Avoids viral generics throughout Server, Tool, ToolCollection
     pub response_transformer: Option<Arc<dyn ResponseTransformer>>,
+    /// Dynamic tool filter applied to list_tools and call_tool.
+    /// Uses dynamic dispatch (`Arc<dyn>`) for same reasons as response_transformer.
+    pub tool_filter: Option<Arc<dyn ToolFilter>>,
 }
 
 impl Server {
@@ -75,6 +79,7 @@ impl Server {
             skip_tool_descriptions,
             skip_parameter_descriptions,
             response_transformer: None,
+            tool_filter: None,
         }
     }
 
@@ -140,6 +145,11 @@ impl Server {
     ) -> Result<(), Error> {
         self.tool_collection
             .set_tool_transformer(tool_name, transformer)
+    }
+
+    /// Set the tool filter at runtime.
+    pub fn set_tool_filter(&mut self, filter: Arc<dyn ToolFilter>) {
+        self.tool_filter = Some(filter);
     }
 
     /// Get the number of loaded tools
@@ -302,7 +312,7 @@ impl ServerHandler for Server {
     async fn list_tools(
         &self,
         _request: Option<PaginatedRequestParam>,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
         let span = info_span!("list_tools", tool_count = self.tool_collection.len());
         let _enter = span.enter();
@@ -310,7 +320,20 @@ impl ServerHandler for Server {
         debug!("Processing MCP list_tools request");
 
         // Delegate to tool collection for MCP tool conversion
-        let tools = self.tool_collection.to_mcp_tools();
+        let mut tools = self.tool_collection.to_mcp_tools();
+
+        // Apply dynamic filter if configured
+        if let Some(filter) = &self.tool_filter {
+            let mut filtered = Vec::with_capacity(tools.len());
+            for mcp_tool in tools {
+                if let Some(tool) = self.tool_collection.get_tool(&mcp_tool.name)
+                    && filter.allow(tool, &context).await
+                {
+                    filtered.push(mcp_tool);
+                }
+            }
+            tools = filtered;
+        }
 
         info!(
             returned_tools = tools.len(),
@@ -329,6 +352,8 @@ impl ServerHandler for Server {
         request: CallToolRequestParam,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
+        use crate::error::{ToolCallError, ToolCallValidationError};
+
         let span = info_span!(
             "call_tool",
             tool_name = %request.name
@@ -340,6 +365,50 @@ impl ServerHandler for Server {
             has_arguments = !request.arguments.as_ref().unwrap_or(&serde_json::Map::new()).is_empty(),
             "Processing MCP call_tool request"
         );
+
+        // Filter all tools once upfront (for both access check and suggestions)
+        let allowed_tools: Vec<&Tool> = match &self.tool_filter {
+            None => self.tool_collection.iter().collect(),
+            Some(filter) => {
+                let mut allowed = Vec::new();
+                for tool in self.tool_collection.iter() {
+                    if filter.allow(tool, &context).await {
+                        allowed.push(tool);
+                    }
+                }
+                allowed
+            }
+        };
+
+        // Check if requested tool is in filtered list
+        let tool = allowed_tools
+            .iter()
+            .find(|t| t.metadata.name == request.name);
+
+        let tool = match tool {
+            Some(t) => *t,
+            None => {
+                let available_names: Vec<&str> = allowed_tools
+                    .iter()
+                    .map(|t| t.metadata.name.as_str())
+                    .collect();
+
+                // Uses Jaro distance for suggestions internally
+                let error = ToolCallError::Validation(ToolCallValidationError::tool_not_found(
+                    request.name.to_string(),
+                    &available_names,
+                ));
+
+                warn!(
+                    tool_name = %request.name,
+                    success = false,
+                    error = %error,
+                    "MCP call_tool request failed - tool not found or filtered"
+                );
+
+                return Err(error.into());
+            }
+        };
 
         let arguments = request.arguments.unwrap_or_default();
         let arguments_value = Value::Object(arguments);
@@ -360,15 +429,9 @@ impl ServerHandler for Server {
             .as_ref()
             .map(|t| t.as_ref() as &dyn ResponseTransformer);
 
-        // Delegate all tool validation and execution to the tool collection
-        match self
-            .tool_collection
-            .call_tool(
-                &request.name,
-                &arguments_value,
-                authorization,
-                server_transformer,
-            )
+        // Execute the tool directly (we already have the validated tool reference)
+        match tool
+            .call(&arguments_value, authorization, server_transformer)
             .await
         {
             Ok(result) => {
