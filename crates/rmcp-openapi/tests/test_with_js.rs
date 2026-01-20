@@ -96,6 +96,7 @@ async fn run_js_streamable_http_client_test(
             stateful_mode: true,
             sse_keep_alive: None,
             cancellation_token: ct.clone(),
+            ..Default::default()
         },
     );
 
