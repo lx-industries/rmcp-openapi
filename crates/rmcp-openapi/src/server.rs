@@ -2,8 +2,8 @@ use bon::Builder;
 use rmcp::{
     handler::server::ServerHandler,
     model::{
-        CallToolRequestParam, CallToolResult, ErrorData, Implementation, InitializeResult,
-        ListToolsResult, PaginatedRequestParam, ProtocolVersion, ServerCapabilities,
+        CallToolRequestParams, CallToolResult, ErrorData, Implementation, InitializeResult,
+        ListToolsResult, PaginatedRequestParams, ProtocolVersion, ServerCapabilities,
         ToolsCapability,
     },
     service::{RequestContext, RoleServer},
@@ -311,7 +311,7 @@ impl ServerHandler for Server {
 
     async fn list_tools(
         &self,
-        _request: Option<PaginatedRequestParam>,
+        _request: Option<PaginatedRequestParams>,
         context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
         let span = info_span!("list_tools", tool_count = self.tool_collection.len());
@@ -349,7 +349,7 @@ impl ServerHandler for Server {
 
     async fn call_tool(
         &self,
-        request: CallToolRequestParam,
+        request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
         use crate::error::{ToolCallError, ToolCallValidationError};
