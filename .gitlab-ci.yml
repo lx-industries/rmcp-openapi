@@ -1,5 +1,7 @@
-# Include Rust-specific CI configuration
+# Include CI configuration files
 include:
+  - local: '.gitlab/ci/common.gitlab-ci.yml'
+  - local: '.gitlab/ci/images.gitlab-ci.yml'
   - local: '.gitlab/ci/rust.gitlab-ci.yml'
 
 # Global variables for package versions
@@ -13,6 +15,20 @@ variables:
   SEMANTIC_RELEASE_EXEC_VERSION: "6.0.3"
   SEMANTIC_RELEASE_CARGO_VERSION: "2.4.44"
   CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION: "7.0.2"
+  IMAGE_BUILD_FORCE:
+    description: "Build images even when there are no changes."
+    options:
+      - "false"
+      - "all"
+      - "rust-x86_64-unknown-linux-gnu"
+    value: "false"
+  IMAGE_PUSH_FORCE:
+    description: "Push images even when there are no changes."
+    options:
+      - "false"
+      - "all"
+      - "rust-x86_64-unknown-linux-gnu"
+    value: "false"
 
 # Workflow rules for automatic pipeline cancellation
 workflow:
@@ -27,6 +43,10 @@ workflow:
     # two pipelines. We keep only the tag pipeline by skipping release commits.
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE =~ /^chore\(release\):/
       when: never
+    # Disable auto-cancel for release pipelines
+    - if: '$RELEASE_ENABLED == "true"'
+      auto_cancel:
+        on_new_commit: none
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 # Semantic release job template - common setup for semantic-release jobs

@@ -1,0 +1,23 @@
+# Shared CI templates for rmcp-openapi
+
+# sccache configuration for build caching
+.sccache-rust:
+  variables:
+    RUSTC_WRAPPER: "sccache"
+    SCCACHE_LOG: "warn"
+  before_script:
+    - sccache --version || true
+
+# Docker-in-Docker variables (reusable anchor)
+.docker-in-docker-variables: &docker-in-docker-variables
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# Docker-in-Docker template
+.docker-in-docker:
+  image: docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+  services:
+    - docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+  variables:
+    <<: *docker-in-docker-variables
+  before_script:
+    - docker info

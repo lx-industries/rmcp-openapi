@@ -1,0 +1,58 @@
+# Docker image build and push jobs for rmcp-openapi
+
+# Build rust-x86_64-unknown-linux-gnu image
+image:rust-x86_64-unknown-linux-gnu:
+  extends: .docker-in-docker
+  needs: []
+  variables:
+    DOCKERFILE_DIR: "images/rust/x86_64-unknown-linux-gnu"
+    OCI_IMAGE_NAME: "images/rust"
+    OCI_IMAGE_VARIANT: "x86_64-unknown-linux-gnu"
+    GIT_FETCH_EXTRA_FLAGS: "+refs/heads/$CI_DEFAULT_BRANCH:refs/remotes/origin/$CI_DEFAULT_BRANCH"
+  artifacts:
+    expire_in: "1 hr"
+    paths:
+      - "./image.tar"
+  rules:
+    - if: '$IMAGE_BUILD_FORCE == "all" || $IMAGE_BUILD_FORCE == "rust-x86_64-unknown-linux-gnu"'
+    - if: '$IMAGE_PUSH_FORCE == "all" || $IMAGE_PUSH_FORCE == "rust-x86_64-unknown-linux-gnu"'
+    - changes:
+        compare_to: "refs/heads/$CI_DEFAULT_BRANCH"
+        paths:
+          - "images/rust/x86_64-unknown-linux-gnu/Dockerfile"
+          - ".gitlab/ci/images.gitlab-ci.yml"
+      if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - changes:
+        paths:
+          - "images/rust/x86_64-unknown-linux-gnu/Dockerfile"
+          - ".gitlab/ci/images.gitlab-ci.yml"
+      if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+  script: |
+    IMAGE_TAG=$(grep "^FROM rust:" ${DOCKERFILE_DIR}/Dockerfile | sed -r "s/[^:]*:([0-9]+\.[0-9]+\.[0-9]+).*/\1/")
+    OCI_PATH="$CI_REGISTRY_IMAGE/${OCI_IMAGE_NAME}:${IMAGE_TAG}-${OCI_IMAGE_VARIANT}"
+    docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    docker build -t $OCI_PATH $DOCKERFILE_DIR
+    docker save $OCI_PATH -o image.tar
+
+# Push rust-x86_64-unknown-linux-gnu image
+push:rust-x86_64-unknown-linux-gnu:
+  extends: .docker-in-docker
+  needs:
+    - image:rust-x86_64-unknown-linux-gnu
+  variables:
+    DOCKERFILE_DIR: "images/rust/x86_64-unknown-linux-gnu"
+    OCI_IMAGE_NAME: "images/rust"
+    OCI_IMAGE_VARIANT: "x86_64-unknown-linux-gnu"
+  rules:
+    - if: '$IMAGE_PUSH_FORCE == "all" || $IMAGE_PUSH_FORCE == "rust-x86_64-unknown-linux-gnu"'
+    - changes:
+        paths:
+          - "images/rust/x86_64-unknown-linux-gnu/Dockerfile"
+          - ".gitlab/ci/images.gitlab-ci.yml"
+      if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+  script: |
+    IMAGE_TAG=$(grep "^FROM rust:" ${DOCKERFILE_DIR}/Dockerfile | sed -r "s/[^:]*:([0-9]+\.[0-9]+\.[0-9]+).*/\1/")
+    OCI_PATH="$CI_REGISTRY_IMAGE/${OCI_IMAGE_NAME}:${IMAGE_TAG}-${OCI_IMAGE_VARIANT}"
+    docker load -i image.tar
+    docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    docker push $OCI_PATH

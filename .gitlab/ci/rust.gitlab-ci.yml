@@ -31,7 +31,7 @@
 
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
-  image: rust:1.93.0@sha256:4c7eb947d7e078f5c076e086c7b75c36ea0ec7c685f2244b3d79306deb7e44b7
+  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.0-x86_64-unknown-linux-gnu
   variables:
     # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
     # Windows (`\`) vs Linux (`/`) path separators.
@@ -48,20 +48,32 @@
 
 # Build job - compile the project
 build:
-  extends: .rust-template
+  extends:
+    - .rust-template
+    - .sccache-rust
   stage: build
+  before_script:
+    - !reference [.sccache-rust, before_script]
+    - !reference [.rust-template, before_script]
   script:
     - cargo build --workspace --all-features --verbose
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
 
 # Test job - run unit tests only (excluding integration tests)
 test:
-  extends: .rust-template
+  extends:
+    - .rust-template
+    - .sccache-rust
   stage: test
+  before_script:
+    - !reference [.sccache-rust, before_script]
+    - !reference [.rust-template, before_script]
   script:
     - cargo test --workspace --verbose --lib --bins
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -71,14 +83,18 @@ test:
 
 # Clippy job - run linting
 clippy:
-  extends: .rust-template
+  extends:
+    - .rust-template
+    - .sccache-rust
   stage: lint
   before_script:
+    - !reference [.sccache-rust, before_script]
     - !reference [.rust-template, before_script]
     - rustup component add clippy
     - cargo clippy --version
   script:
     - cargo clippy --workspace --all-targets --all-features -- -D warnings
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -99,16 +115,32 @@ fmt:
   cache:
     - <<: *cargo-registry-cache
 
+# Typos job - check for spelling errors
+typos:
+  extends: .rust-template
+  stage: lint
+  needs: []
+  before_script:
+    - typos --version
+  script:
+    - typos
+
 # Documentation job - build and check rustdoc
 rustdoc:
-  extends: .rust-template
+  extends:
+    - .rust-template
+    - .sccache-rust
   stage: docs
+  before_script:
+    - !reference [.sccache-rust, before_script]
+    - !reference [.rust-template, before_script]
   script:
     # Build documentation with all features and check for warnings
     - cargo doc --workspace --all-features --no-deps 2>&1 | tee doc-output.txt
     - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
-    # Also build with private items to ensure internal documentation is complete  
+    # Also build with private items to ensure internal documentation is complete
     - cargo rustdoc --package rmcp-openapi --lib -- --document-private-items
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -124,11 +156,17 @@ rustdoc:
 
 # Documentation examples job - ensure all documentation examples compile
 doc-test:
-  extends: .rust-template
+  extends:
+    - .rust-template
+    - .sccache-rust
   stage: docs
+  before_script:
+    - !reference [.sccache-rust, before_script]
+    - !reference [.rust-template, before_script]
   script:
     # Run documentation tests to ensure examples compile
     - cargo test --workspace --doc --all-features
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -138,10 +176,16 @@ doc-test:
 
 # Examples job - build all examples
 examples:
-  extends: .rust-template
+  extends:
+    - .rust-template
+    - .sccache-rust
   stage: examples
+  before_script:
+    - !reference [.sccache-rust, before_script]
+    - !reference [.rust-template, before_script]
   script:
     - cargo build --workspace --examples --verbose
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
@@ -151,9 +195,12 @@ examples:
 
 # Integration test with JavaScript/Node.js
 integration-js:
-  extends: .rust-template
+  extends:
+    - .rust-template
+    - .sccache-rust
   stage: integration
   before_script:
+    - !reference [.sccache-rust, before_script]
     - !reference [.rust-template, before_script]
     - apt-get update -qq && apt-get install -y -qq curl
     - curl -fsSL https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
@@ -161,6 +208,7 @@ integration-js:
     - npm --version
   script:
     - cargo test --package rmcp-openapi --test test_with_js --verbose
+    - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
     - <<: *cargo-build-cache
