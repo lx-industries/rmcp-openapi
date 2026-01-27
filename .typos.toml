@@ -1,0 +1,13 @@
+[default]
+extend-ignore-re = [
+    # Ignore Markdown links to commits.
+    "\\(\\[[0-9a-f]{7}\\]\\((https|http)://",
+    # Ignore short commit hashes.
+    "\\s+[0-9a-f]{7}\\s+",
+]
+
+[default.extend-words]
+# Expected typos used for testing purposes
+projct = "projct"
+caf = "caf"
+truncat = "truncat"
