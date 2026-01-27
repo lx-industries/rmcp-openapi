@@ -22,13 +22,6 @@
     - ".cargo/git/db/"
   policy: pull
 
-.cargo-build-cache: &cargo-build-cache
-  key: $CI_COMMIT_REF_SLUG-$CI_JOB_NAME_SLUG
-  paths:
-    # https://doc.rust-lang.org/cargo/guide/build-cache.html
-    - "target"
-  policy: pull-push
-
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
   image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.0-x86_64-unknown-linux-gnu@sha256:b0a6871f507770a085fa1bbcb1ed102d8639b77901f4e68816ffae3fe0945e71
@@ -60,7 +53,6 @@ build:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
-    - <<: *cargo-build-cache
 
 # Test job - run unit tests only (excluding integration tests)
 test:
@@ -76,7 +68,6 @@ test:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
-    - <<: *cargo-build-cache
       policy: pull
   dependencies:
     - build
@@ -97,7 +88,6 @@ clippy:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
-    - <<: *cargo-build-cache
       policy: pull
   dependencies:
     - build
@@ -143,7 +133,6 @@ rustdoc:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
-    - <<: *cargo-build-cache
       policy: pull
   dependencies:
     - build
@@ -169,7 +158,6 @@ doc-test:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
-    - <<: *cargo-build-cache
       policy: pull
   dependencies:
     - build
@@ -188,7 +176,6 @@ examples:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
-    - <<: *cargo-build-cache
       policy: pull
   dependencies:
     - build
@@ -211,7 +198,6 @@ integration-js:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
-    - <<: *cargo-build-cache
       policy: pull
   dependencies:
     - build
