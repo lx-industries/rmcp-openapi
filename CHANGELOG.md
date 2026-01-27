@@ -1,3 +1,17 @@
+## [0.24.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.2...v0.24.3) (2026-01-27)
+
+
+### Bug Fixes
+
+* **ci:** [secure] positive typos ([e1f846a](https://gitlab.com/lx-industries/rmcp-openapi/commit/e1f846a51bc465c033e22b144b631ac23c13236d))
+
+
+### Miscellaneous Chores
+
+* **deps:** pin the digest of the rust:1.93.0-x86_64-unknown-linux-gnu image ([8fc2160](https://gitlab.com/lx-industries/rmcp-openapi/commit/8fc216047cc3f5d3f4c5638be04ed2f8d6869e0d))
+* **deps:** update rust crate rmcp to 0.14.0 ([7fed7b4](https://gitlab.com/lx-industries/rmcp-openapi/commit/7fed7b4babc86be8e8893d9cf24a43291e94ab73))
+* **deps:** update rust crate rmcp-actix-web to version 0.11.0 ([04f0d45](https://gitlab.com/lx-industries/rmcp-openapi/commit/04f0d455d1e746134638eb340608fdb47f3222e0))
+
 ## [0.24.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.1...v0.24.2) (2026-01-26)
 
 
