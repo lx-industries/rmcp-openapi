@@ -6,7 +6,7 @@
   - "tests/**/*"
   - "examples/**/*"
   - ".cargo/**/*"
-  - ".gitlab/ci/rust.gitlab-ci.yml"  # Watch the Rust CI config file
+  - ".gitlab/ci/rust.gitlab-ci.yml" # Watch the Rust CI config file
 
 # Cache configuration patterns for optimal build performance
 .cargo-registry-cache: &cargo-registry-cache
@@ -31,7 +31,7 @@
 
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
-  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.0-x86_64-unknown-linux-gnu
+  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.0-x86_64-unknown-linux-gnu@sha256:b0a6871f507770a085fa1bbcb1ed102d8639b77901f4e68816ffae3fe0945e71
   variables:
     # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
     # Windows (`\`) vs Linux (`/`) path separators.
@@ -216,4 +216,3 @@ integration-js:
   dependencies:
     - build
   interruptible: true
-
