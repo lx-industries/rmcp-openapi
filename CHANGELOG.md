@@ -1,3 +1,12 @@
+## [0.24.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.3...v0.24.4) (2026-02-02)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate clap to v4.5.55 ([0d4a660](https://gitlab.com/lx-industries/rmcp-openapi/commit/0d4a660e10e8ee8306f39188037399e2cd66f210))
+* **deps:** update rust crate clap to v4.5.56 ([cf15d52](https://gitlab.com/lx-industries/rmcp-openapi/commit/cf15d521b210cd35334e8230bb96eaedfa34278a))
+* **deps:** update rust crate insta to v1.46.2 ([a54651b](https://gitlab.com/lx-industries/rmcp-openapi/commit/a54651bdf4646e0b0c7741f13fbbd501afbece01))
+
 ## [0.24.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.2...v0.24.3) (2026-01-27)
 
 
