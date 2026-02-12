@@ -850,7 +850,7 @@ expression: responses
     },
     "success": false,
     "error": {
-      "message": "MCP error -32602: Validation failed - parameter 'request_body': \"invalid_status_value\" is not one of \"available\", \"pending\" or \"sold\"",
+      "message": "MCP error -32602: Validation failed - parameter 'request_body': \"name\" is a required property",
       "code": -32602
     }
   },

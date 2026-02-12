@@ -8,8 +8,8 @@ expression: error_json
     {
       "type": "constraint-violation",
       "parameter": "request_body",
-      "message": "\"invalid\" is not one of \"available\", \"pending\" or \"sold\"",
-      "field_path": "request_body/status",
+      "message": "\"name\" is a required property",
+      "field_path": "request_body",
       "actual_value": {
         "status": "invalid"
       },
