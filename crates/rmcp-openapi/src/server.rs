@@ -296,6 +296,7 @@ impl ServerHandler for Server {
                 name: server_name,
                 version: server_version,
                 title: server_title,
+                description: self.extract_openapi_description(),
                 icons: None,
                 website_url: None,
             },

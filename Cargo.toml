@@ -13,7 +13,7 @@ categories = ["network-programming", "web-programming"]
 [workspace.dependencies]
 # Shared dependencies
 actix-web = "4.9.0"
-rmcp = { version = "0.14.0", default-features = false, features = ["server", "base64", "macros", "transport-streamable-http-server", "transport-streamable-http-server-session", "transport-worker"] }
+rmcp = { version = "0.15.0", default-features = false, features = ["server", "base64", "macros", "transport-streamable-http-server", "transport-streamable-http-server-session", "transport-worker"] }
 rmcp-actix-web = { version = "0.11.0", default-features = false, features = ["transport-streamable-http"] }
 reqwest = { version = "0.13", default-features = false, features = ["http2", "json", "charset", "system-proxy", "rustls", "multipart", "form"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }

@@ -178,6 +178,7 @@ impl From<&ToolMetadata> for Tool {
             input_schema,
             output_schema,
             annotations: metadata.generate_annotations(),
+            execution: None,
             title: metadata.title.clone(),
             icons: None,
             meta: None,
