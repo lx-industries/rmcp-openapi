@@ -1,3 +1,10 @@
+## [0.24.7](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.6...v0.24.7) (2026-02-16)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate jsonschema to 0.42.0 ([2a6fae0](https://gitlab.com/lx-industries/rmcp-openapi/commit/2a6fae0c313b886315afe9688a946654f197e8c3))
+
 ## [0.24.6](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.5...v0.24.6) (2026-02-14)
 
 
