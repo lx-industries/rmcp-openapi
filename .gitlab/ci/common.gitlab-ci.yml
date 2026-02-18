@@ -15,6 +15,8 @@
 # Docker-in-Docker template
 .docker-in-docker:
   image: docker:29.2.1-dind@sha256:8bcbad4b45f0bff9d3e809d85a7ac589390f0be8acbc526850c998c35c1243fd
+  tags:
+    - docker-in-docker
   services:
     - docker:29.2.1-dind@sha256:8bcbad4b45f0bff9d3e809d85a7ac589390f0be8acbc526850c998c35c1243fd
   variables:
