@@ -1,3 +1,21 @@
+## [0.24.8](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.7...v0.24.8) (2026-02-23)
+
+
+### Bug Fixes
+
+* **ci:** missing docker-in-docker tag ([b31e837](https://gitlab.com/lx-industries/rmcp-openapi/commit/b31e837e9ed592a507f40985b66a35b084c2a4a6))
+
+
+### Miscellaneous Chores
+
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.1-x86_64-unknown-linux-gnu docker digest to 23b97da ([dcf3327](https://gitlab.com/lx-industries/rmcp-openapi/commit/dcf33270a08796ac7f324a85de75502630b5fd9b))
+* **deps:** update rust crate actix-web to v4.13.0 ([c3f9712](https://gitlab.com/lx-industries/rmcp-openapi/commit/c3f971239f3f9fcd9974464191f7993c583b137e))
+* **deps:** update rust crate anyhow to v1.0.102 ([f851e8c](https://gitlab.com/lx-industries/rmcp-openapi/commit/f851e8cefad1d31f933f9d193b1b4931f3fbf171))
+* **deps:** update rust crate clap to v4.5.59 ([8b307ee](https://gitlab.com/lx-industries/rmcp-openapi/commit/8b307ee7e142e5300d9d2c197630198ca20c1c9a))
+* **deps:** update rust crate clap to v4.5.60 ([60f913a](https://gitlab.com/lx-industries/rmcp-openapi/commit/60f913a85dbd19a360017cb52107a95f90fa2455))
+* **deps:** update rust crate jsonschema to v0.42.1 ([3b2197c](https://gitlab.com/lx-industries/rmcp-openapi/commit/3b2197c043c3a2e9f47b91694d3d80dbd37a29f1))
+* **deps:** update rust:1.93.1 docker digest to 8030252 ([69aca2f](https://gitlab.com/lx-industries/rmcp-openapi/commit/69aca2f6e7d2dc97c1f998c227ffa05c3f5140b8))
+
 ## [0.24.7](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.6...v0.24.7) (2026-02-16)
 
 
