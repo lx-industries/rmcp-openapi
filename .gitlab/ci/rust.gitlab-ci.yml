@@ -24,7 +24,7 @@
 
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
-  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.1-x86_64-unknown-linux-gnu@sha256:23b97daa4a1a8b52f0c88b12f2179b7ab403a33b00af8a122a1a6d920c5068f3
+  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.1-x86_64-unknown-linux-gnu@sha256:23f9888f31337b15cd5806ed4bcfa66829b091ae17de9a3f982e1f53146316a6
   variables:
     # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
     # Windows (`\`) vs Linux (`/`) path separators.
