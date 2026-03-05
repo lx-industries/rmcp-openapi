@@ -1,0 +1,34 @@
+# Dev container validation jobs
+
+# Common rules for devcontainer jobs
+.devcontainer-changes: &devcontainer-changes
+  - ".devcontainer/**/*"
+  - ".gitlab/ci/devcontainer.gitlab-ci.yml"
+
+# Schema validation — validate devcontainer.json against the official spec
+devcontainer:validate:
+  image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim@sha256:531f855bda2c73cd6ef67d56b733b357cea384185b3022bd09f05e002cd144ca
+  stage: lint
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *devcontainer-changes
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *devcontainer-changes
+  script:
+    - uvx check-jsonschema --schemafile "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json" .devcontainer/devcontainer.json
+  interruptible: true
+
+# Build verification — ensure the Dockerfile builds successfully
+devcontainer:build:
+  extends: .docker-in-docker
+  stage: build
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *devcontainer-changes
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *devcontainer-changes
+  script:
+    - docker build .devcontainer/
+  interruptible: true

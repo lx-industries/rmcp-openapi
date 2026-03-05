@@ -1,6 +1,7 @@
 # Include CI configuration files
 include:
   - local: '.gitlab/ci/common.gitlab-ci.yml'
+  - local: '.gitlab/ci/devcontainer.gitlab-ci.yml'
   - local: '.gitlab/ci/images.gitlab-ci.yml'
   - local: '.gitlab/ci/rust.gitlab-ci.yml'
 

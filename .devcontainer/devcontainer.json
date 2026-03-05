@@ -1,0 +1,26 @@
+{
+  "name": "rmcp-openapi",
+  "build": { "dockerfile": "Dockerfile" },
+  "init": true,
+  "containerUser": "dev",
+  "remoteUser": "dev",
+  "updateRemoteUserUID": true,
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "mounts": [
+    "source=${localEnv:HOME}/.config/glab-cli,target=/tmp/glab-config,type=bind",
+    "source=${localEnv:HOME}/.gitconfig,target=/tmp/home/.gitconfig,type=bind,readonly",
+    "source=${localEnv:HOME}/.claude,target=/tmp/home/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude,target=${localEnv:HOME}/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/tmp/home/.claude.json,type=bind",
+    "source=${localEnv:SSH_AUTH_SOCK},target=/tmp/ssh-agent.sock,type=bind"
+  ],
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "/tmp/ssh-agent.sock",
+    "GIT_SSH_COMMAND": "ssh -o UserKnownHostsFile=/etc/ssh/ssh_known_hosts",
+    "COLORTERM": "${localEnv:COLORTERM}"
+  },
+  "containerEnv": {
+    "DEVCONTAINER_WORKSPACE": "${localWorkspaceFolder}"
+  }
+}
