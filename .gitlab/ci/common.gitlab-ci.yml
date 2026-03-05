@@ -14,11 +14,11 @@
 
 # Docker-in-Docker template
 .docker-in-docker:
-  image: docker:29.2.1-dind@sha256:68f6d9ab84623d1116c5432a3b924a07ee09960e6129ca1cb03ef14010588cb4
+  image: docker:29.3.0-dind@sha256:eb37f58646a901dc7727cf448cae36daaefaba79de33b5058dab79aa4c04aefb
   tags:
     - docker-in-docker
   services:
-    - docker:29.2.1-dind@sha256:68f6d9ab84623d1116c5432a3b924a07ee09960e6129ca1cb03ef14010588cb4
+    - docker:29.3.0-dind@sha256:eb37f58646a901dc7727cf448cae36daaefaba79de33b5058dab79aa4c04aefb
   variables:
     <<: *docker-in-docker-variables
   before_script:
