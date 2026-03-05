@@ -110,41 +110,41 @@ impl ToolMetadata {
     /// - `openWorldHint` is always `true` since all OpenAPI tools interact with external HTTP APIs
     pub fn generate_annotations(&self) -> Option<ToolAnnotations> {
         match self.method.to_uppercase().as_str() {
-            "GET" | "HEAD" | "OPTIONS" => Some(ToolAnnotations {
-                title: None,
-                read_only_hint: Some(true),
-                destructive_hint: Some(false),
-                idempotent_hint: Some(true),
-                open_world_hint: Some(true),
-            }),
-            "POST" => Some(ToolAnnotations {
-                title: None,
-                read_only_hint: Some(false),
-                destructive_hint: Some(false),
-                idempotent_hint: Some(false),
-                open_world_hint: Some(true),
-            }),
-            "PUT" => Some(ToolAnnotations {
-                title: None,
-                read_only_hint: Some(false),
-                destructive_hint: Some(true),
-                idempotent_hint: Some(true),
-                open_world_hint: Some(true),
-            }),
-            "PATCH" => Some(ToolAnnotations {
-                title: None,
-                read_only_hint: Some(false),
-                destructive_hint: Some(true),
-                idempotent_hint: Some(false),
-                open_world_hint: Some(true),
-            }),
-            "DELETE" => Some(ToolAnnotations {
-                title: None,
-                read_only_hint: Some(false),
-                destructive_hint: Some(true),
-                idempotent_hint: Some(true),
-                open_world_hint: Some(true),
-            }),
+            "GET" | "HEAD" | "OPTIONS" => Some(
+                ToolAnnotations::new()
+                    .read_only(true)
+                    .destructive(false)
+                    .idempotent(true)
+                    .open_world(true),
+            ),
+            "POST" => Some(
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(false)
+                    .idempotent(false)
+                    .open_world(true),
+            ),
+            "PUT" => Some(
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(true)
+                    .idempotent(true)
+                    .open_world(true),
+            ),
+            "PATCH" => Some(
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(true)
+                    .idempotent(false)
+                    .open_world(true),
+            ),
+            "DELETE" => Some(
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(true)
+                    .idempotent(true)
+                    .open_world(true),
+            ),
             _ => None,
         }
     }
@@ -172,17 +172,15 @@ impl From<&ToolMetadata> for Tool {
             }
         });
 
-        Tool {
-            name: metadata.name.clone().into(),
-            description: metadata.description.clone().map(|d| d.into()),
+        let mut tool = Tool::new_with_raw(
+            metadata.name.clone(),
+            metadata.description.clone().map(|d| d.into()),
             input_schema,
-            output_schema,
-            annotations: metadata.generate_annotations(),
-            execution: None,
-            title: metadata.title.clone(),
-            icons: None,
-            meta: None,
-        }
+        );
+        tool.output_schema = output_schema;
+        tool.annotations = metadata.generate_annotations();
+        tool.title = metadata.title.clone();
+        tool
     }
 }
 

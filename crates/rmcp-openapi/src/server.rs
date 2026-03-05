@@ -290,24 +290,20 @@ impl ServerHandler for Server {
             .or_else(|| self.extract_openapi_description())
             .or_else(|| Some("Exposes OpenAPI endpoints as MCP tools".to_string()));
 
-        InitializeResult {
-            protocol_version: ProtocolVersion::V_2024_11_05,
-            server_info: Implementation {
-                name: server_name,
-                version: server_version,
-                title: server_title,
-                description: self.extract_openapi_description(),
-                icons: None,
-                website_url: None,
-            },
-            capabilities: ServerCapabilities {
-                tools: Some(ToolsCapability {
-                    list_changed: Some(false),
-                }),
-                ..Default::default()
-            },
-            instructions,
-        }
+        let mut server_info = Implementation::new(server_name, server_version);
+        server_info.title = server_title;
+        server_info.description = self.extract_openapi_description();
+
+        let mut capabilities = ServerCapabilities::default();
+        capabilities.tools = Some(ToolsCapability {
+            list_changed: Some(false),
+        });
+
+        let mut result = InitializeResult::new(capabilities)
+            .with_protocol_version(ProtocolVersion::V_2024_11_05)
+            .with_server_info(server_info);
+        result.instructions = instructions;
+        result
     }
 
     async fn list_tools(

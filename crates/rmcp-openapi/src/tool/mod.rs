@@ -107,11 +107,10 @@ impl Tool {
                     })?;
 
                     // Return image content (transformers don't apply to binary responses)
-                    return Ok(CallToolResult {
-                        content: vec![Content::image(base64_data, mime_type)],
-                        structured_content: None,
-                        is_error: Some(!response.is_success),
-                        meta: None,
+                    return Ok(if response.is_success {
+                        CallToolResult::success(vec![Content::image(base64_data, mime_type)])
+                    } else {
+                        CallToolResult::error(vec![Content::image(base64_data, mime_type)])
                     });
                 }
 
@@ -162,12 +161,13 @@ impl Tool {
                 };
 
                 // Return successful response
-                Ok(CallToolResult {
-                    content,
-                    structured_content,
-                    is_error: Some(!response.is_success),
-                    meta: None,
-                })
+                let mut result = if response.is_success {
+                    CallToolResult::success(content)
+                } else {
+                    CallToolResult::error(content)
+                };
+                result.structured_content = structured_content;
+                Ok(result)
             }
             Err(e) => {
                 // Return ToolCallError directly
