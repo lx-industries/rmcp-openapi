@@ -1,3 +1,20 @@
+## [0.25.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.9...v0.25.0) (2026-03-05)
+
+
+### Features
+
+* **ci:** add dev container for Claude Code autonomous mode ([33aaeb1](https://gitlab.com/lx-industries/rmcp-openapi/commit/33aaeb1d3ce5f9e6f30bcdc98914e0a83bafc35f))
+
+
+### Miscellaneous Chores
+
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.93.1-x86_64-unknown-linux-gnu docker digest to 7f228cb ([0f49445](https://gitlab.com/lx-industries/rmcp-openapi/commit/0f49445169ad3896c8d14f13ffab21ae1df5344e))
+* **deps:** update rmcp crates ([d3b18ac](https://gitlab.com/lx-industries/rmcp-openapi/commit/d3b18acab2a58ccba5178e4de7c7755a74ba5f75))
+* **deps:** update rust crate jsonschema to v0.44.1 ([fa82e66](https://gitlab.com/lx-industries/rmcp-openapi/commit/fa82e666701f9e701c17db9e5b9822eee9117160))
+* **deps:** update rust crate rmcp to v1 ([d875bcc](https://gitlab.com/lx-industries/rmcp-openapi/commit/d875bccdc53c4ae461c1b8e7aacb820ea27c8f9c))
+* **deps:** update rust crate tokio to v1.50.0 ([c8af84e](https://gitlab.com/lx-industries/rmcp-openapi/commit/c8af84e6ddab0449dd18b240ea2d63ea5f974431))
+* **deps:** update rust:1.93.1 docker digest to ecbe59a ([2aafdd1](https://gitlab.com/lx-industries/rmcp-openapi/commit/2aafdd1c429e137cb96194ec6a162f5461399ec4))
+
 ## [0.24.9](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.24.8...v0.24.9) (2026-03-02)
 
 
