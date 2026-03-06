@@ -1,5 +1,5 @@
 # Base image with Rust toolchain
-FROM rust:1.93.1@sha256:ecbe59a8408895edd02d9ef422504b8501dd9fa1526de27a45b73406d734d659
+FROM rust:1.94.0@sha256:0e6da0c8f06f25e9591f21c0f741cd4ff1086e271c3330f29f6e4e95869c7843
 
 # Add common Rust components
 RUN rustup component add rustfmt clippy
