@@ -1,3 +1,16 @@
+## [0.25.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.25.1...v0.25.2) (2026-03-16)
+
+
+### Miscellaneous Chores
+
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.94.0-x86_64-unknown-linux-gnu docker digest ([b319fe3](https://gitlab.com/lx-industries/rmcp-openapi/commit/b319fe3a0e3e9c7f82b7472e2a76cb7806f227a1))
+* **deps:** update rust crate bon to v3.9.1 ([47a2c2a](https://gitlab.com/lx-industries/rmcp-openapi/commit/47a2c2a95fdae11a127fb5727df011e02ccd5d00))
+* **deps:** update rust crate clap to v4.6.0 ([e7c752f](https://gitlab.com/lx-industries/rmcp-openapi/commit/e7c752f843b1aae0e9085198e1ef391f52273737))
+* **deps:** update rust crate rmcp to v1.2.0 ([4502bee](https://gitlab.com/lx-industries/rmcp-openapi/commit/4502bee265926164a1d5a53e05c9bd71d16fd9de))
+* **deps:** update rust crate rmcp-actix-web to v0.12.2 ([84357e9](https://gitlab.com/lx-industries/rmcp-openapi/commit/84357e9b96f9c47c4d5b8194721781a5d0f657f7))
+* **deps:** update rust crate tracing-subscriber to v0.3.23 ([913cf46](https://gitlab.com/lx-industries/rmcp-openapi/commit/913cf46114942bd4addfbd01b076f95f8720aab2))
+* **deps:** update rust:1.94.0 docker digest to 7e322aa ([7a5e8b3](https://gitlab.com/lx-industries/rmcp-openapi/commit/7a5e8b360cb6b4c4823a34ab49a1a1407fcc938c))
+
 ## [0.25.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.25.0...v0.25.1) (2026-03-09)
 
 
