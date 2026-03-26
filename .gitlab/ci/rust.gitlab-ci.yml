@@ -22,6 +22,12 @@
     - ".cargo/git/db/"
   policy: pull
 
+# Use release-lto profile for tagged releases and main branch
+.cargo-profile-release-lto-rule: &cargo-profile-release-lto-rule
+  if: "$CI_COMMIT_TAG"
+  variables:
+    CARGO_PROFILE: "release-lto"
+
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
   image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.94.0-x86_64-unknown-linux-gnu@sha256:e6a5ef16e80981b52aaf1b5eea24232d9e471dd07be13526c90e96f7d7822171
@@ -30,6 +36,7 @@
     # Windows (`\`) vs Linux (`/`) path separators.
     CARGO_HOME: ".cargo"
   rules:
+    - *cargo-profile-release-lto-rule
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes: *rust-changes
     - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
@@ -49,7 +56,7 @@ build:x86_64-unknown-linux-gnu:
     - !reference [.sccache-rust, before_script]
     - !reference [.rust-template, before_script]
   script:
-    - cargo build --workspace --all-features --verbose
+    - cargo build --workspace --all-features --verbose --profile $CARGO_PROFILE
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
@@ -93,7 +100,7 @@ test:
     - !reference [.sccache-rust, before_script]
     - !reference [.rust-template, before_script]
   script:
-    - cargo test --workspace --verbose --lib --bins
+    - cargo test --workspace --verbose --lib --bins --profile $CARGO_PROFILE
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
@@ -113,7 +120,7 @@ clippy:
     - rustup component add clippy
     - cargo clippy --version
   script:
-    - cargo clippy --workspace --all-targets --all-features -- -D warnings
+    - cargo clippy --workspace --all-targets --all-features --profile $CARGO_PROFILE -- -D warnings
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
@@ -155,10 +162,10 @@ rustdoc:
     - !reference [.rust-template, before_script]
   script:
     # Build documentation with all features and check for warnings
-    - cargo doc --workspace --all-features --no-deps 2>&1 | tee doc-output.txt
+    - cargo doc --workspace --all-features --no-deps --profile $CARGO_PROFILE 2>&1 | tee doc-output.txt
     - '! grep -E "warning.*missing documentation" doc-output.txt || (echo "Missing documentation found!" && exit 1)'
     # Also build with private items to ensure internal documentation is complete
-    - cargo rustdoc --package rmcp-openapi --lib -- --document-private-items
+    - cargo rustdoc --package rmcp-openapi --lib --profile $CARGO_PROFILE -- --document-private-items
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
@@ -183,7 +190,7 @@ doc-test:
     - !reference [.rust-template, before_script]
   script:
     # Run documentation tests to ensure examples compile
-    - cargo test --workspace --doc --all-features
+    - cargo test --workspace --doc --all-features --profile $CARGO_PROFILE
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
@@ -201,7 +208,7 @@ examples:
     - !reference [.sccache-rust, before_script]
     - !reference [.rust-template, before_script]
   script:
-    - cargo build --workspace --examples --verbose
+    - cargo build --workspace --examples --verbose --profile $CARGO_PROFILE
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
@@ -223,7 +230,7 @@ integration-js:
     - node --version
     - npm --version
   script:
-    - cargo test --package rmcp-openapi --test test_with_js --verbose
+    - cargo test --package rmcp-openapi --test test_with_js --verbose --profile $CARGO_PROFILE
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache

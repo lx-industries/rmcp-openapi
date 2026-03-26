@@ -7,6 +7,14 @@ include:
 
 # Global variables for package versions
 variables:
+  RUSTFLAGS: "-D warnings"
+  CARGO_PROFILE:
+    description: "Run cargo with the specified profile."
+    options:
+      - "dev"
+      - "release"
+      - "release-lto"
+    value: "release"
   COMMITLINT_CLI_VERSION: "17.6.1"
   COMMITLINT_CONFIG_VERSION: "17.6.1"
   SEMANTIC_RELEASE_VERSION: "21.0.7"

@@ -26,3 +26,8 @@ tokio = { version = "1.0", default-features = false, features = [
     "process",
     "time",
 ] }
+
+# Custom profile for tagged releases with LTO enabled
+[profile.release-lto]
+inherits = "release"
+lto = true
