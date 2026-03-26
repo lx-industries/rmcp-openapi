@@ -40,7 +40,7 @@
   interruptible: true
 
 # Build job - compile the project
-build:
+build:x86_64-unknown-linux-gnu:
   extends:
     - .rust-template
     - .sccache-rust
@@ -53,6 +53,35 @@ build:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
+
+# Windows cross-compilation build job
+build:x86_64-pc-windows-msvc:
+  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.94.0-x86_64-pc-windows-msvc@sha256:0607d21f2537a46034b6795e3d3549730b9bc1c4c28a0fd0a90d9974ca956877
+  extends:
+    - .sccache-rust
+  stage: build
+  variables:
+    CARGO_HOME: ".cargo"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *rust-changes
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+      changes: *rust-changes
+  before_script:
+    - !reference [.sccache-rust, before_script]
+    - rustc --version
+    - cargo --version
+  script:
+    - cargo xwin build --workspace --all-features --verbose
+    - sccache --show-stats || true
+  cache:
+    - <<: *cargo-registry-cache
+  artifacts:
+    when: on_success
+    expire_in: 1 week
+    paths:
+      - target/x86_64-pc-windows-msvc/debug/rmcp-openapi-server.exe
+  interruptible: true
 
 # Test job - run unit tests only (excluding integration tests)
 test:
@@ -70,7 +99,7 @@ test:
     - <<: *cargo-registry-cache
       policy: pull
   dependencies:
-    - build
+    - build:x86_64-unknown-linux-gnu
 
 # Clippy job - run linting
 clippy:
@@ -90,7 +119,7 @@ clippy:
     - <<: *cargo-registry-cache
       policy: pull
   dependencies:
-    - build
+    - build:x86_64-unknown-linux-gnu
 
 # Format job - check code formatting
 fmt:
@@ -135,7 +164,7 @@ rustdoc:
     - <<: *cargo-registry-cache
       policy: pull
   dependencies:
-    - build
+    - build:x86_64-unknown-linux-gnu
   artifacts:
     paths:
       - target/doc
@@ -160,7 +189,7 @@ doc-test:
     - <<: *cargo-registry-cache
       policy: pull
   dependencies:
-    - build
+    - build:x86_64-unknown-linux-gnu
 
 # Examples job - build all examples
 examples:
@@ -178,7 +207,7 @@ examples:
     - <<: *cargo-registry-cache
       policy: pull
   dependencies:
-    - build
+    - build:x86_64-unknown-linux-gnu
 
 # Integration test with JavaScript/Node.js
 integration-js:
@@ -200,5 +229,5 @@ integration-js:
     - <<: *cargo-registry-cache
       policy: pull
   dependencies:
-    - build
+    - build:x86_64-unknown-linux-gnu
   interruptible: true
