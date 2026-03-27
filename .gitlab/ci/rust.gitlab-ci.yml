@@ -79,7 +79,7 @@ build:x86_64-pc-windows-msvc:
     - rustc --version
     - cargo --version
   script:
-    - cargo xwin build --workspace --all-features --verbose
+    - cargo xwin build --workspace --all-features --verbose --profile $CARGO_PROFILE
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
