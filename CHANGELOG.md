@@ -1,3 +1,27 @@
+## [0.26.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.25.3...v0.26.0) (2026-03-27)
+
+
+### Features
+
+* **ci:** add Docker image for Windows MSVC cross-compilation ([9f3b4ec](https://gitlab.com/lx-industries/rmcp-openapi/commit/9f3b4ec5c1d6bce4cba7d0b21b6508717aa38bc0))
+* **ci:** add Windows MSVC cross-compilation build job ([0eb6112](https://gitlab.com/lx-industries/rmcp-openapi/commit/0eb6112d0e75f2480d8a830a24a7b840c203f203))
+
+
+### Bug Fixes
+
+* **ci:** missing --profile for the build:x86_64-pc-windows-msvc job ([ba4989a](https://gitlab.com/lx-industries/rmcp-openapi/commit/ba4989a971bcdce74bea5d2de4382c84ba2ae431))
+* **ci:** missing artifacts for the build:x86_64-unknown-linux-gnu job ([2e5687d](https://gitlab.com/lx-industries/rmcp-openapi/commit/2e5687d60247be69904cae4e81118822017efaa3))
+
+
+### Miscellaneous Chores
+
+* **deps:** update docker docker tag to v29.3.1 ([f846a1b](https://gitlab.com/lx-industries/rmcp-openapi/commit/f846a1b9f4ca72fd347f084d0dc956b0474e8997))
+* **deps:** update node.js to v24.14.1 ([5e15771](https://gitlab.com/lx-industries/rmcp-openapi/commit/5e15771d06251dcd570e1d2c26b52d881d086254))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.94.0-x86_64-pc-windows-msvc docker digest to 817502a ([e918301](https://gitlab.com/lx-industries/rmcp-openapi/commit/e9183014f3f1e8fa56428d7b428d3c0b8560b1b8))
+* **deps:** update rust crate oas3 to 0.21.0 ([f039e81](https://gitlab.com/lx-industries/rmcp-openapi/commit/f039e8182893b6789766cda1699cc8d18562cbea))
+* **deps:** update rust crate rmcp-actix-web to v0.12.4 ([4d2ee48](https://gitlab.com/lx-industries/rmcp-openapi/commit/4d2ee4844ba4696a3db0e88cb90f8453e7596841))
+* **deps:** update rust docker tag to v1.94.1 ([bc84a0f](https://gitlab.com/lx-industries/rmcp-openapi/commit/bc84a0f8b915f787eb8fedd5c1354afed8e52635))
+
 ## [0.25.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.25.2...v0.25.3) (2026-03-23)
 
 
