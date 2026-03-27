@@ -60,6 +60,11 @@ build:x86_64-unknown-linux-gnu:
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
+  artifacts:
+    when: on_success
+    expire_in: 1 week
+    paths:
+      - target/x86_64-unknown-linux-gnu/$CARGO_PROFILE/rmcp-openapi-server
 
 # Windows cross-compilation build job
 build:x86_64-pc-windows-msvc:
@@ -87,7 +92,7 @@ build:x86_64-pc-windows-msvc:
     when: on_success
     expire_in: 1 week
     paths:
-      - target/x86_64-pc-windows-msvc/debug/rmcp-openapi-server.exe
+      - target/x86_64-pc-windows-msvc/$CARGO_PROFILE/rmcp-openapi-server.exe
   interruptible: true
 
 # Test job - run unit tests only (excluding integration tests)
