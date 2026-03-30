@@ -1,3 +1,12 @@
+## [0.26.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.0...v0.26.1) (2026-03-30)
+
+
+### Miscellaneous Chores
+
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust docker tag to v1.94.1 ([d6074df](https://gitlab.com/lx-industries/rmcp-openapi/commit/d6074dfb4c924669ec9fd2fc7a19b49362d52231))
+* **deps:** update rust crate insta to v1.47.0 ([08de17d](https://gitlab.com/lx-industries/rmcp-openapi/commit/08de17d0f9a95599bf76d2d4f736432661e6705f))
+* **deps:** update rust crate insta to v1.47.1 ([5bb22e1](https://gitlab.com/lx-industries/rmcp-openapi/commit/5bb22e10d599468717a17e6a0c11b57b0d9621fe))
+
 ## [0.26.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.25.3...v0.26.0) (2026-03-27)
 
 
