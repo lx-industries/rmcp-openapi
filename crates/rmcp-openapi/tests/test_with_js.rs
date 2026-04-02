@@ -86,18 +86,16 @@ async fn run_js_streamable_http_client_test(
     let base_url = mock_server.base_url();
     let spec_path = spec_path.to_string(); // Convert to owned string
     let ct = tokio_util::sync::CancellationToken::new();
+    let config = StreamableHttpServerConfig::default()
+        .with_sse_keep_alive(None)
+        .with_cancellation_token(ct.clone());
     let service = StreamableHttpService::new(
         move || {
             create_petstore_mcp_server_with_spec(base_url.clone(), &spec_path)
                 .map_err(std::io::Error::other)
         },
         Arc::new(LocalSessionManager::default()),
-        StreamableHttpServerConfig {
-            stateful_mode: true,
-            sse_keep_alive: None,
-            cancellation_token: ct.clone(),
-            ..Default::default()
-        },
+        config,
     );
 
     let router = axum::Router::new().nest_service("/mcp", service);

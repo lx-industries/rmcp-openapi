@@ -23,12 +23,10 @@ impl Spec {
     /// "data did not match any variant of untagged enum" into actionable
     /// diagnostics that pinpoint the offending location in the spec.
     pub fn from_value(json_value: Value) -> Result<Self, Error> {
-        let spec: Oas3Spec =
-            serde_path_to_error::deserialize(json_value.into_deserializer()).map_err(|err| {
-                Error::JsonAtPath {
-                    path: err.path().to_string(),
-                    source: err.into_inner(),
-                }
+        let spec: Oas3Spec = serde_path_to_error::deserialize(json_value.into_deserializer())
+            .map_err(|err| Error::JsonAtPath {
+                path: err.path().to_string(),
+                source: err.into_inner(),
             })?;
         Ok(Spec { spec })
     }
