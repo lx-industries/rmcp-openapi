@@ -2328,6 +2328,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "strsim",
  "thiserror 2.0.18",
  "tokio",

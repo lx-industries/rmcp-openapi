@@ -5,6 +5,7 @@ use crate::tool_generator::ToolGenerator;
 use bon::Builder;
 use oas3::Spec as Oas3Spec;
 use reqwest::Method;
+use serde::de::IntoDeserializer;
 use serde_json::Value;
 
 /// OpenAPI specification wrapper that provides convenience methods
@@ -15,9 +16,20 @@ pub struct Spec {
 }
 
 impl Spec {
-    /// Parse an OpenAPI specification from a JSON value
+    /// Parse an OpenAPI specification from a JSON value.
+    ///
+    /// Uses `serde_path_to_error` to provide the exact JSON path on
+    /// deserialization failures, turning opaque messages like
+    /// "data did not match any variant of untagged enum" into actionable
+    /// diagnostics that pinpoint the offending location in the spec.
     pub fn from_value(json_value: Value) -> Result<Self, Error> {
-        let spec: Oas3Spec = serde_json::from_value(json_value)?;
+        let spec: Oas3Spec =
+            serde_path_to_error::deserialize(json_value.into_deserializer()).map_err(|err| {
+                Error::JsonAtPath {
+                    path: err.path().to_string(),
+                    source: err.into_inner(),
+                }
+            })?;
         Ok(Spec { spec })
     }
 

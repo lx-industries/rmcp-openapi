@@ -404,6 +404,11 @@ pub enum Error {
     Http(String),
     #[error("HTTP request error: {0}")]
     HttpRequest(#[from] reqwest::Error),
+    #[error("JSON error at {path}: {source}")]
+    JsonAtPath {
+        path: String,
+        source: serde_json::Error,
+    },
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
     #[error(transparent)]
