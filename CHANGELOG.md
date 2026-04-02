@@ -1,3 +1,17 @@
+## [0.26.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.1...v0.26.2) (2026-04-02)
+
+
+### Bug Fixes
+
+* adapt to non-exhaustive StreamableHttpServerConfig in rmcp 1.3.0 ([0381246](https://gitlab.com/lx-industries/rmcp-openapi/commit/03812464de003d7b5df4c65fdaa47c706026ee90))
+* include JSON path in OpenAPI spec deserialization errors ([2e11e28](https://gitlab.com/lx-industries/rmcp-openapi/commit/2e11e28753d73139e5681aee64ba592601fdfe3d))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rmcp crates ([5ecceb7](https://gitlab.com/lx-industries/rmcp-openapi/commit/5ecceb7de9670ca993ff29c0325d200ab25b77c2))
+* **deps:** update rust crate insta to v1.47.2 ([c53b03e](https://gitlab.com/lx-industries/rmcp-openapi/commit/c53b03ef1714a06410535ae0c08b0af92c6229b4))
+
 ## [0.26.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.0...v0.26.1) (2026-03-30)
 
 
