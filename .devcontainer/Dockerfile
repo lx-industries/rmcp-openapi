@@ -37,7 +37,7 @@ RUN arch="$(dpkg --print-architecture)" \
 
 # -- Node.js (for integration tests — test_with_js) ---------------------------
 # renovate: datasource=node-version depName=node
-ARG NODE_VERSION="22.22.2"
+ARG NODE_VERSION="24.14.1"
 RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
     | tar -xJ -C /usr/local --strip-components=1
 
