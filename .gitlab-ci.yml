@@ -4,6 +4,7 @@ include:
   - local: '.gitlab/ci/devcontainer.gitlab-ci.yml'
   - local: '.gitlab/ci/images.gitlab-ci.yml'
   - local: '.gitlab/ci/rust.gitlab-ci.yml'
+  - local: '.gitlab/ci/semantic-release.gitlab-ci.yml'
 
 # Global variables for package versions
 variables:
@@ -62,23 +63,6 @@ workflow:
         on_new_commit: none
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
-# Semantic release job template - common setup for semantic-release jobs
-.semantic-release-template: &semantic-release-template
-  image: rust:1.94.1@sha256:dbc91e219681fe9916c23882ca9b4b7b0485951c818a6781b02c889a30fd4e14
-  before_script:
-    # Install Node.js in Rust image
-    - apt-get update -qq && apt-get install -y -qq curl
-    - curl -fsSL https://nodejs.org/dist/v20.11.1/node-v20.11.1-linux-x64.tar.xz | tar -xJ -C /usr/local --strip-components=1
-    - node --version
-    - npm --version
-    # Install semantic-release and plugins
-    - npm install -g semantic-release@${SEMANTIC_RELEASE_VERSION} @semantic-release/changelog@${SEMANTIC_RELEASE_CHANGELOG_VERSION} @semantic-release/git@${SEMANTIC_RELEASE_GIT_VERSION} @semantic-release/gitlab@${SEMANTIC_RELEASE_GITLAB_VERSION} @semantic-release/exec@${SEMANTIC_RELEASE_EXEC_VERSION} conventional-changelog-conventionalcommits@${CONVENTIONAL_CHANGELOG_CONVENTIONALCOMMITS_VERSION}
-    # Install semantic-release-cargo static binary
-    - curl -L https://github.com/semantic-release-cargo/semantic-release-cargo/releases/download/v${SEMANTIC_RELEASE_CARGO_VERSION}/semantic-release-cargo-x86_64-unknown-linux-musl -o /usr/local/bin/semantic-release-cargo
-    - chmod +x /usr/local/bin/semantic-release-cargo
-    - semantic-release-cargo --version
-  interruptible: true
-
 # Pipeline stages
 stages:
   - build
@@ -112,28 +96,3 @@ commitlint:
       }" > ./commitlint.config.js
       commitlint --from=$(git merge-base origin/main HEAD) --to=$CI_COMMIT_SHA
   interruptible: true
-
-# Semantic release config lint job - validate semantic-release configuration
-semantic-release-lint:
-  <<: *semantic-release-template
-  stage: lint
-  script:
-    - semantic-release --dry-run --no-ci
-
-# Semantic release job - automated versioning and releases
-semantic-release:
-  <<: *semantic-release-template
-  stage: release
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RELEASE_ENABLED == "true"'
-    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $RELEASE_ENABLED == "true"'
-  variables:
-    GIT_FETCH_EXTRA_FLAGS: "+refs/heads/main:refs/remotes/origin/main"
-  before_script:
-    - !reference [.semantic-release-template, before_script]
-    # Configure git
-    - git config user.name "${GITLAB_USER_NAME}"
-    - git config user.email "${GITLAB_USER_EMAIL}"
-  script:
-    - semantic-release
-  interruptible: false
