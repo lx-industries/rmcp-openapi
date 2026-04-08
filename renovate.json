@@ -1,10 +1,43 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["local>lx-industries/renovate-config"],
+  "gitlabci": {
+    "registryAliases": {
+      "${CI_REGISTRY_IMAGE}": "registry.gitlab.com/lx-industries/rmcp-openapi"
+    }
+  },
   "packageRules": [
     {
-      "groupName": "rmcp crates",
-      "matchPackageNames": ["rmcp{/,}**"]
+      "matchPackageNames": ["rmcp{/,}**"],
+      "groupName": "rmcp crates"
+    },
+    {
+      "matchPackageNames": [
+        "${ci_registry_image}/images/rust",
+        "registry.gitlab.com/lx-industries/rmcp-openapi/images/rust"
+      ],
+      "groupName": "Rust images"
+    },
+    {
+      "matchPackageNames": ["rust"],
+      "matchDatasources": ["docker"],
+      "schedule": ["on the first day of the month"]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s(ENV|ARG)\\s.*?_VERSION\\s*=?\"(?<currentValue>.*)\""
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/).*\\.gitlab-ci\\.yml$/"],
+      "matchStrings": [
+        "\\s*# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s*.+_VERSION\\s*:\\s*\"(?<currentValue>.*)\""
+      ]
     }
   ]
 }
