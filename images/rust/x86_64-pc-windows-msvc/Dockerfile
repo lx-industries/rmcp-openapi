@@ -33,7 +33,7 @@ RUN wget -qO- "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_V
 
 # Install just (using musl binary)
 # renovate: datasource=github-releases depName=casey/just
-ARG JUST_VERSION="1.49.0"
+ARG JUST_VERSION="1.50.0"
 RUN wget -qO- "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar zxf - -C /usr/local/cargo/bin just
 
 # Pre-cache Windows SDK and CRT
