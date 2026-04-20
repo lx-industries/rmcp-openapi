@@ -1,3 +1,23 @@
+## [0.26.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.4...v0.26.5) (2026-04-20)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency casey/just to v1.50.0 ([747f656](https://gitlab.com/lx-industries/rmcp-openapi/commit/747f656e638b4ff92b07321408e41d068bb7b16b))
+* **deps:** update dependency rust-cross/cargo-xwin to v0.21.5 ([eae1f99](https://gitlab.com/lx-industries/rmcp-openapi/commit/eae1f99fc70f4c9102cc8b1266eaf568d5ab75a9))
+* **deps:** update docker:29.4.0-dind docker digest to a6dd532 ([12952f4](https://gitlab.com/lx-industries/rmcp-openapi/commit/12952f4f9369fab2e39acc0f3c8110f1eaaa3e36))
+* **deps:** update docker:29.4.0-dind docker digest to edaa00c ([01d90fc](https://gitlab.com/lx-industries/rmcp-openapi/commit/01d90fc92cdcf6fa823c6d24208e126bd2073ceb))
+* **deps:** update node.js to v24.15.0 ([df57a8b](https://gitlab.com/lx-industries/rmcp-openapi/commit/df57a8bdbc7dc135645e320487d9086910a1393a))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.94.1-x86_64-pc-windows-msvc docker digest to 91bc81b ([3858d76](https://gitlab.com/lx-industries/rmcp-openapi/commit/3858d76e43f5be5966e5878c2633c1f676747d64))
+* **deps:** update rust crate axum to v0.8.9 ([55bbbde](https://gitlab.com/lx-industries/rmcp-openapi/commit/55bbbde7163c87bfb12c6da5ad38976c232d10f3))
+* **deps:** update rust crate clap to v4.6.1 ([fc87513](https://gitlab.com/lx-industries/rmcp-openapi/commit/fc875133665137bfe5414d9bd106e133de26f087))
+* **deps:** update rust crate jsonschema to v0.46.1 ([cb9fbd6](https://gitlab.com/lx-industries/rmcp-openapi/commit/cb9fbd64d8753ac8cc9365bde7c891ddd4da37b5))
+* **deps:** update rust crate jsonschema to v0.46.2 ([d61c82a](https://gitlab.com/lx-industries/rmcp-openapi/commit/d61c82a5aac2dcc09a4dba33b3a11197d6417d96))
+* **deps:** update rust crate rmcp to v1.5.0 ([bc153aa](https://gitlab.com/lx-industries/rmcp-openapi/commit/bc153aa6798aee3c927233f2af4b1132277f23ea))
+* **deps:** update rust crate tokio to v1.52.0 ([f96abf2](https://gitlab.com/lx-industries/rmcp-openapi/commit/f96abf21386c9878a0aecfab38c07e331b622ce6))
+* **deps:** update rust crate tokio to v1.52.1 ([ad104ef](https://gitlab.com/lx-industries/rmcp-openapi/commit/ad104ef80ee57bf4798588ac7b0a580a188ec233))
+* **deps:** update rust images ([60e3b44](https://gitlab.com/lx-industries/rmcp-openapi/commit/60e3b44908ab3c1668531e2d4e216482035e8097))
+
 ## [0.26.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.3...v0.26.4) (2026-04-13)
 
 
