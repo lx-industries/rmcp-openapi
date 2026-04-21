@@ -15,7 +15,7 @@ RUN rustup target add x86_64-pc-windows-msvc \
 
 # Install cargo-xwin (musl binary)
 # renovate: datasource=github-releases depName=rust-cross/cargo-xwin
-ARG CARGO_XWIN_VERSION="0.21.5"
+ARG CARGO_XWIN_VERSION="0.22.0"
 RUN wget -qO- "https://github.com/rust-cross/cargo-xwin/releases/download/v${CARGO_XWIN_VERSION}/cargo-xwin-v${CARGO_XWIN_VERSION}.x86_64-unknown-linux-musl.tar.gz" \
     | tar zxf - -C /usr/local/cargo/bin
 
