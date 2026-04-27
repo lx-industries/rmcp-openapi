@@ -1,3 +1,13 @@
+## [0.26.6](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.5...v0.26.6) (2026-04-27)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency rust-cross/cargo-xwin to v0.22.0 ([f039a55](https://gitlab.com/lx-industries/rmcp-openapi/commit/f039a55994dba75acbfd79ec75dcdf08f0c2bf96))
+* **deps:** update docker docker tag to v29.4.1 ([220e34f](https://gitlab.com/lx-industries/rmcp-openapi/commit/220e34ff79eaec125e355710e2259e98151249ab))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.94.1-x86_64-pc-windows-msvc docker digest to bbbbaa4 ([703c2fb](https://gitlab.com/lx-industries/rmcp-openapi/commit/703c2fb33298676cbfa8977f7329c0e1c2114f2c))
+* **deps:** update rust crate reqwest to v0.13.3 ([45b9434](https://gitlab.com/lx-industries/rmcp-openapi/commit/45b9434da461fab5338bf0bccdec29534f944821))
+
 ## [0.26.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.4...v0.26.5) (2026-04-20)
 
 
