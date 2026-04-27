@@ -11,7 +11,7 @@ RUN wget -qO- "https://get.nexte.st/${NEXTEST_VERSION}/linux" | tar zxf - -C /us
 
 # Install typos-cli (spell checker)
 # renovate: datasource=github-releases depName=crate-ci/typos
-ARG TYPOS_VERSION="1.45.1"
+ARG TYPOS_VERSION="1.45.2"
 RUN wget -qO- "https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar zxf - -C /usr/local/cargo/bin ./typos
 
 # Install sccache for build caching
