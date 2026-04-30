@@ -16,7 +16,7 @@ RUN wget -qO- "https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERS
 
 # Install sccache for build caching
 # renovate: datasource=github-releases depName=mozilla/sccache
-ARG SCCACHE_VERSION="0.14.0"
+ARG SCCACHE_VERSION="0.15.0"
 RUN wget -qO- "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar zxf - -C /tmp \
     && mv /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl/sccache /usr/local/cargo/bin/ \
     && rm -rf /tmp/sccache-v${SCCACHE_VERSION}-x86_64-unknown-linux-musl
