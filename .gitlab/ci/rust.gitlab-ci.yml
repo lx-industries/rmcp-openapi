@@ -56,7 +56,7 @@ build:x86_64-unknown-linux-gnu:
     - !reference [.sccache-rust, before_script]
     - !reference [.rust-template, before_script]
   script:
-    - cargo build --workspace --all-features --verbose --profile $CARGO_PROFILE
+    - cargo build --target x86_64-unknown-linux-gnu --workspace --all-features --verbose --profile $CARGO_PROFILE
     - sccache --show-stats || true
   cache:
     - <<: *cargo-registry-cache
