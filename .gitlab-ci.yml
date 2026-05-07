@@ -32,6 +32,7 @@ variables:
       - "all"
       - "rust-x86_64-unknown-linux-gnu"
       - "rust-x86_64-pc-windows-msvc"
+      - "rmcp-openapi-server"
     value: "false"
   IMAGE_PUSH_FORCE:
     description: "Push images even when there are no changes."
@@ -40,7 +41,9 @@ variables:
       - "all"
       - "rust-x86_64-unknown-linux-gnu"
       - "rust-x86_64-pc-windows-msvc"
+      - "rmcp-openapi-server"
     value: "false"
+  LOCAL_CONTAINER_IMAGE: ${CI_REGISTRY_IMAGE}/images/rmcp-openapi-server:${CI_COMMIT_REF_SLUG}
 
 # Workflow rules for automatic pipeline cancellation
 workflow:
@@ -71,6 +74,7 @@ stages:
   - docs
   - examples
   - integration
+  - package
   - release
 
 # Commit lint job - check commit message format

@@ -6,6 +6,7 @@
   - "tests/**/*"
   - "examples/**/*"
   - ".cargo/**/*"
+  - "container/Containerfile" # Watch the application Containerfile
   - ".gitlab/ci/rust.gitlab-ci.yml" # Watch the Rust CI config file
 
 # Cache configuration patterns for optimal build performance
@@ -27,6 +28,12 @@
   if: "$CI_COMMIT_TAG"
   variables:
     CARGO_PROFILE: "release-lto"
+
+# Manual force-build/push of the rmcp-openapi-server container image.
+# Used by build:x86_64-unknown-linux-gnu (so the binary the container needs
+# is produced) and package:container-image.
+.image-force-rmcp-openapi-server-rule: &image-force-rmcp-openapi-server-rule
+  if: '$IMAGE_BUILD_FORCE == "all" || $IMAGE_BUILD_FORCE == "rmcp-openapi-server" || $IMAGE_PUSH_FORCE == "all" || $IMAGE_PUSH_FORCE == "rmcp-openapi-server"'
 
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
@@ -52,6 +59,13 @@ build:x86_64-unknown-linux-gnu:
     - .rust-template
     - .sccache-rust
   stage: build
+  rules:
+    - *image-force-rmcp-openapi-server-rule
+    - *cargo-profile-release-lto-rule
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *rust-changes
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+      changes: *rust-changes
   before_script:
     - !reference [.sccache-rust, before_script]
     - !reference [.rust-template, before_script]
@@ -220,6 +234,50 @@ examples:
       policy: pull
   dependencies:
     - build:x86_64-unknown-linux-gnu
+
+# Container image - build and save tar artifact
+package:container-image:
+  extends: .docker-in-docker
+  stage: package
+  needs:
+    - build:x86_64-unknown-linux-gnu
+  variables:
+    CARGO_TARGET: "x86_64-unknown-linux-gnu"
+    CARGO_TARGET_BIN_DIR: "target/${CARGO_TARGET}/${CARGO_PROFILE}"
+  rules:
+    - *image-force-rmcp-openapi-server-rule
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *rust-changes
+  artifacts:
+    when: on_success
+    expire_in: "2 hours"
+    paths:
+      - "image.tar"
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker build -t ${LOCAL_CONTAINER_IMAGE} -f ./container/Containerfile $CARGO_TARGET_BIN_DIR
+    - docker save ${LOCAL_CONTAINER_IMAGE} -o image.tar
+
+# Container image - load and push to registry
+push:container-image:
+  extends: .docker-in-docker
+  stage: release
+  interruptible: false
+  needs:
+    - package:container-image
+  rules:
+    - if: '$IMAGE_PUSH_FORCE == "all" || $IMAGE_PUSH_FORCE == "rmcp-openapi-server"'
+    - if: "$CI_COMMIT_TAG"
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
+  script:
+    - docker load -i image.tar
+    # Strip 'v' prefix from tag for OCI-compliant semver tags (v0.26.6 -> 0.26.6)
+    - IMAGE_TAG="${CI_COMMIT_REF_NAME#v}"
+    - CONTAINER_IMAGE="${CI_REGISTRY_IMAGE}/images/rmcp-openapi-server:${IMAGE_TAG}"
+    - docker tag ${LOCAL_CONTAINER_IMAGE} ${CONTAINER_IMAGE}
+    - docker login -u gitlab-ci-token -p ${CI_JOB_TOKEN} ${CI_REGISTRY}
+    - docker push ${CONTAINER_IMAGE}
 
 # Integration test with JavaScript/Node.js
 integration-js:
