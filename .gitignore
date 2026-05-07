@@ -3,3 +3,5 @@
 
 # Claude Code superpowers plans
 docs/plans/*.md
+docs/superpowers/plans/*.md
+docs/superpowers/specs/*.md
