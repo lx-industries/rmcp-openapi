@@ -1,3 +1,38 @@
+## [0.27.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.6...v0.27.0) (2026-05-11)
+
+
+### Features
+
+* **ci:** build and push rmcp-openapi-server container image ([28e7eb0](https://gitlab.com/lx-industries/rmcp-openapi/commit/28e7eb0f7a4e0df9562db9a4fc694cb84f613fa1))
+
+
+### Bug Fixes
+
+* **ci:** build linux-gnu binary at the declared artifact path ([86e9861](https://gitlab.com/lx-industries/rmcp-openapi/commit/86e9861e551cc5d81820a9152f973088f687c827))
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency casey/just to v1.51.0 ([8de8f07](https://gitlab.com/lx-industries/rmcp-openapi/commit/8de8f07119500f8a4b3de640b8e0783766f019d1))
+* **deps:** update dependency crate-ci/typos to v1.45.2 ([6d969b5](https://gitlab.com/lx-industries/rmcp-openapi/commit/6d969b5ccd77a858baad80b9b156f4b9b39f4905))
+* **deps:** update dependency crate-ci/typos to v1.46.0 ([db6a28f](https://gitlab.com/lx-industries/rmcp-openapi/commit/db6a28f5fd1fb61c428b887fa0aba28676a67427))
+* **deps:** update dependency crate-ci/typos to v1.46.1 ([059e7f8](https://gitlab.com/lx-industries/rmcp-openapi/commit/059e7f8c52e129d17decaed5fd55c1673cec47ef))
+* **deps:** update dependency mozilla/sccache to v0.15.0 ([d1bb763](https://gitlab.com/lx-industries/rmcp-openapi/commit/d1bb763c9981f23dd86293728a3a16bbfb644b95))
+* **deps:** update docker docker tag to v29.4.3 ([07a8076](https://gitlab.com/lx-industries/rmcp-openapi/commit/07a80768a14cbbeff7daf5e434998e940b424f53))
+* **deps:** update node.js to 050bf2b ([aa7eaf7](https://gitlab.com/lx-industries/rmcp-openapi/commit/aa7eaf700f065385b4e2905af04be255bc206e07))
+* **deps:** update node.js to 34f0eb9 ([bda8aca](https://gitlab.com/lx-industries/rmcp-openapi/commit/bda8aca1bfe50c22c5d8784421a9d7c20293ec97))
+* **deps:** update node.js to 5c0216e ([f0cd837](https://gitlab.com/lx-industries/rmcp-openapi/commit/f0cd8377e899c2dbe5a2bf3d875a75d4dfe9bc2c))
+* **deps:** update node.js to v24.15.0 ([893f6db](https://gitlab.com/lx-industries/rmcp-openapi/commit/893f6db278695944a06c705679b2a0067a7dde3b))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust docker tag to v1.95.0 ([ac54f10](https://gitlab.com/lx-industries/rmcp-openapi/commit/ac54f10b119bcee17c9c0b6cb208e19e5d6622d2))
+* **deps:** update rust crate jsonschema to v0.46.3 ([7fc8cd0](https://gitlab.com/lx-industries/rmcp-openapi/commit/7fc8cd069951e0289c274ed0397892ec64918c2b))
+* **deps:** update rust crate jsonschema to v0.46.4 ([666dc26](https://gitlab.com/lx-industries/rmcp-openapi/commit/666dc26a9eea40bb06bb84eb7ed4f3cffa15d8ae))
+* **deps:** update rust crate rmcp to v1.6.0 ([6dcd5fa](https://gitlab.com/lx-industries/rmcp-openapi/commit/6dcd5faaa6543693ee510c9c22333ec134cd084b))
+* **deps:** update rust crate tokio to v1.52.2 ([6c88e8d](https://gitlab.com/lx-industries/rmcp-openapi/commit/6c88e8d518354c95afb2cf462915908c4aca9ab0))
+* **deps:** update rust crate tokio to v1.52.3 ([e58d6c2](https://gitlab.com/lx-industries/rmcp-openapi/commit/e58d6c2048ff652a2bf723aa44e9c70b98b0f77c))
+* **deps:** update rust docker tag to v1.95.0 ([99f8755](https://gitlab.com/lx-industries/rmcp-openapi/commit/99f8755475eeefc598a0d7b2335bc29a73e614f9))
+* **deps:** update rust images ([e45a94c](https://gitlab.com/lx-industries/rmcp-openapi/commit/e45a94c091a022c0066ef15c6ad4704ba54ef7ba))
+* **deps:** update rust:1.94.1 docker digest to 652612f ([658d4aa](https://gitlab.com/lx-industries/rmcp-openapi/commit/658d4aac39316d1fb3bbf84ce781f6124954bf86))
+
 ## [0.26.6](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.5...v0.26.6) (2026-04-27)
 
 
