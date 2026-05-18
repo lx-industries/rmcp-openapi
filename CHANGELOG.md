@@ -1,3 +1,17 @@
+## [0.27.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.27.0...v0.27.1) (2026-05-18)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency crate-ci/typos to v1.46.2 ([ac79200](https://gitlab.com/lx-industries/rmcp-openapi/commit/ac79200ab7645009b9252d162ad1c931624543ab))
+* **deps:** update docker docker tag to v29.5.0 ([6e19c23](https://gitlab.com/lx-industries/rmcp-openapi/commit/6e19c23e9099c2d3b7c11fcf79d79a602813e6ea))
+* **deps:** update docker:29.5.0-dind docker digest to 8e3fae9 ([758ce6f](https://gitlab.com/lx-industries/rmcp-openapi/commit/758ce6f1a60b21356663e57895332c0d5b8e155d))
+* **deps:** update rust crate jsonschema to v0.46.5 ([fe6f504](https://gitlab.com/lx-industries/rmcp-openapi/commit/fe6f504a577513ac3846cbd6fa43b3a7840d38ad))
+* **deps:** update rust crate rmcp to v1.7.0 ([9adbcb4](https://gitlab.com/lx-industries/rmcp-openapi/commit/9adbcb42c91490b3e418d4c365e9443a5de34e4d))
+* **deps:** update rust crate rmcp-actix-web to v0.12.7 ([c5cdbd2](https://gitlab.com/lx-industries/rmcp-openapi/commit/c5cdbd2dd15ba0e10b762a8876234cdeff987c2d))
+* **deps:** update rust crate rmcp-actix-web to v0.12.8 ([5c55b6f](https://gitlab.com/lx-industries/rmcp-openapi/commit/5c55b6fa634e1a49e22daeccd6fd839ee788b997))
+* **deps:** update rust crate rmcp-actix-web to v0.12.9 ([fdf8e70](https://gitlab.com/lx-industries/rmcp-openapi/commit/fdf8e7013b89f9a503515ffe733bdcfce7dbd721))
+
 ## [0.27.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.26.6...v0.27.0) (2026-05-11)
 
 
