@@ -1,3 +1,15 @@
+## [0.27.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.27.1...v0.27.2) (2026-05-19)
+
+
+### Bug Fixes
+
+* **ci:** apply release-lto profile rule to package:container-image ([1e36054](https://gitlab.com/lx-industries/rmcp-openapi/commit/1e360548d8edc1db9a55e1a4593dd437d99224da))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate rmcp-actix-web to v0.12.10 ([1c61590](https://gitlab.com/lx-industries/rmcp-openapi/commit/1c61590f8a05d989a0b5e059639d650d101d24a8))
+
 ## [0.27.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.27.0...v0.27.1) (2026-05-18)
 
 
