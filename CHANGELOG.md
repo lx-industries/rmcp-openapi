@@ -1,3 +1,19 @@
+## [0.27.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.27.2...v0.27.3) (2026-05-25)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency crate-ci/typos to v1.46.3 ([bf5693e](https://gitlab.com/lx-industries/rmcp-openapi/commit/bf5693e6b3bd9bbedded438afde57bbc97d82437))
+* **deps:** update docker docker tag to v29.5.1 ([ebf048a](https://gitlab.com/lx-industries/rmcp-openapi/commit/ebf048afab857df68714bb5bc6832670dd5efb35))
+* **deps:** update docker docker tag to v29.5.2 ([d3b0adc](https://gitlab.com/lx-industries/rmcp-openapi/commit/d3b0adcf1171d3e6562cdf054d958462d6c14538))
+* **deps:** update docker:29.5.1-dind docker digest to eed377f ([04ea3ad](https://gitlab.com/lx-industries/rmcp-openapi/commit/04ea3ad0f101607b815373deb5e48a67ac660d41))
+* **deps:** update docker:29.5.2-dind docker digest to 6b9cd91 ([06615b9](https://gitlab.com/lx-industries/rmcp-openapi/commit/06615b96afaca8a427e265a524a2b02501351904))
+* **deps:** update node.js to 199c735 ([9ec4987](https://gitlab.com/lx-industries/rmcp-openapi/commit/9ec49873ddb0e49b07842314009356316bc53211))
+* **deps:** update node.js to 2bf80b7 ([d14e6ee](https://gitlab.com/lx-industries/rmcp-openapi/commit/d14e6ee46007789b3c3f9cd751b600633a9acc94))
+* **deps:** update node.js to f22d6a1 ([f2b2f63](https://gitlab.com/lx-industries/rmcp-openapi/commit/f2b2f63bfcb112e84a220c244b5e8dcc55ff680e))
+* **deps:** update node.js to v24.16.0 ([5236bca](https://gitlab.com/lx-industries/rmcp-openapi/commit/5236bca53693f5f00a07307a5850b68bebcc4aa0))
+* **deps:** update rust crate serde_json to v1.0.150 ([99fa9ec](https://gitlab.com/lx-industries/rmcp-openapi/commit/99fa9ec8667b9d5ec4a085924aa1809399eb740b))
+
 ## [0.27.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.27.1...v0.27.2) (2026-05-19)
 
 
