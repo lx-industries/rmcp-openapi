@@ -150,6 +150,7 @@ fn create_test_server() -> Server {
         None,
         false,
         false,
+        false,
     );
     server.tool_collection = ToolCollection::from_tools(vec![tool1, tool2, tool3, tool4]);
 

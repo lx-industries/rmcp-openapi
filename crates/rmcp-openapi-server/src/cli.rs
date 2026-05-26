@@ -96,10 +96,85 @@ pub struct Cli {
         help = "Enable stateful session mode for MCP transport (required for Claude Code)"
     )]
     pub stateful: bool,
+
+    #[arg(
+        long,
+        env = "RMCP_INSECURE",
+        default_value_t = false,
+        help = "Disable TLS certificate verification for all outbound HTTPS requests (mirrors curl --insecure). DANGEROUS: only use in trusted environments."
+    )]
+    pub insecure: bool,
 }
 
 impl Cli {
     pub fn parse_args() -> Self {
         Self::parse()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn insecure_flag_present_sets_true() {
+        let cli = Cli::try_parse_from([
+            "rmcp-openapi-server",
+            "https://example.com/spec.json",
+            "--base-url",
+            "https://api.example.com",
+            "--insecure",
+        ])
+        .unwrap();
+        assert!(cli.insecure);
+    }
+
+    #[test]
+    fn insecure_flag_absent_defaults_false() {
+        // clap reads `RMCP_INSECURE` when the flag is absent; an ambient
+        // value would flip the default and break the assertion. Skip
+        // the test rather than mutate process-global env (unsafe on
+        // edition 2024 and racy across parallel tests).
+        if std::env::var_os("RMCP_INSECURE").is_some() {
+            return;
+        }
+        let cli = Cli::try_parse_from([
+            "rmcp-openapi-server",
+            "https://example.com/spec.json",
+            "--base-url",
+            "https://api.example.com",
+        ])
+        .unwrap();
+        assert!(!cli.insecure);
+    }
+
+    /// `RMCP_INSECURE=true` flips `cli.insecure` to `true` even without
+    /// the `--insecure` flag. Ignored by default because the test
+    /// mutates process-global env (unsafe on edition 2024) and may race
+    /// with parallel tests; run with `cargo test -- --ignored
+    /// rmcp_insecure_env_var_sets_true` to exercise.
+    #[test]
+    #[ignore]
+    fn rmcp_insecure_env_var_sets_true() {
+        // SAFETY: test mutates process-global env. Runs serially under
+        // `--ignored` and the test restores the prior value before
+        // returning, so concurrent parallel tests are not affected.
+        let prior = std::env::var_os("RMCP_INSECURE");
+        unsafe {
+            std::env::set_var("RMCP_INSECURE", "true");
+        }
+        let cli = Cli::try_parse_from([
+            "rmcp-openapi-server",
+            "https://example.com/spec.json",
+            "--base-url",
+            "https://api.example.com",
+        ])
+        .unwrap();
+        match prior {
+            Some(value) => unsafe { std::env::set_var("RMCP_INSECURE", value) },
+            None => unsafe { std::env::remove_var("RMCP_INSECURE") },
+        }
+        assert!(cli.insecure);
     }
 }

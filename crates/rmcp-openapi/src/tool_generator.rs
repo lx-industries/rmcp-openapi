@@ -801,10 +801,11 @@ impl ToolGenerator {
         tools_metadata: Vec<ToolMetadata>,
         base_url: Option<url::Url>,
         default_headers: Option<reqwest::header::HeaderMap>,
+        insecure: bool,
     ) -> Result<Vec<crate::tool::Tool>, Error> {
         let mut openapi_tools = Vec::with_capacity(tools_metadata.len());
 
-        let mut http_client = HttpClient::new();
+        let mut http_client = HttpClient::new().with_insecure(insecure);
 
         if let Some(url) = base_url {
             http_client = http_client.with_base_url(url)?;

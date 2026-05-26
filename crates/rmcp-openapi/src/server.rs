@@ -43,6 +43,8 @@ pub struct Server {
     pub skip_tool_descriptions: bool,
     #[builder(default)]
     pub skip_parameter_descriptions: bool,
+    #[builder(default)]
+    pub insecure: bool,
     /// Global response transformer applied to all tools.
     ///
     /// Uses dynamic dispatch (`Arc<dyn>`) because:
@@ -64,6 +66,7 @@ impl Server {
         filters: Option<Filters>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
+        insecure: bool,
     ) -> Self {
         Self {
             openapi_spec,
@@ -78,6 +81,7 @@ impl Server {
             instructions: None,
             skip_tool_descriptions,
             skip_parameter_descriptions,
+            insecure,
             response_transformer: None,
             tool_filter: None,
         }
@@ -102,6 +106,7 @@ impl Server {
             self.default_headers.clone(),
             self.skip_tool_descriptions,
             self.skip_parameter_descriptions,
+            self.insecure,
         )?;
 
         // Apply global transformer to schemas if present
@@ -461,6 +466,34 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn server_stores_insecure_flag() {
+        let server = Server::new(
+            serde_json::Value::Null,
+            url::Url::parse("http://example.com").unwrap(),
+            None,
+            None,
+            false,
+            false,
+            true,
+        );
+        assert!(server.insecure);
+    }
+
+    #[test]
+    fn server_insecure_defaults_to_false() {
+        let server = Server::new(
+            serde_json::Value::Null,
+            url::Url::parse("http://example.com").unwrap(),
+            None,
+            None,
+            false,
+            false,
+            false,
+        );
+        assert!(!server.insecure);
+    }
+
+    #[test]
     fn test_tool_not_found_error_with_suggestions() {
         // Create test tool metadata
         let tool1_metadata = ToolMetadata {
@@ -519,6 +552,7 @@ mod tests {
             None,
             false,
             false,
+            false,
         );
         server.tool_collection = ToolCollection::from_tools(vec![tool1, tool2]);
 
@@ -569,6 +603,7 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
+            false,
             false,
             false,
         );
@@ -628,6 +663,7 @@ mod tests {
             None,
             false,
             false,
+            false,
         );
 
         assert_eq!(
@@ -659,6 +695,7 @@ mod tests {
             None,
             false,
             false,
+            false,
         );
 
         assert_eq!(server.extract_openapi_title(), Some("My API".to_string()));
@@ -679,6 +716,7 @@ mod tests {
             None,
             false,
             false,
+            false,
         );
 
         assert_eq!(server.extract_openapi_title(), None);
@@ -693,6 +731,7 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
+            false,
             false,
             false,
         );
@@ -729,6 +768,7 @@ mod tests {
             None,
             false,
             false,
+            false,
         );
 
         let result = server.get_info();
@@ -748,6 +788,7 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
+            false,
             false,
             false,
         );
@@ -779,6 +820,7 @@ mod tests {
             url::Url::parse("http://example.com").unwrap(),
             None,
             None,
+            false,
             false,
             false,
         );

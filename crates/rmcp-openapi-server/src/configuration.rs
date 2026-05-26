@@ -23,6 +23,8 @@ pub struct Configuration {
     pub skip_parameter_descriptions: bool,
     #[builder(default)]
     pub stateful: bool,
+    #[builder(default)]
+    pub insecure: bool,
 }
 
 impl Configuration {
@@ -104,6 +106,7 @@ impl Configuration {
             skip_tool_descriptions: cli.skip_tool_descriptions,
             skip_parameter_descriptions: cli.skip_parameter_descriptions,
             stateful: cli.stateful,
+            insecure: cli.insecure,
         })
     }
 }
@@ -112,7 +115,7 @@ impl Configuration {
     /// Convert Configuration to Server by loading the OpenAPI spec
     pub async fn try_into_server(self) -> Result<Server, Error> {
         // Load OpenAPI specification from the spec location
-        let openapi_spec = self.spec_location.load_json().await?;
+        let openapi_spec = self.spec_location.load_json(self.insecure).await?;
 
         let headers = if self.default_headers.is_empty() {
             None
@@ -127,6 +130,7 @@ impl Configuration {
             self.filters,
             self.skip_tool_descriptions,
             self.skip_parameter_descriptions,
+            self.insecure,
         );
 
         // Set the authorization mode
@@ -169,6 +173,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -223,6 +228,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -260,6 +266,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -286,6 +293,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -312,6 +320,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -342,6 +351,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let config = Configuration::from_cli(cli).unwrap();
@@ -364,6 +374,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -390,6 +401,7 @@ mod tests {
             skip_tool_descriptions: false,
             skip_parameter_descriptions: false,
             stateful: false,
+            insecure: false,
         };
 
         let result = Configuration::from_cli(cli);
@@ -398,5 +410,39 @@ mod tests {
         let error = result.unwrap_err().to_string();
         assert!(error.contains("CLI error"));
         assert!(error.contains("Invalid header value"));
+    }
+
+    fn minimal_cli() -> Cli {
+        Cli {
+            spec: SpecLocation::Url(Url::parse("https://example.com/spec.json").unwrap()),
+            base_url: "https://api.example.com".to_string(),
+            port: 8080,
+            bind_address: "127.0.0.1".to_string(),
+            headers: vec![],
+            tags: None,
+            methods: None,
+            operationids_include: None,
+            operationids_exclude: None,
+            authorization_mode: AuthorizationMode::default(),
+            skip_tool_descriptions: false,
+            skip_parameter_descriptions: false,
+            stateful: false,
+            insecure: false,
+        }
+    }
+
+    #[test]
+    fn insecure_flag_mapped_when_true() {
+        let mut cli = minimal_cli();
+        cli.insecure = true;
+        let config = Configuration::from_cli(cli).unwrap();
+        assert!(config.insecure);
+    }
+
+    #[test]
+    fn insecure_flag_defaults_to_false() {
+        let cli = minimal_cli();
+        let config = Configuration::from_cli(cli).unwrap();
+        assert!(!config.insecure);
     }
 }

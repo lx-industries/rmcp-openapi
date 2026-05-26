@@ -143,6 +143,7 @@ impl Spec {
         default_headers: Option<reqwest::header::HeaderMap>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
+        insecure: bool,
     ) -> Result<Vec<crate::tool::Tool>, Error> {
         // First generate the tool metadata using existing method
         let tools_metadata =
@@ -153,6 +154,7 @@ impl Spec {
             tools_metadata,
             base_url,
             default_headers,
+            insecure,
         )
     }
 

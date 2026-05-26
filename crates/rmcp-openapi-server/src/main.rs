@@ -10,7 +10,7 @@ use configuration::Configuration;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp_actix_web::transport::StreamableHttpService;
 use rmcp_openapi::Error;
-use tracing::{debug, error, info, info_span};
+use tracing::{debug, error, info, info_span, warn};
 
 #[actix_web::main]
 async fn main() {
@@ -27,6 +27,9 @@ async fn run() -> Result<(), Error> {
 
     // Set up structured logging
     setup_logging();
+
+    // Surface the TLS bypass before any outbound request can fire.
+    log_insecure_warning(config.insecure);
 
     // Extract values needed after server creation
     let bind_address = config.bind_address.clone();
@@ -127,4 +130,91 @@ fn setup_logging() {
         .with_env_filter(env_filter)
         .with_target(true) // Include the target (module path) in logs
         .init();
+}
+
+/// Emit a single `WARN` log line when TLS verification has been disabled
+/// via `--insecure` / `RMCP_INSECURE`, so operators see the bypass at
+/// startup. No-op when `insecure` is false.
+fn log_insecure_warning(insecure: bool) {
+    if insecure {
+        warn!(
+            "⚠️  TLS certificate verification is DISABLED (--insecure / RMCP_INSECURE). \
+             All outbound HTTPS requests will accept invalid, self-signed, or \
+             hostname-mismatched certificates. DO NOT USE IN PRODUCTION."
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::log_insecure_warning;
+    use std::io;
+    use std::sync::{Arc, Mutex};
+    use tracing::subscriber;
+    use tracing_subscriber::fmt::MakeWriter;
+
+    #[derive(Clone, Default)]
+    struct CapturedWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl io::Write for CapturedWriter {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> MakeWriter<'a> for CapturedWriter {
+        type Writer = CapturedWriter;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    fn captured_warn(insecure: bool) -> String {
+        let writer = CapturedWriter::default();
+        let buffer = writer.0.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(writer)
+            .with_max_level(tracing::Level::WARN)
+            .with_ansi(false)
+            .without_time()
+            .finish();
+
+        subscriber::with_default(subscriber, || log_insecure_warning(insecure));
+
+        String::from_utf8(buffer.lock().unwrap().clone()).unwrap()
+    }
+
+    #[test]
+    fn log_insecure_warning_emits_warn_when_enabled() {
+        let output = captured_warn(true);
+        assert!(
+            output.contains("WARN"),
+            "expected WARN level, got: {output}"
+        );
+        assert!(
+            output.contains("TLS certificate verification is DISABLED"),
+            "expected disabled-TLS message, got: {output}"
+        );
+        assert!(
+            output.contains("--insecure"),
+            "expected --insecure mention, got: {output}"
+        );
+        assert_eq!(
+            output.matches("WARN").count(),
+            1,
+            "expected exactly one WARN line, got: {output}"
+        );
+    }
+
+    #[test]
+    fn log_insecure_warning_silent_when_disabled() {
+        let output = captured_warn(false);
+        assert!(output.is_empty(), "expected no output, got: {output}");
+    }
 }

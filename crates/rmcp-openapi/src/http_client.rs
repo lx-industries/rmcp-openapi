@@ -107,12 +107,17 @@ pub fn parse_data_uri(value: &str, field_name: &str) -> Result<DataUriContent, E
     })
 }
 
+/// Default request timeout in seconds applied to every `HttpClient`
+/// constructed without an explicit timeout override.
+const DEFAULT_TIMEOUT_SECONDS: u64 = 30;
+
 /// HTTP client for executing `OpenAPI` requests
 #[derive(Clone)]
 pub struct HttpClient {
     client: Client,
     base_url: Option<Url>,
     default_headers: HeaderMap,
+    timeout_seconds: u64,
 }
 
 impl HttpClient {
@@ -120,6 +125,28 @@ impl HttpClient {
     fn create_user_agent() -> String {
         format!("rmcp-openapi-server/{}", env!("CARGO_PKG_VERSION"))
     }
+
+    /// Build the underlying `reqwest::Client` with the given timeout and
+    /// optional bypass of TLS certificate verification.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTTP client cannot be created.
+    fn build_reqwest_client(timeout_seconds: u64, insecure: bool) -> Client {
+        let user_agent = Self::create_user_agent();
+        let mut builder = Client::builder()
+            .user_agent(&user_agent)
+            .timeout(Duration::from_secs(timeout_seconds));
+
+        if insecure {
+            builder = builder
+                .danger_accept_invalid_certs(true)
+                .danger_accept_invalid_hostnames(true);
+        }
+
+        builder.build().expect("Failed to create HTTP client")
+    }
+
     /// Create a new HTTP client
     ///
     /// # Panics
@@ -127,17 +154,11 @@ impl HttpClient {
     /// Panics if the HTTP client cannot be created
     #[must_use]
     pub fn new() -> Self {
-        let user_agent = Self::create_user_agent();
-        let client = Client::builder()
-            .user_agent(&user_agent)
-            .timeout(Duration::from_secs(30))
-            .build()
-            .expect("Failed to create HTTP client");
-
         Self {
-            client,
+            client: Self::build_reqwest_client(DEFAULT_TIMEOUT_SECONDS, false),
             base_url: None,
             default_headers: HeaderMap::new(),
+            timeout_seconds: DEFAULT_TIMEOUT_SECONDS,
         }
     }
 
@@ -148,18 +169,38 @@ impl HttpClient {
     /// Panics if the HTTP client cannot be created
     #[must_use]
     pub fn with_timeout(timeout_seconds: u64) -> Self {
-        let user_agent = Self::create_user_agent();
-        let client = Client::builder()
-            .user_agent(&user_agent)
-            .timeout(Duration::from_secs(timeout_seconds))
-            .build()
-            .expect("Failed to create HTTP client");
-
         Self {
-            client,
+            client: Self::build_reqwest_client(timeout_seconds, false),
             base_url: None,
             default_headers: HeaderMap::new(),
+            timeout_seconds,
         }
+    }
+
+    /// Rebuild the underlying `reqwest::Client`, optionally disabling TLS
+    /// certificate and hostname verification.
+    ///
+    /// When `insecure` is `true`, both `danger_accept_invalid_certs` and
+    /// `danger_accept_invalid_hostnames` are enabled to mirror
+    /// `curl --insecure`. The previously configured timeout is preserved.
+    /// When `insecure` is `false`, this is a no-op: the existing client
+    /// is returned unchanged so callers that pass the flag through
+    /// unconditionally do not pay for a second `reqwest::Client`.
+    ///
+    /// This method is one-way: a client previously built with
+    /// `insecure = true` cannot have TLS verification re-enabled by
+    /// calling `with_insecure(false)`. To get a strict client, construct
+    /// a fresh `HttpClient` with [`HttpClient::new`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTTP client cannot be created.
+    #[must_use]
+    pub fn with_insecure(mut self, insecure: bool) -> Self {
+        if insecure {
+            self.client = Self::build_reqwest_client(self.timeout_seconds, true);
+        }
+        self
     }
 
     /// Set the base URL for all requests
@@ -199,6 +240,7 @@ impl HttpClient {
             client: self.client.clone(),
             base_url: self.base_url.clone(),
             default_headers: headers,
+            timeout_seconds: self.timeout_seconds,
         }
     }
 
@@ -1879,6 +1921,30 @@ mod tests {
 
         let result = HttpClient::add_request_body(request, &body, &config);
         assert!(result.is_ok(), "Should build form-urlencoded body");
+    }
+
+    #[tokio::test]
+    async fn http_client_with_insecure_still_serves_plain_http() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/ping")
+            .with_status(200)
+            .with_body("pong")
+            .create_async()
+            .await;
+
+        let base_url: Url = server.url().parse().unwrap();
+        let client = HttpClient::new()
+            .with_insecure(true)
+            .with_base_url(base_url.clone())
+            .unwrap();
+
+        let url = base_url.join("ping").unwrap();
+        let response = client.client.get(url).send().await.unwrap();
+        assert_eq!(response.status().as_u16(), 200);
+        assert_eq!(response.text().await.unwrap(), "pong");
+
+        mock.assert_async().await;
     }
 
     #[test]
