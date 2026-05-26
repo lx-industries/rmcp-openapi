@@ -239,7 +239,37 @@ package:container-image:
   extends: .docker-in-docker
   stage: package
   needs:
-    - build:x86_64-unknown-linux-gnu
+    - job: build:x86_64-unknown-linux-gnu
+    - job: test
+      optional: true
+      artifacts: false
+    - job: clippy
+      optional: true
+      artifacts: false
+    - job: fmt
+      optional: true
+      artifacts: false
+    - job: typos
+      optional: true
+      artifacts: false
+    - job: rustdoc
+      optional: true
+      artifacts: false
+    - job: doc-test
+      optional: true
+      artifacts: false
+    - job: examples
+      optional: true
+      artifacts: false
+    - job: integration-js
+      optional: true
+      artifacts: false
+    - job: build:x86_64-pc-windows-msvc
+      optional: true
+      artifacts: false
+    - job: semantic-release-lint
+      optional: true
+      artifacts: false
   variables:
     CARGO_TARGET: "x86_64-unknown-linux-gnu"
     CARGO_TARGET_BIN_DIR: "target/${CARGO_TARGET}/${CARGO_PROFILE}"
