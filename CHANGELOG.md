@@ -1,3 +1,17 @@
+## [0.28.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.27.3...v0.28.0) (2026-05-26)
+
+
+### Features
+
+* **server:** add --insecure CLI flag mirroring curl --insecure ([ef6f364](https://gitlab.com/lx-industries/rmcp-openapi/commit/ef6f364c62df4a556cd01e09bf48c60ee9c3e2a2)), closes [#95](https://gitlab.com/lx-industries/rmcp-openapi/issues/95)
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate http to v1.4.1 ([20e0beb](https://gitlab.com/lx-industries/rmcp-openapi/commit/20e0beb1f69d3e546b30d11a240d633aea51a8e6))
+* **deps:** update rust crate reqwest to v0.13.4 ([8e17243](https://gitlab.com/lx-industries/rmcp-openapi/commit/8e17243e66ad8e74b551af69a20ba62153f05e0c))
+* **deps:** update rust crate rmcp-actix-web to v0.12.11 ([5f5a4c8](https://gitlab.com/lx-industries/rmcp-openapi/commit/5f5a4c88f25725fbbbc5a1324b0b3945b366d08c))
+
 ## [0.27.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.27.2...v0.27.3) (2026-05-25)
 
 
