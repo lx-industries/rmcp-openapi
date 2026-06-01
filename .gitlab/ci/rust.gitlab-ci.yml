@@ -37,7 +37,7 @@
 
 # Unified Rust job template - consolidated configuration for all Rust jobs
 .rust-template:
-  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.95.0-x86_64-unknown-linux-gnu@sha256:d1fe5bdbebc789cec28f0ea0f716dcb75a56cc580f73d61b8419628310db2e2e
+  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.96.0-x86_64-unknown-linux-gnu@sha256:168f4b06f725809687e884444e9a3c3ef3904cf9450d7767d165a600c5eefed6
   variables:
     # Assume the PWD is CI_PROJECT_DIR, this way we don't have to deal with
     # Windows (`\`) vs Linux (`/`) path separators.
@@ -81,7 +81,7 @@ build:x86_64-unknown-linux-gnu:
 
 # Windows cross-compilation build job
 build:x86_64-pc-windows-msvc:
-  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.95.0-x86_64-pc-windows-msvc@sha256:2be5190aef673e44f984aa4d826c64e9dc322902ff65cb84d976cb711b05f02f
+  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.96.0-x86_64-pc-windows-msvc@sha256:55de157b174224dd1de974836159f0b3f818f144f6d8c9e39c47f756c7bc4ce3
   extends:
     - .sccache-rust
   stage: build
