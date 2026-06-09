@@ -1,0 +1,23 @@
+---
+source: crates/rmcp-openapi/src/tool_generator.rs
+expression: result
+---
+{
+  "type": "array",
+  "items": {
+    "type": "string",
+    "description": "A relationship path: a dot-separated chain of relationship names."
+  },
+  "description": "Relationship paths to include.",
+  "examples": [
+    [
+      "camera"
+    ],
+    [
+      "mesh.primitives.material"
+    ],
+    [
+      "mesh.primitives.indices"
+    ]
+  ]
+}

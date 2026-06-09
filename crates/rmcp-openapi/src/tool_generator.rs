@@ -1694,6 +1694,28 @@ impl ToolGenerator {
         if let Some(Value::Array(examples)) = result.get("examples") {
             collected_examples.extend(examples.iter().cloned());
         }
+        // Array parameters: lift element-level `examples` to the parameter level, wrapping each
+        // as a single-element array. A valid value for an array parameter is itself an array, and
+        // MCP clients (and the inspector) read examples at the parameter level, not nested under
+        // `items`. Clear them from `items` afterwards so the tokens are not duplicated.
+        let lifted_item_examples: Option<Vec<Value>> = (result.get("type")
+            == Some(&json!("array")))
+        .then(|| {
+            result
+                .get("items")
+                .and_then(|items| items.get("examples"))
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .flatten();
+        if let Some(item_examples) = lifted_item_examples {
+            for item_example in &item_examples {
+                collected_examples.push(json!([item_example]));
+            }
+            if let Some(Value::Object(items)) = result.get_mut("items") {
+                items.remove("examples");
+            }
+        }
         // De-duplicate while preserving first-seen order.
         let mut deduped: Vec<Value> = Vec::with_capacity(collected_examples.len());
         for example in collected_examples {
@@ -3079,6 +3101,97 @@ mod tests {
             result.get("examples").is_none(),
             "structured `examples` omitted when folding into the description: {result}"
         );
+    }
+
+    #[test]
+    fn array_parameter_lifts_item_examples_to_parameter_level() {
+        let spec = create_test_spec();
+        // An array parameter whose element schema carries `examples` (the natural place for
+        // per-element examples). MCP clients and the inspector read examples at the parameter
+        // level, not nested under `items`, so they must be surfaced there.
+        let param: Parameter = serde_json::from_value(json!({
+            "name": "include",
+            "in": "query",
+            "schema": {
+                "type": "array",
+                "items": { "type": "string", "examples": ["camera", "mesh.primitives"] },
+            },
+        }))
+        .expect("valid parameter");
+        let (result, _annotations) = ToolGenerator::convert_parameter_schema(
+            &param,
+            ParameterIn::Query,
+            &spec,
+            false,
+            false,
+        )
+        .expect("conversion succeeds");
+        // Each element example is lifted to the parameter level wrapped as a single-element
+        // array, since a valid value for an array parameter is itself an array.
+        assert_eq!(
+            result["examples"],
+            json!([["camera"], ["mesh.primitives"]]),
+            "array element examples must be lifted to parameter-level examples: {result}"
+        );
+    }
+
+    #[test]
+    fn lifting_array_item_examples_clears_them_from_items() {
+        let spec = create_test_spec();
+        let param: Parameter = serde_json::from_value(json!({
+            "name": "include",
+            "in": "query",
+            "schema": {
+                "type": "array",
+                "items": { "type": "string", "examples": ["camera", "mesh.primitives"] },
+            },
+        }))
+        .expect("valid parameter");
+        let (result, _annotations) = ToolGenerator::convert_parameter_schema(
+            &param,
+            ParameterIn::Query,
+            &spec,
+            false,
+            false,
+        )
+        .expect("conversion succeeds");
+        // Once lifted to the parameter level, the examples must not also remain under `items`:
+        // a single channel, so their tokens are not duplicated.
+        assert!(
+            result["items"].get("examples").is_none(),
+            "item-level examples must be cleared once lifted to the parameter level: {result}"
+        );
+    }
+
+    #[test]
+    fn array_parameter_examples_lift_snapshot() {
+        let spec = create_test_spec();
+        // Mirrors a JSON:API `include` parameter: an array of relationship-path strings whose
+        // element schema carries representative `examples` and a grammar description. The snapshot
+        // renders the converted MCP input schema so the lifted, parameter-level shape is reviewable.
+        let param: Parameter = serde_json::from_value(json!({
+            "name": "include",
+            "in": "query",
+            "description": "Relationship paths to include.",
+            "schema": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "description": "A relationship path: a dot-separated chain of relationship names.",
+                    "examples": ["camera", "mesh.primitives.material", "mesh.primitives.indices"],
+                },
+            },
+        }))
+        .expect("valid parameter");
+        let (result, _annotations) = ToolGenerator::convert_parameter_schema(
+            &param,
+            ParameterIn::Query,
+            &spec,
+            false,
+            false,
+        )
+        .expect("conversion succeeds");
+        assert_json_snapshot!("array_parameter_examples_lift", result);
     }
 
     /// Create a minimal test OpenAPI spec for testing purposes
