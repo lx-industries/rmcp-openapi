@@ -1,3 +1,23 @@
+## [0.29.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.28.1...v0.29.0) (2026-06-09)
+
+
+### Features
+
+* **tool-generator:** surface OpenAPI examples in the structured `examples` field ([cf71bef](https://gitlab.com/lx-industries/rmcp-openapi/commit/cf71befb61e13f81b5ad931053ca96a2d3c15c62)), closes [#97](https://gitlab.com/lx-industries/rmcp-openapi/issues/97)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency casey/just to v1.52.0 ([b0f02e7](https://gitlab.com/lx-industries/rmcp-openapi/commit/b0f02e722a11329ca76f6eed2b05ebc58a23bb0e))
+* **deps:** update dependency crate-ci/typos to v1.47.1 ([b756fa6](https://gitlab.com/lx-industries/rmcp-openapi/commit/b756fa6fea075b740d4477ec4f222d96d7286d7f))
+* **deps:** update dependency crate-ci/typos to v1.47.2 ([0139e42](https://gitlab.com/lx-industries/rmcp-openapi/commit/0139e42c446268614a45b24b5e503ee875466482))
+* **deps:** update docker docker tag to v29.5.3 ([a2d1470](https://gitlab.com/lx-industries/rmcp-openapi/commit/a2d147060bbdbd4c7dd23936424c85126367b20e))
+* **deps:** update rmcp crates to v0.12.13 ([10de494](https://gitlab.com/lx-industries/rmcp-openapi/commit/10de494665e77d63cde864b8987f6b7b984edad2))
+* **deps:** update rust crate http to v1.4.2 ([d332fd9](https://gitlab.com/lx-industries/rmcp-openapi/commit/d332fd93a184feee9f111aa68039349355f96b52))
+* **deps:** update rust crate rmcp-actix-web to v0.12.12 ([c34bee9](https://gitlab.com/lx-industries/rmcp-openapi/commit/c34bee9d70670a775b94c92e71135c39daf6f5c1))
+* **deps:** update rust images ([6a26e4d](https://gitlab.com/lx-industries/rmcp-openapi/commit/6a26e4d7cc7efe0912eaaf8831df9ad84bb013e9))
+* **deps:** update ubuntu:noble docker digest to 786a8b5 ([8e033a0](https://gitlab.com/lx-industries/rmcp-openapi/commit/8e033a057dd9497f8907cb22e7691934955cf993))
+
 ## [0.28.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.28.0...v0.28.1) (2026-06-01)
 
 
