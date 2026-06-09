@@ -1,3 +1,15 @@
+## [0.30.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.29.0...v0.30.0) (2026-06-09)
+
+
+### Features
+
+* **tool-generator:** lift array parameter element examples to the parameter level ([15ad260](https://gitlab.com/lx-industries/rmcp-openapi/commit/15ad260cc3929f58487149618f913a802af6606f))
+
+
+### Miscellaneous Chores
+
+* **deps:** update rust crate regex to v1.12.4 ([42a6d4d](https://gitlab.com/lx-industries/rmcp-openapi/commit/42a6d4d62a412e6baff832782efbbe299384a218))
+
 ## [0.29.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.28.1...v0.29.0) (2026-06-09)
 
 
