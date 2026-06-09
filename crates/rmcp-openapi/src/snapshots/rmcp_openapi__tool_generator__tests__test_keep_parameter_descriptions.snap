@@ -9,6 +9,8 @@ expression: schema
     "pending",
     "sold"
   ],
-  "description": "Filter by status. Example: `\"available\"`",
-  "example": "available"
+  "description": "Filter by status",
+  "examples": [
+    "available"
+  ]
 }

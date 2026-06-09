@@ -37,6 +37,7 @@ impl Spec {
         filters: Option<&Filters>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
+        parameter_examples_in_description: bool,
     ) -> Result<Vec<ToolMetadata>, Error> {
         let mut tools = Vec::new();
 
@@ -121,6 +122,7 @@ impl Spec {
                             &self.spec,
                             skip_tool_descriptions,
                             skip_parameter_descriptions,
+                            parameter_examples_in_description,
                         )?;
                         tools.push(tool_metadata);
                     }
@@ -136,6 +138,10 @@ impl Spec {
     /// # Errors
     ///
     /// Returns an error if any operations cannot be converted or OpenApiTool instances cannot be created
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "mirrors the existing description/skip flags threaded through tool generation"
+    )]
     pub fn to_openapi_tools(
         &self,
         filters: Option<&Filters>,
@@ -143,11 +149,16 @@ impl Spec {
         default_headers: Option<reqwest::header::HeaderMap>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
+        parameter_examples_in_description: bool,
         insecure: bool,
     ) -> Result<Vec<crate::tool::Tool>, Error> {
         // First generate the tool metadata using existing method
-        let tools_metadata =
-            self.to_tool_metadata(filters, skip_tool_descriptions, skip_parameter_descriptions)?;
+        let tools_metadata = self.to_tool_metadata(
+            filters,
+            skip_tool_descriptions,
+            skip_parameter_descriptions,
+            parameter_examples_in_description,
+        )?;
 
         // Then convert to Tool instances
         crate::tool_generator::ToolGenerator::generate_openapi_tools(
@@ -499,7 +510,7 @@ mod tests {
     fn test_tag_filtering_no_filter() {
         let spec = create_test_spec_with_tags();
         let tools = spec
-            .to_tool_metadata(None, false, false)
+            .to_tool_metadata(None, false, false, false)
             .expect("Failed to generate tools");
 
         // All operations should be included
@@ -522,7 +533,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Only pet operations should be included
@@ -545,7 +556,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Pet and user operations should be included
@@ -568,7 +579,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Only operations with "list" tag should be included
@@ -588,7 +599,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // No operations should be included
@@ -604,7 +615,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Only admin operations should be included, public endpoint (no tags) should be excluded
@@ -624,7 +635,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // All userManagement variants should match user-management filter
@@ -648,7 +659,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // All userManagement variants should match camelCase filter
@@ -671,7 +682,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // All userManagement variants should match snake_case filter
@@ -687,7 +698,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Should match XMLHttpRequest tag
@@ -709,7 +720,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Should match all userManagement variants + mixedCaseOperation (for HTTPSConnection)
@@ -729,7 +740,7 @@ mod tests {
         let spec = create_test_spec_with_tags();
         let filters = Some(Filters::builder().tags(Filter::Include(vec![])).build());
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Empty filter should exclude all operations
@@ -749,7 +760,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Should include adminPanel (has "management") and listPets (has "list")
@@ -767,7 +778,7 @@ mod tests {
     fn test_method_filtering_no_filter() {
         let spec = create_test_spec_with_methods();
         let tools = spec
-            .to_tool_metadata(None, false, false)
+            .to_tool_metadata(None, false, false, false)
             .expect("Failed to generate tools");
 
         // All operations should be included (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS)
@@ -796,7 +807,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Only GET operations should be included
@@ -825,7 +836,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Only GET and POST operations should be included
@@ -858,7 +869,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Only HEAD, OPTIONS, and PATCH operations should be included
@@ -888,7 +899,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Only user operations with GET and POST methods should be included
@@ -917,7 +928,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // No operations should be included
@@ -929,7 +940,7 @@ mod tests {
         let spec = create_test_spec_with_methods();
         let filters = Some(Filters::builder().methods(Filter::Include(vec![])).build());
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Empty filter should exclude all operations
@@ -941,7 +952,7 @@ mod tests {
         let spec = create_test_spec_with_methods();
         let filters = Some(Filters::builder().methods(Filter::Include(vec![])).build());
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Empty include filter should exclude all operations
@@ -960,7 +971,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         assert_eq!(tools.len(), 2);
@@ -979,7 +990,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         // Empty include filter should exclude all operations
@@ -999,7 +1010,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         assert_eq!(tools.len(), 6);
@@ -1032,7 +1043,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         assert_eq!(tools.len(), 2);
@@ -1062,7 +1073,7 @@ mod tests {
                 .build(),
         );
         let tools = spec
-            .to_tool_metadata(filters.as_ref(), false, false)
+            .to_tool_metadata(filters.as_ref(), false, false, false)
             .expect("Failed to generate tools");
 
         assert_eq!(tools.len(), 3);

@@ -43,6 +43,11 @@ pub struct Server {
     pub skip_tool_descriptions: bool,
     #[builder(default)]
     pub skip_parameter_descriptions: bool,
+    /// When set, parameter examples are folded into the parameter `description` instead of
+    /// the structured `examples` field (for clients that don't read `examples`, e.g. OpenAI
+    /// strict mode). Default: examples go in the structured `examples` field.
+    #[builder(default)]
+    pub parameter_examples_in_description: bool,
     #[builder(default)]
     pub insecure: bool,
     /// Global response transformer applied to all tools.
@@ -81,6 +86,8 @@ impl Server {
             instructions: None,
             skip_tool_descriptions,
             skip_parameter_descriptions,
+            // Off by default; enable via the builder (`parameter_examples_in_description`).
+            parameter_examples_in_description: false,
             insecure,
             response_transformer: None,
             tool_filter: None,
@@ -106,6 +113,7 @@ impl Server {
             self.default_headers.clone(),
             self.skip_tool_descriptions,
             self.skip_parameter_descriptions,
+            self.parameter_examples_in_description,
             self.insecure,
         )?;
 

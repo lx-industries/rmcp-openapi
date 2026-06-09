@@ -36,13 +36,18 @@ impl ToolRegistry {
         filters: Option<&Filters>,
         skip_tool_descriptions: bool,
         skip_parameter_descriptions: bool,
+        parameter_examples_in_description: bool,
     ) -> Result<usize, Error> {
         // Clear existing tools
         self.clear();
 
         // Convert operations to tool metadata
-        let tools_metadata =
-            spec.to_tool_metadata(filters, skip_tool_descriptions, skip_parameter_descriptions)?;
+        let tools_metadata = spec.to_tool_metadata(
+            filters,
+            skip_tool_descriptions,
+            skip_parameter_descriptions,
+            parameter_examples_in_description,
+        )?;
         let mut registered_count = 0;
 
         // Register each tool

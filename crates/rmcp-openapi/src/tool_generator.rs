@@ -754,6 +754,7 @@ impl ToolGenerator {
         spec: &Spec,
         skip_tool_description: bool,
         skip_parameter_descriptions: bool,
+        parameter_examples_in_description: bool,
     ) -> Result<ToolMetadata, Error> {
         let name = operation.operation_id.clone().unwrap_or_else(|| {
             format!(
@@ -770,6 +771,7 @@ impl ToolGenerator {
             &operation.request_body,
             spec,
             skip_parameter_descriptions,
+            parameter_examples_in_description,
         )?;
 
         // Build description from summary, description, and parameters
@@ -1171,6 +1173,12 @@ impl ToolGenerator {
             schema_obj.insert("example".to_string(), example.clone());
         }
 
+        // OpenAPI 3.1 plural `examples`, read alongside the deprecated singular `example`
+        // so neither form is dropped from the generated JSON Schema.
+        if !obj_schema.examples.is_empty() {
+            schema_obj.insert("examples".to_string(), json!(&obj_schema.examples));
+        }
+
         if let Some(default) = &obj_schema.default {
             schema_obj.insert("default".to_string(), default.clone());
         }
@@ -1306,6 +1314,7 @@ impl ToolGenerator {
         request_body: &Option<ObjectOrReference<RequestBody>>,
         spec: &Spec,
         skip_parameter_descriptions: bool,
+        parameter_examples_in_description: bool,
     ) -> Result<
         (
             Value,
@@ -1353,6 +1362,7 @@ impl ToolGenerator {
                 ParameterIn::Path,
                 spec,
                 skip_parameter_descriptions,
+                parameter_examples_in_description,
             )?;
 
             // Sanitize parameter name and add original name annotation if needed
@@ -1397,6 +1407,7 @@ impl ToolGenerator {
                 ParameterIn::Query,
                 spec,
                 skip_parameter_descriptions,
+                parameter_examples_in_description,
             )?;
 
             // Sanitize parameter name and add original name annotation if needed
@@ -1443,6 +1454,7 @@ impl ToolGenerator {
                 ParameterIn::Header,
                 spec,
                 skip_parameter_descriptions,
+                parameter_examples_in_description,
             )?;
 
             // Sanitize parameter name after prefixing and add original name annotation if needed
@@ -1490,6 +1502,7 @@ impl ToolGenerator {
                 ParameterIn::Cookie,
                 spec,
                 skip_parameter_descriptions,
+                parameter_examples_in_description,
             )?;
 
             // Sanitize parameter name after prefixing and add original name annotation if needed
@@ -1584,6 +1597,7 @@ impl ToolGenerator {
         location: ParameterIn,
         spec: &Spec,
         skip_parameter_descriptions: bool,
+        parameter_examples_in_description: bool,
     ) -> Result<(Value, Annotations), Error> {
         // Convert the parameter schema using the unified converter
         let base_schema = if let Some(schema_ref) = &param.schema {
@@ -1655,34 +1669,49 @@ impl ToolGenerator {
             }
         };
 
-        // Collect examples from various sources
-        let mut collected_examples = Vec::new();
+        // Collect examples from all sources, chained so neither the singular `example`
+        // nor the plural `examples` is dropped at the parameter or schema level.
+        let mut collected_examples: Vec<Value> = Vec::new();
 
-        // First, check for parameter-level examples
+        // Parameter-level singular `example`.
         if let Some(example) = &param.example {
             collected_examples.push(example.clone());
-        } else if !param.examples.is_empty() {
-            // Collect from examples map
-            for example_ref in param.examples.values() {
-                match example_ref {
-                    ObjectOrReference::Object(example_obj) => {
-                        if let Some(value) = &example_obj.value {
-                            collected_examples.push(value.clone());
-                        }
-                    }
-                    ObjectOrReference::Ref { .. } => {
-                        // Skip references in examples for now
-                    }
-                }
-            }
-        } else if let Some(Value::String(ex_str)) = result.get("example") {
-            // If there's an example from the schema, collect it
-            collected_examples.push(json!(ex_str));
-        } else if let Some(ex) = result.get("example") {
-            collected_examples.push(ex.clone());
         }
+        // Parameter-level `examples` map.
+        for example_ref in param.examples.values() {
+            if let ObjectOrReference::Object(example_obj) = example_ref
+                && let Some(value) = &example_obj.value
+            {
+                collected_examples.push(value.clone());
+            }
+            // References in the examples map are not resolved here.
+        }
+        // Schema-level singular `example` (added during base schema conversion).
+        if let Some(example) = result.get("example") {
+            collected_examples.push(example.clone());
+        }
+        // Schema-level plural `examples` (added during base schema conversion).
+        if let Some(Value::Array(examples)) = result.get("examples") {
+            collected_examples.extend(examples.iter().cloned());
+        }
+        // De-duplicate while preserving first-seen order.
+        let mut deduped: Vec<Value> = Vec::with_capacity(collected_examples.len());
+        for example in collected_examples {
+            if !deduped.contains(&example) {
+                deduped.push(example);
+            }
+        }
+        let collected_examples = deduped;
 
-        // Build description with examples
+        // Examples are emitted to exactly one channel to avoid duplicating their tokens.
+        // Default: the structured `examples` field (the JSON Schema standard form). When
+        // `parameter_examples_in_description` is set, they go into the parameter description
+        // instead, for clients that do not read structured `examples` (e.g. OpenAI strict
+        // mode). Ad-hoc example fields from the base schema conversion are cleared first so
+        // examples cannot leak into both channels.
+        result.remove("example");
+        result.remove("examples");
+
         let base_description = param
             .description
             .as_ref()
@@ -1695,55 +1724,21 @@ impl ToolGenerator {
             })
             .unwrap_or_else(|| format!("{} parameter", param.name));
 
-        let description_with_examples = if let Some(examples_str) =
-            Self::format_examples_for_description(&collected_examples)
-        {
-            format!("{base_description}. {examples_str}")
+        let description = if parameter_examples_in_description {
+            match Self::format_examples_for_description(&collected_examples) {
+                Some(examples_str) => format!("{base_description}. {examples_str}"),
+                None => base_description,
+            }
         } else {
             base_description
         };
 
         if !skip_parameter_descriptions {
-            result.insert("description".to_string(), json!(description_with_examples));
+            result.insert("description".to_string(), json!(description));
         }
 
-        // Add parameter-level example if present
-        // Priority: param.example > param.examples > schema.example
-        // Note: schema.example is already added during base schema conversion,
-        // so parameter examples will override it by being added after
-        if let Some(example) = &param.example {
-            result.insert("example".to_string(), example.clone());
-        } else if !param.examples.is_empty() {
-            // If no single example but we have multiple examples, use the first one
-            // Also store all examples for potential use in documentation
-            let mut examples_array = Vec::new();
-            for (example_name, example_ref) in &param.examples {
-                match example_ref {
-                    ObjectOrReference::Object(example_obj) => {
-                        if let Some(value) = &example_obj.value {
-                            examples_array.push(json!({
-                                "name": example_name,
-                                "value": value
-                            }));
-                        }
-                    }
-                    ObjectOrReference::Ref { .. } => {
-                        // For now, skip references in examples
-                        // Could be enhanced to resolve references
-                    }
-                }
-            }
-
-            if !examples_array.is_empty() {
-                // Use the first example's value as the main example
-                if let Some(first_example) = examples_array.first()
-                    && let Some(value) = first_example.get("value")
-                {
-                    result.insert("example".to_string(), value.clone());
-                }
-                // Store all examples for documentation purposes
-                result.insert("x-examples".to_string(), json!(examples_array));
-            }
+        if !parameter_examples_in_description && !collected_examples.is_empty() {
+            result.insert("examples".to_string(), json!(collected_examples));
         }
 
         // Create annotations instead of adding them to the JSON
@@ -2998,6 +2993,94 @@ mod tests {
     use serde_json::{Value, json};
     use std::collections::BTreeMap;
 
+    #[test]
+    fn converter_preserves_schema_level_examples_plural() {
+        let spec = create_test_spec();
+        let schema: ObjectSchema = serde_json::from_value(json!({
+            "type": "string",
+            "examples": ["a", "a.b", "a.b.c"],
+        }))
+        .expect("valid object schema");
+        let mut visited = std::collections::HashSet::new();
+        let result =
+            ToolGenerator::convert_object_schema_to_json_schema(&schema, &spec, &mut visited)
+                .expect("conversion succeeds");
+        assert_eq!(result["type"], json!("string"));
+        assert_eq!(
+            result["examples"],
+            json!(["a", "a.b", "a.b.c"]),
+            "schema-level plural `examples` must be preserved: {result}"
+        );
+    }
+
+    fn parameter_with_singular_and_named_map_examples() -> Parameter {
+        serde_json::from_value(json!({
+            "name": "q",
+            "in": "query",
+            "schema": { "type": "string" },
+            "example": "alpha",
+            "examples": {
+                "beta": { "value": "beta" },
+                "gamma": { "value": "gamma" },
+            },
+        }))
+        .expect("valid parameter")
+    }
+
+    #[test]
+    fn parameter_examples_default_to_structured_field() {
+        let spec = create_test_spec();
+        let param = parameter_with_singular_and_named_map_examples();
+        // Default: examples chained from all sources into the structured `examples` field,
+        // not duplicated into the description.
+        let (result, _annotations) = ToolGenerator::convert_parameter_schema(
+            &param,
+            ParameterIn::Query,
+            &spec,
+            false,
+            false,
+        )
+        .expect("conversion succeeds");
+        let values: Vec<String> = result["examples"]
+            .as_array()
+            .expect("structured `examples` present")
+            .iter()
+            .filter_map(|value| value.as_str().map(ToString::to_string))
+            .collect();
+        assert!(
+            values.iter().any(|v| v == "alpha")
+                && values.iter().any(|v| v == "beta")
+                && values.iter().any(|v| v == "gamma"),
+            "all sources chained into structured `examples`: {result}"
+        );
+        let description = result["description"].as_str().unwrap_or_default();
+        assert!(
+            !description.contains("alpha") && !description.contains("beta"),
+            "examples must not be duplicated into the description by default: {description}"
+        );
+    }
+
+    #[test]
+    fn parameter_examples_in_description_when_flag_set() {
+        let spec = create_test_spec();
+        let param = parameter_with_singular_and_named_map_examples();
+        // Flag on: examples folded into the description, omitted from the structured field.
+        let (result, _annotations) =
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, false, true)
+                .expect("conversion succeeds");
+        let description = result["description"].as_str().unwrap_or_default();
+        assert!(
+            description.contains("alpha")
+                && description.contains("beta")
+                && description.contains("gamma"),
+            "examples folded into description: {description}"
+        );
+        assert!(
+            result.get("examples").is_none(),
+            "structured `examples` omitted when folding into the description: {result}"
+        );
+    }
+
     /// Create a minimal test OpenAPI spec for testing purposes
     fn create_test_spec() -> Spec {
         Spec {
@@ -3188,6 +3271,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -3304,9 +3388,14 @@ mod tests {
         };
 
         let spec = create_test_spec();
-        let (result, _annotations) =
-            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, false)
-                .unwrap();
+        let (result, _annotations) = ToolGenerator::convert_parameter_schema(
+            &param,
+            ParameterIn::Query,
+            &spec,
+            false,
+            false,
+        )
+        .unwrap();
 
         // Use JSON snapshot for the schema
         insta::assert_json_snapshot!("test_array_with_prefix_items_integration", result);
@@ -3337,6 +3426,7 @@ mod tests {
             "/pet/{petId}".to_string(),
             &spec,
             true,
+            false,
             false,
         )
         .unwrap();
@@ -3380,6 +3470,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -3420,15 +3511,17 @@ mod tests {
 
         let spec = create_test_spec();
         let (schema, _) =
-            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, true)
+            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, true, false)
                 .unwrap();
 
         // When skip_parameter_descriptions is true, description should not be present
         assert!(schema.get("description").is_none());
 
-        // Other properties should still be present
+        // Other properties should still be present; the example surfaces in the structured
+        // `examples` field by default (not the deprecated singular `example`).
         assert_eq!(schema.get("type").unwrap(), "string");
-        assert_eq!(schema.get("example").unwrap(), "available");
+        assert!(schema.get("example").is_none());
+        assert_eq!(schema.get("examples").unwrap(), &json!(["available"]));
 
         insta::assert_json_snapshot!("test_skip_parameter_descriptions", schema);
     }
@@ -3457,19 +3550,26 @@ mod tests {
         };
 
         let spec = create_test_spec();
-        let (schema, _) =
-            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, false)
-                .unwrap();
+        let (schema, _) = ToolGenerator::convert_parameter_schema(
+            &param,
+            ParameterIn::Query,
+            &spec,
+            false,
+            false,
+        )
+        .unwrap();
 
-        // When skip_parameter_descriptions is false, description should be present
+        // When skip_parameter_descriptions is false, description should be present — but by
+        // default it carries no examples (those go to the structured `examples` field).
         assert!(schema.get("description").is_some());
         let description = schema.get("description").unwrap().as_str().unwrap();
         assert!(description.contains("Filter by status"));
-        assert!(description.contains("Example: `\"available\"`"));
+        assert!(!description.contains("Example:"));
 
-        // Other properties should also be present
+        // Other properties should also be present; the example is structured.
         assert_eq!(schema.get("type").unwrap(), "string");
-        assert_eq!(schema.get("example").unwrap(), "available");
+        assert!(schema.get("example").is_none());
+        assert_eq!(schema.get("examples").unwrap(), &json!(["available"]));
 
         insta::assert_json_snapshot!("test_keep_parameter_descriptions", schema);
     }
@@ -3506,9 +3606,14 @@ mod tests {
         };
 
         let spec = create_test_spec();
-        let (result, _annotations) =
-            ToolGenerator::convert_parameter_schema(&param, ParameterIn::Query, &spec, false)
-                .unwrap();
+        let (result, _annotations) = ToolGenerator::convert_parameter_schema(
+            &param,
+            ParameterIn::Query,
+            &spec,
+            false,
+            false,
+        )
+        .unwrap();
 
         // Use JSON snapshot for the schema
         insta::assert_json_snapshot!("test_array_with_regular_items_schema", result);
@@ -3558,6 +3663,7 @@ mod tests {
             "post".to_string(),
             "/pets".to_string(),
             &spec,
+            false,
             false,
             false,
         )
@@ -3643,6 +3749,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -3720,6 +3827,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -3768,6 +3876,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -3810,6 +3919,7 @@ mod tests {
             "get".to_string(),
             "/pets".to_string(),
             &spec,
+            false,
             false,
             false,
         )
@@ -3895,6 +4005,7 @@ mod tests {
             "patch".to_string(),
             "/pets/{petId}/status".to_string(),
             &spec,
+            false,
             false,
             false,
         )
@@ -3997,6 +4108,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -4041,6 +4153,7 @@ mod tests {
             "get".to_string(),
             "/test".to_string(),
             &spec,
+            false,
             false,
             false,
         )
@@ -4374,6 +4487,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -4616,6 +4730,7 @@ mod tests {
             "get".to_string(),
             "/users/{user(id)}".to_string(),
             &spec,
+            false,
             false,
             false,
         )
@@ -4990,6 +5105,7 @@ mod tests {
             &spec,
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -5044,6 +5160,7 @@ mod tests {
             ParameterIn::Query,
             &spec,
             false,
+            true,
         )
         .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
@@ -5091,6 +5208,7 @@ mod tests {
             ParameterIn::Query,
             &spec,
             false,
+            true,
         )
         .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
@@ -5124,6 +5242,7 @@ mod tests {
             ParameterIn::Query,
             &spec,
             false,
+            true,
         )
         .unwrap();
         let description = schema.get("description").unwrap().as_str().unwrap();
@@ -5364,6 +5483,7 @@ mod tests {
             &param_with_ref,
             ParameterIn::Query,
             &spec,
+            false,
             false,
         );
 

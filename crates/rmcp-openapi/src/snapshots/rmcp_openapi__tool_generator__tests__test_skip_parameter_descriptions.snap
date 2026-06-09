@@ -9,5 +9,7 @@ expression: schema
     "pending",
     "sold"
   ],
-  "example": "available"
+  "examples": [
+    "available"
+  ]
 }
