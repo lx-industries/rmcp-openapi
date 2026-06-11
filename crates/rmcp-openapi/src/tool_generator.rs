@@ -1048,6 +1048,29 @@ impl ToolGenerator {
             schema_obj.insert("description".to_string(), json!(desc));
         }
 
+        // Handle allOf composition: convert each member and deep-merge it into this
+        // schema. Without this, any subschema whose only content is `allOf` (e.g. each
+        // branch of an internally-tagged enum, which generators like utoipa emit as
+        // `oneOf` of `allOf: [<variant $ref>, <type discriminator>]`) collapses to an
+        // empty `{}`. Empty subschemas match everything, so the enclosing strict
+        // `oneOf` becomes unsatisfiable and the parameter is uncallable. Merging keeps
+        // the variant's fields and the discriminator, so branches stay disjoint.
+        for schema_ref in &obj_schema.all_of {
+            let part = Self::convert_member_schema(schema_ref, spec, visited)?;
+            Self::merge_json_schema(&mut schema_obj, part);
+        }
+
+        // Handle anyOf composition: convert each member the same way as oneOf members
+        // and surface them under `anyOf` (match at least one).
+        if !obj_schema.any_of.is_empty() {
+            let any_of_schemas = obj_schema
+                .any_of
+                .iter()
+                .map(|schema_ref| Self::convert_member_schema(schema_ref, spec, visited))
+                .collect::<Result<Vec<_>, _>>()?;
+            schema_obj.insert("anyOf".to_string(), json!(any_of_schemas));
+        }
+
         // Handle oneOf schemas - this takes precedence over other schema properties
         if !obj_schema.one_of.is_empty() {
             let one_of_schemas = obj_schema
@@ -1212,6 +1235,74 @@ impl ToolGenerator {
         };
         *visited = snapshot;
         result
+    }
+
+    /// Deep-merge a converted `allOf` member schema (`src`) into an accumulator (`dst`).
+    ///
+    /// - `properties`: union of keys (existing keys win on conflict — members of an
+    ///   `allOf` are not expected to redefine the same property differently).
+    /// - `required`: union, de-duplicated.
+    /// - `additionalProperties`: `false` is the most restrictive and wins if any member
+    ///   sets it; otherwise the first value is kept.
+    /// - `type`: `object` wins if any member is an object; otherwise first-wins.
+    /// - everything else (`enum`, `format`, `items`, `oneOf`, …): first-wins.
+    fn merge_json_schema(dst: &mut serde_json::Map<String, Value>, src: Value) {
+        let Value::Object(src) = src else {
+            return;
+        };
+        for (key, value) in src {
+            match key.as_str() {
+                "properties" => {
+                    let entry = dst
+                        .entry("properties")
+                        .or_insert_with(|| Value::Object(serde_json::Map::new()));
+                    if let (Some(dst_props), Value::Object(src_props)) =
+                        (entry.as_object_mut(), value)
+                    {
+                        for (prop, schema) in src_props {
+                            dst_props.entry(prop).or_insert(schema);
+                        }
+                    }
+                }
+                "required" => {
+                    let entry = dst
+                        .entry("required")
+                        .or_insert_with(|| Value::Array(vec![]));
+                    if let (Some(dst_required), Value::Array(src_required)) =
+                        (entry.as_array_mut(), value)
+                    {
+                        for item in src_required {
+                            if !dst_required.contains(&item) {
+                                dst_required.push(item);
+                            }
+                        }
+                    }
+                }
+                "additionalProperties" => {
+                    let restrictive = dst.get("additionalProperties") == Some(&Value::Bool(false))
+                        || value == Value::Bool(false);
+                    if restrictive {
+                        dst.insert("additionalProperties".to_string(), Value::Bool(false));
+                    } else {
+                        dst.entry("additionalProperties").or_insert(value);
+                    }
+                }
+                "type" => match dst.get("type") {
+                    None => {
+                        dst.insert("type".to_string(), value);
+                    }
+                    Some(Value::String(existing))
+                        if existing != "object" && value == Value::String("object".to_string()) =>
+                    {
+                        dst.insert("type".to_string(), value);
+                    }
+                    _ => {}
+                },
+                _ => {
+                    dst.entry(key).or_insert(value);
+                }
+            }
+        }
     }
 
     /// Convert SchemaType to string representation
@@ -5855,6 +5946,128 @@ mod tests {
                 .expect("sibling properties sharing a target via an alias are not a cycle");
         assert_eq!(result["properties"]["a"]["type"], json!("string"));
         assert_eq!(result["properties"]["b"]["type"], json!("string"));
+    }
+
+    // ==================== allOf / anyOf composition ====================
+
+    #[test]
+    fn test_all_of_branches_are_merged_not_emptied() {
+        // An internally-tagged enum (`#[serde(tag = "type")]` in Rust/utoipa terms) is
+        // emitted as `oneOf` of `allOf: [<variant $ref>, <type discriminator>]`.
+        // Ignoring `allOf` collapses each branch to `{}`; empty subschemas match
+        // everything, making the strict `oneOf` unsatisfiable and the parameter
+        // uncallable. The members must be merged instead.
+        let mut spec = create_test_spec();
+
+        let application = ObjectSchema {
+            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+            required: vec!["title".to_string()],
+            properties: {
+                let mut props = BTreeMap::new();
+                props.insert(
+                    "title".to_string(),
+                    ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                        ..Default::default()
+                    }),
+                );
+                props
+            },
+            ..Default::default()
+        };
+
+        // { type: object, required: [type], properties: { type: { enum: ["Application"] } } }
+        let discriminator = ObjectSchema {
+            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+            required: vec!["type".to_string()],
+            properties: {
+                let mut props = BTreeMap::new();
+                props.insert(
+                    "type".to_string(),
+                    ObjectOrReference::Object(ObjectSchema {
+                        schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                        enum_values: vec![json!("Application")],
+                        ..Default::default()
+                    }),
+                );
+                props
+            },
+            ..Default::default()
+        };
+
+        let section = ObjectSchema {
+            one_of: vec![ObjectOrReference::Object(ObjectSchema {
+                all_of: vec![
+                    ObjectOrReference::Ref {
+                        ref_path: "#/components/schemas/Application".to_string(),
+                        summary: None,
+                        description: None,
+                    },
+                    ObjectOrReference::Object(discriminator),
+                ],
+                ..Default::default()
+            })],
+            ..Default::default()
+        };
+
+        if let Some(ref mut components) = spec.components {
+            components.schemas.insert(
+                "Application".to_string(),
+                ObjectOrReference::Object(application),
+            );
+        }
+
+        let mut visited = HashSet::new();
+        let result =
+            ToolGenerator::convert_object_schema_to_json_schema(&section, &spec, &mut visited)
+                .expect("conversion should succeed");
+
+        let branch = &result["oneOf"][0];
+        // The branch must not have collapsed to an empty schema.
+        assert!(
+            branch.as_object().is_some_and(|object| !object.is_empty()),
+            "allOf branch collapsed to empty schema: {result}"
+        );
+        // It carries both the discriminator const and the variant's own fields…
+        assert_eq!(
+            branch["properties"]["type"]["enum"][0],
+            json!("Application")
+        );
+        assert!(
+            branch["properties"].get("title").is_some(),
+            "merged branch is missing the variant's fields: {branch}"
+        );
+        // …and the union of required fields.
+        let required = branch["required"].as_array().expect("required array");
+        assert!(required.iter().any(|value| value == "type"));
+        assert!(required.iter().any(|value| value == "title"));
+    }
+
+    #[test]
+    fn test_any_of_is_surfaced() {
+        let spec = create_test_spec();
+        let schema = ObjectSchema {
+            any_of: vec![
+                ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                    ..Default::default()
+                }),
+                ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::Integer)),
+                    ..Default::default()
+                }),
+            ],
+            ..Default::default()
+        };
+
+        let mut visited = HashSet::new();
+        let result =
+            ToolGenerator::convert_object_schema_to_json_schema(&schema, &spec, &mut visited)
+                .expect("conversion should succeed");
+        let any_of = result["anyOf"].as_array().expect("anyOf array");
+        assert_eq!(any_of.len(), 2);
+        assert_eq!(any_of[0]["type"], json!("string"));
+        assert_eq!(any_of[1]["type"], json!("integer"));
     }
 
     // ==================== Multipart Form Data Tests ====================
