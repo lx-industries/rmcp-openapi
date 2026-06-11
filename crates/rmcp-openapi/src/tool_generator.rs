@@ -985,13 +985,17 @@ impl ToolGenerator {
                     Self::convert_object_schema_to_json_schema(obj_schema, spec, visited)
                 }
                 ObjectOrReference::Ref { ref_path, .. } => {
-                    let resolved = Self::resolve_reference(ref_path, spec, visited)?;
+                    // Restore the full pre-conversion `visited` snapshot so the same
+                    // schema can be referenced again elsewhere (non-circular reuse is
+                    // valid). Removing only `ref_path` itself would leak the
+                    // intermediate hops of an alias ref chain — see
+                    // `convert_member_schema`.
+                    let snapshot = visited.clone();
                     let result =
-                        Self::convert_object_schema_to_json_schema(&resolved, spec, visited);
-                    // Remove after conversion completes to allow the same schema to be
-                    // referenced again elsewhere (non-circular reuse is valid).
-                    // The ref was in `visited` during conversion to detect self-references.
-                    visited.remove(ref_path);
+                        Self::resolve_reference(ref_path, spec, visited).and_then(|resolved| {
+                            Self::convert_object_schema_to_json_schema(&resolved, spec, visited)
+                        });
+                    *visited = snapshot;
                     result
                 }
             },
@@ -1046,23 +1050,11 @@ impl ToolGenerator {
 
         // Handle oneOf schemas - this takes precedence over other schema properties
         if !obj_schema.one_of.is_empty() {
-            let mut one_of_schemas = Vec::new();
-            for schema_ref in &obj_schema.one_of {
-                let schema_json = match schema_ref {
-                    ObjectOrReference::Object(schema) => {
-                        Self::convert_object_schema_to_json_schema(schema, spec, visited)?
-                    }
-                    ObjectOrReference::Ref { ref_path, .. } => {
-                        let resolved = Self::resolve_reference(ref_path, spec, visited)?;
-                        let result =
-                            Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?;
-                        // Remove after conversion to allow schema reuse (see convert_schema_to_json_schema)
-                        visited.remove(ref_path);
-                        result
-                    }
-                };
-                one_of_schemas.push(schema_json);
-            }
+            let one_of_schemas = obj_schema
+                .one_of
+                .iter()
+                .map(|schema_ref| Self::convert_member_schema(schema_ref, spec, visited))
+                .collect::<Result<Vec<_>, _>>()?;
             schema_obj.insert("oneOf".to_string(), json!(one_of_schemas));
             // When oneOf is present, we typically don't include other properties
             // that would conflict with the oneOf semantics
@@ -1074,24 +1066,7 @@ impl ToolGenerator {
             let properties = &obj_schema.properties;
             let mut props_map = serde_json::Map::new();
             for (prop_name, prop_schema_or_ref) in properties {
-                let prop_schema = match prop_schema_or_ref {
-                    ObjectOrReference::Object(schema) => {
-                        // Convert ObjectSchema to Schema for processing
-                        Self::convert_schema_to_json_schema(
-                            &Schema::Object(Box::new(ObjectOrReference::Object(schema.clone()))),
-                            spec,
-                            visited,
-                        )?
-                    }
-                    ObjectOrReference::Ref { ref_path, .. } => {
-                        let resolved = Self::resolve_reference(ref_path, spec, visited)?;
-                        let result =
-                            Self::convert_object_schema_to_json_schema(&resolved, spec, visited)?;
-                        // Remove after conversion to allow schema reuse (see convert_schema_to_json_schema)
-                        visited.remove(ref_path);
-                        result
-                    }
-                };
+                let prop_schema = Self::convert_member_schema(prop_schema_or_ref, spec, visited)?;
 
                 // Sanitize property name - no longer add annotations
                 let sanitized_name = sanitize_property_name(prop_name);
@@ -1210,6 +1185,35 @@ impl ToolGenerator {
         Ok(Value::Object(schema_obj))
     }
 
+    /// Convert one composition member or property subschema, restoring `visited` to its
+    /// pre-member state afterwards.
+    ///
+    /// `resolve_reference` follows ref chains (e.g. an alias schema `A -> Target`) and
+    /// leaves every hop in `visited`; removing only the top-level ref after conversion
+    /// leaks the intermediate hops, so two siblings that legitimately share a deeper
+    /// target (a DAG diamond, not a cycle) false-trip the circular-reference guard and
+    /// abort tool generation for the whole server. Restoring the full snapshot keeps
+    /// cycle detection scoped to a single descent path.
+    fn convert_member_schema(
+        schema_ref: &ObjectOrReference<ObjectSchema>,
+        spec: &Spec,
+        visited: &mut HashSet<String>,
+    ) -> Result<Value, Error> {
+        let snapshot = visited.clone();
+        let result = match schema_ref {
+            ObjectOrReference::Object(schema) => {
+                Self::convert_object_schema_to_json_schema(schema, spec, visited)
+            }
+            ObjectOrReference::Ref { ref_path, .. } => {
+                Self::resolve_reference(ref_path, spec, visited).and_then(|resolved| {
+                    Self::convert_object_schema_to_json_schema(&resolved, spec, visited)
+                })
+            }
+        };
+        *visited = snapshot;
+        result
+    }
+
     /// Convert SchemaType to string representation
     fn schema_type_to_string(schema_type: &SchemaType) -> String {
         match schema_type {
@@ -1286,7 +1290,8 @@ impl ToolGenerator {
         // NOTE: We intentionally do NOT remove from visited here.
         // The ref must stay in visited during the entire conversion process
         // to detect cycles when the converted schema contains self-references.
-        // The caller is responsible for removing after conversion is complete.
+        // Callers restore their pre-conversion `visited` snapshot once conversion
+        // completes (see `convert_member_schema`).
 
         Ok(resolved_schema)
     }
@@ -5749,6 +5754,107 @@ mod tests {
             error.to_string().contains("Circular reference"),
             "Expected circular reference error message, got: {error}"
         );
+    }
+
+    #[test]
+    fn test_one_of_diamond_through_alias_is_not_circular() {
+        // Two oneOf branches reach the same Target, one directly and one through an
+        // alias ref (components.schemas.AliasA = $ref Target). This is a DAG diamond,
+        // not a cycle; the previous remove-top-ref-only cleanup leaked the nested hop
+        // into `visited` and false-tripped the circular guard, aborting tool generation
+        // for the whole server.
+        let mut spec = create_test_spec();
+        if let Some(ref mut components) = spec.components {
+            components.schemas.insert(
+                "Target".to_string(),
+                ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                    ..Default::default()
+                }),
+            );
+            components.schemas.insert(
+                "AliasA".to_string(),
+                ObjectOrReference::Ref {
+                    ref_path: "#/components/schemas/Target".to_string(),
+                    summary: None,
+                    description: None,
+                },
+            );
+        }
+        let outer = ObjectSchema {
+            one_of: vec![
+                ObjectOrReference::Ref {
+                    ref_path: "#/components/schemas/AliasA".to_string(),
+                    summary: None,
+                    description: None,
+                },
+                ObjectOrReference::Ref {
+                    ref_path: "#/components/schemas/Target".to_string(),
+                    summary: None,
+                    description: None,
+                },
+            ],
+            ..Default::default()
+        };
+        let mut visited = HashSet::new();
+        let result =
+            ToolGenerator::convert_object_schema_to_json_schema(&outer, &spec, &mut visited)
+                .expect("a DAG diamond through an alias chain is not a cycle");
+        let branches = result["oneOf"].as_array().expect("oneOf array");
+        assert_eq!(branches.len(), 2);
+        assert!(branches.iter().all(|b| b["type"] == json!("string")));
+    }
+
+    #[test]
+    fn test_properties_diamond_through_alias_is_not_circular() {
+        // Same DAG-diamond leak through the `properties` conversion path: property `a`
+        // refs AliasA (-> Target), property `b` refs Target directly.
+        let mut spec = create_test_spec();
+        if let Some(ref mut components) = spec.components {
+            components.schemas.insert(
+                "Target".to_string(),
+                ObjectOrReference::Object(ObjectSchema {
+                    schema_type: Some(SchemaTypeSet::Single(SchemaType::String)),
+                    ..Default::default()
+                }),
+            );
+            components.schemas.insert(
+                "AliasA".to_string(),
+                ObjectOrReference::Ref {
+                    ref_path: "#/components/schemas/Target".to_string(),
+                    summary: None,
+                    description: None,
+                },
+            );
+        }
+        let outer = ObjectSchema {
+            schema_type: Some(SchemaTypeSet::Single(SchemaType::Object)),
+            properties: BTreeMap::from([
+                (
+                    "a".to_string(),
+                    ObjectOrReference::Ref {
+                        ref_path: "#/components/schemas/AliasA".to_string(),
+                        summary: None,
+                        description: None,
+                    },
+                ),
+                (
+                    "b".to_string(),
+                    ObjectOrReference::Ref {
+                        ref_path: "#/components/schemas/Target".to_string(),
+                        summary: None,
+                        description: None,
+                    },
+                ),
+            ]),
+            ..Default::default()
+        };
+        let mut visited = HashSet::new();
+        let result =
+            ToolGenerator::convert_object_schema_to_json_schema(&outer, &spec, &mut visited)
+                .expect("sibling properties sharing a target via an alias are not a cycle");
+        assert_eq!(result["properties"]["a"]["type"], json!("string"));
+        assert_eq!(result["properties"]["b"]["type"], json!("string"));
     }
 
     // ==================== Multipart Form Data Tests ====================
