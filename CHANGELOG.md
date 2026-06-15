@@ -1,3 +1,12 @@
+## [0.30.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.30.0...v0.30.1) (2026-06-15)
+
+
+### Miscellaneous Chores
+
+* **deps:** update docker:29.5.3-dind docker digest to ad68e89 ([62843fd](https://gitlab.com/lx-industries/rmcp-openapi/commit/62843fd479d8d42d9adbf14027f7be8f9ef99901))
+* **deps:** update rust crate bon to v3.9.2 ([405f812](https://gitlab.com/lx-industries/rmcp-openapi/commit/405f812a325d15781d2a865cab3d06bd547b3964))
+* **deps:** update rust crate insta to v1.48.0 ([6f30ac3](https://gitlab.com/lx-industries/rmcp-openapi/commit/6f30ac396ae641dd01d22bdf8881f74739430a3a))
+
 ## [0.30.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.29.0...v0.30.0) (2026-06-09)
 
 
