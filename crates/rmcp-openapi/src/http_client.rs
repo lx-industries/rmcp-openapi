@@ -536,43 +536,59 @@ impl HttpClient {
 
     /// Add query parameters to the request using proper URL encoding
     fn add_query_parameters(url: &mut Url, query_params: &HashMap<String, QueryParameter>) {
+        // Render a scalar JSON value as its bare query-string form. Strings are
+        // used verbatim; everything else falls back to its JSON rendering.
+        fn scalar_to_string(value: &Value) -> String {
+            match value {
+                Value::String(s) => s.clone(),
+                Value::Number(n) => n.to_string(),
+                Value::Bool(b) => b.to_string(),
+                other => other.to_string(),
+            }
+        }
+
         {
             let mut query_pairs = url.query_pairs_mut();
             for (key, query_param) in query_params {
-                if let Value::Array(arr) = &query_param.value {
-                    if query_param.explode {
-                        // explode=true: Handle array parameters - add each value as a separate query parameter
-                        for item in arr {
-                            let item_str = match item {
-                                Value::String(s) => s.clone(),
-                                Value::Number(n) => n.to_string(),
-                                Value::Bool(b) => b.to_string(),
-                                _ => item.to_string(),
-                            };
-                            query_pairs.append_pair(key, &item_str);
+                match &query_param.value {
+                    Value::Array(arr) => {
+                        if query_param.explode {
+                            // explode=true: emit one query pair per array item.
+                            for item in arr {
+                                query_pairs.append_pair(key, &scalar_to_string(item));
+                            }
+                        } else {
+                            // explode=false: join the array items with commas.
+                            let comma_separated = arr
+                                .iter()
+                                .map(scalar_to_string)
+                                .collect::<Vec<_>>()
+                                .join(",");
+                            query_pairs.append_pair(key, &comma_separated);
                         }
-                    } else {
-                        // explode=false: Join array values with commas
-                        let array_values: Vec<String> = arr
-                            .iter()
-                            .map(|item| match item {
-                                Value::String(s) => s.clone(),
-                                Value::Number(n) => n.to_string(),
-                                Value::Bool(b) => b.to_string(),
-                                _ => item.to_string(),
-                            })
-                            .collect();
-                        let comma_separated = array_values.join(",");
-                        query_pairs.append_pair(key, &comma_separated);
                     }
-                } else {
-                    let value_str = match &query_param.value {
-                        Value::String(s) => s.clone(),
-                        Value::Number(n) => n.to_string(),
-                        Value::Bool(b) => b.to_string(),
-                        _ => query_param.value.to_string(),
-                    };
-                    query_pairs.append_pair(key, &value_str);
+                    Value::Object(map) => {
+                        // OpenAPI `style: deepObject`: expand the object to one
+                        // `key[property]=value` pair per entry, joining
+                        // array-valued properties with commas exactly as the
+                        // array case above. Without this an object value would be
+                        // serialized as an opaque JSON blob the server cannot read.
+                        for (property, property_value) in map {
+                            let nested_key = format!("{key}[{property}]");
+                            let value_str = match property_value {
+                                Value::Array(items) => items
+                                    .iter()
+                                    .map(scalar_to_string)
+                                    .collect::<Vec<_>>()
+                                    .join(","),
+                                scalar => scalar_to_string(scalar),
+                            };
+                            query_pairs.append_pair(&nested_key, &value_str);
+                        }
+                    }
+                    scalar => {
+                        query_pairs.append_pair(key, &scalar_to_string(scalar));
+                    }
                 }
             }
         }
@@ -1444,6 +1460,63 @@ mod tests {
 
         println!("Exploded URL: {url_exploded_string}");
         println!("Non-exploded URL: {url_not_exploded_string}");
+    }
+
+    #[test]
+    fn test_deep_object_parameters() {
+        let base_url = Url::parse("https://api.example.com").unwrap();
+        let client = HttpClient::new().with_base_url(base_url).unwrap();
+
+        let tool_metadata = crate::ToolMetadata {
+            name: "test".to_string(),
+            title: None,
+            description: Some("test".to_string()),
+            parameters: json!({}),
+            output_schema: None,
+            method: "GET".to_string(),
+            path: "/search".to_string(),
+            security: None,
+            parameter_mappings: std::collections::HashMap::new(),
+        };
+
+        // An OpenAPI `style: deepObject` parameter arrives as an object value.
+        let mut query_params = HashMap::new();
+        query_params.insert(
+            "fields".to_string(),
+            QueryParameter::new(
+                json!({ "camera": ["name", "type"], "node": ["name"] }),
+                true,
+            ),
+        );
+
+        let extracted_params = ExtractedParameters {
+            path: HashMap::new(),
+            query: query_params,
+            headers: HashMap::new(),
+            cookies: HashMap::new(),
+            body: HashMap::new(),
+            config: crate::tool_generator::RequestConfig::default(),
+        };
+
+        let mut url = client.build_url(&tool_metadata, &extracted_params).unwrap();
+        HttpClient::add_query_parameters(&mut url, &extracted_params.query);
+        let url_string = url.to_string();
+
+        // Each property expands to `fields[<prop>]=<csv>`; `[`/`]`/`,` are
+        // percent-encoded as %5B/%5D/%2C.
+        assert!(
+            url_string.contains("fields%5Bcamera%5D=name%2Ctype"),
+            "expected fields[camera]=name,type, got {url_string}"
+        );
+        assert!(
+            url_string.contains("fields%5Bnode%5D=name"),
+            "expected fields[node]=name, got {url_string}"
+        );
+        // The object must not be sent as a JSON blob.
+        assert!(
+            !url_string.contains("%7B"),
+            "object must not be JSON-serialized, got {url_string}"
+        );
     }
 
     #[test]
