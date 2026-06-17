@@ -1,3 +1,25 @@
+## [0.31.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.30.1...v0.31.0) (2026-06-17)
+
+
+### Features
+
+* **tool-generator:** merge allOf members and surface anyOf in generated schemas ([7905a3f](https://gitlab.com/lx-industries/rmcp-openapi/commit/7905a3ffeae526083b1686772249524d21576b5f))
+
+
+### Bug Fixes
+
+* expand deepObject query parameters to key[prop]=value ([ea55a1b](https://gitlab.com/lx-industries/rmcp-openapi/commit/ea55a1bb4c115080ff01d7448eec192e70e1ee90)), closes [#101](https://gitlab.com/lx-industries/rmcp-openapi/issues/101)
+* **tool-generator:** restore the visited set per member so shared refs are not flagged circular ([7f005b9](https://gitlab.com/lx-industries/rmcp-openapi/commit/7f005b963dd33075aa715c29a693c0c103707a7e))
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency casey/just to v1.53.0 ([740f5a3](https://gitlab.com/lx-industries/rmcp-openapi/commit/740f5a3bf6a040745ab540e692a317b988ca7d81))
+* **deps:** update dependency rust-cross/cargo-xwin to v0.23.0 ([ff9622a](https://gitlab.com/lx-industries/rmcp-openapi/commit/ff9622a88f7d4d099f79e260411f41a8b479411e))
+* **deps:** update docker:29.5.3-dind docker digest to 7278248 ([bd9a645](https://gitlab.com/lx-industries/rmcp-openapi/commit/bd9a6455e68d0d5b1ac485d6a4e6281285c20833))
+* **deps:** update rmcp crates to v0.12.14 ([9bab0f0](https://gitlab.com/lx-industries/rmcp-openapi/commit/9bab0f0ddcd9b61bc38c415e323b192f21dc46b9))
+* **deps:** update rust crate bon to v3.9.3 ([84c0e9f](https://gitlab.com/lx-industries/rmcp-openapi/commit/84c0e9fe08dfc62d0c33b5108d32104c53587c4a))
+
 ## [0.30.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.30.0...v0.30.1) (2026-06-15)
 
 
