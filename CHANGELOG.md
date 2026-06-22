@@ -1,3 +1,14 @@
+## [0.31.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.0...v0.31.1) (2026-06-22)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency mozilla/sccache to v0.16.0 ([109823b](https://gitlab.com/lx-industries/rmcp-openapi/commit/109823b2dd62542e40fc11026fc67d5412ca31a0))
+* **deps:** update docker docker tag to v29.6.0 ([c84e53f](https://gitlab.com/lx-industries/rmcp-openapi/commit/c84e53fed9978d9cb3355c800557c1528b1b9f65))
+* **deps:** update docker:29.6.0-dind docker digest to 7bb861a ([e8e1fe8](https://gitlab.com/lx-industries/rmcp-openapi/commit/e8e1fe813b89aa526047a14751380b1dd415f1fb))
+* **deps:** update node.js to v24.17.0 ([b4f4baa](https://gitlab.com/lx-industries/rmcp-openapi/commit/b4f4baa575484ad03c7a5ce4efea1d91c2e3246d))
+* **deps:** update rust images ([6a95cfb](https://gitlab.com/lx-industries/rmcp-openapi/commit/6a95cfb75b9422ff3f01d22b70517c6e64c76736))
+
 ## [0.31.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.30.1...v0.31.0) (2026-06-17)
 
 
