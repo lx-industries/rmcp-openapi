@@ -1,3 +1,18 @@
+## [0.31.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.1...v0.31.2) (2026-06-29)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency casey/just to v1.54.0 ([c5704ba](https://gitlab.com/lx-industries/rmcp-openapi/commit/c5704ba71c7bcb61be8f52fae2b759cd2c9c992d))
+* **deps:** update docker docker tag to v29.6.1 ([bb02ad4](https://gitlab.com/lx-industries/rmcp-openapi/commit/bb02ad44aead62019b5c145208dc34eb03b873dc))
+* **deps:** update node.js to 733e1c0 ([d0beb4c](https://gitlab.com/lx-industries/rmcp-openapi/commit/d0beb4c515823284be4a859e435ceb9dcb1483bb))
+* **deps:** update node.js to v24.18.0 ([e37ae80](https://gitlab.com/lx-industries/rmcp-openapi/commit/e37ae80a6c09c45823f772d5eaa2246f6d877302))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.96.0-x86_64-pc-windows-msvc docker digest to d61cb51 ([f43a1d4](https://gitlab.com/lx-industries/rmcp-openapi/commit/f43a1d4a8427be5d62abfa8c0906f847216972a3))
+* **deps:** update rmcp crates ([8861346](https://gitlab.com/lx-industries/rmcp-openapi/commit/88613467a5b2ca33658f099757db63d0eefd2170))
+* **deps:** update rust crate anyhow to v1.0.103 ([18df3b9](https://gitlab.com/lx-industries/rmcp-openapi/commit/18df3b94824f95b12ad1fc332bb1d53149f40875))
+* **deps:** update rust crate jsonschema to v0.46.6 ([b321231](https://gitlab.com/lx-industries/rmcp-openapi/commit/b321231b5015bae3332ca1358278e2e5f9dc9798))
+* **deps:** update rust crate rmcp to v1.8.0 ([d92027e](https://gitlab.com/lx-industries/rmcp-openapi/commit/d92027ee74819b8bad8b2ce7d843d9f0526de698))
+
 ## [0.31.1](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.0...v0.31.1) (2026-06-22)
 
 
