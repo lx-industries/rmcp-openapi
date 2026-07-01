@@ -1,6 +1,6 @@
 # Base image with Rust toolchain (Debian-based with glibc)
 # renovate: datasource=docker depName=rust versioning=semver
-FROM rust:1.96.0@sha256:58fe97504a0e4cbba5d85599619a589923d3e779472a6fb0840d58d1c4ba99d7
+FROM rust:1.96.1@sha256:1f0dbad1df66647807e6952d1db85d0b2bda7606cb2139d82517e4f009967376
 
 # Install clang, lld, and llvm for clang-cl backend (llvm provides llvm-lib)
 RUN apt-get update && apt-get install -y --no-install-recommends \
