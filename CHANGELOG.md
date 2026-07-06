@@ -1,3 +1,23 @@
+## [0.31.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.2...v0.31.3) (2026-07-06)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency casey/just to v1.55.0 ([89192a5](https://gitlab.com/lx-industries/rmcp-openapi/commit/89192a5edd330131e745f9b11c899154e23d86f6))
+* **deps:** update dependency casey/just to v1.55.1 ([a24bac3](https://gitlab.com/lx-industries/rmcp-openapi/commit/a24bac36f4fe33dfa282fea0bb42ff08f963742d))
+* **deps:** update dependency crate-ci/typos to v1.48.0 ([5781679](https://gitlab.com/lx-industries/rmcp-openapi/commit/578167957c607556d986f02d3e5d2ee7bf0d3501))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust docker tag to v1.96.1 ([757f1f8](https://gitlab.com/lx-industries/rmcp-openapi/commit/757f1f874d29eeba9b5a0bb949d83176b9948a8f))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.96.0-x86_64-pc-windows-msvc docker digest to 40e35df ([c2af594](https://gitlab.com/lx-industries/rmcp-openapi/commit/c2af594f16b87e9623acce7eca80424ae9b7aa1e))
+* **deps:** update rust crate jsonschema to v0.46.10 ([a8cee65](https://gitlab.com/lx-industries/rmcp-openapi/commit/a8cee6560bab4000473de32022a68696dd975cde))
+* **deps:** update rust crate jsonschema to v0.46.7 ([dfa1def](https://gitlab.com/lx-industries/rmcp-openapi/commit/dfa1def9e5c73485e8a4a843553a1a224a9ff6a7))
+* **deps:** update rust crate jsonschema to v0.46.8 ([6e42dd2](https://gitlab.com/lx-industries/rmcp-openapi/commit/6e42dd2279df88dddcbbea4c31ee56e52c310ee5))
+* **deps:** update rust crate jsonschema to v0.46.9 ([7a9c3c9](https://gitlab.com/lx-industries/rmcp-openapi/commit/7a9c3c932871d69ba9902f049d89e05764d5722d))
+* **deps:** update rust crate rmcp-actix-web to v0.12.16 ([cb3ad51](https://gitlab.com/lx-industries/rmcp-openapi/commit/cb3ad51dbbabf64489fb37221baf755f26f6a2c5))
+* **deps:** update rust docker tag to v1.96.1 ([1b8d4d4](https://gitlab.com/lx-industries/rmcp-openapi/commit/1b8d4d4358311870c6b851a13d005557a7d6caa9))
+* **deps:** update rust images ([a3fbcb2](https://gitlab.com/lx-industries/rmcp-openapi/commit/a3fbcb23f81380ec46c2ea535e427f1b78011b39))
+* **deps:** update rust:1.96.0 docker digest to 58fe975 ([9326eb2](https://gitlab.com/lx-industries/rmcp-openapi/commit/9326eb230bf44228ef3b288ffcac4d2e69b34e9c))
+* **deps:** update ubuntu:noble docker digest to 4fbb8e6 ([5459d2a](https://gitlab.com/lx-industries/rmcp-openapi/commit/5459d2a929c865a62b827c96ddb66ddd03510e60))
+
 ## [0.31.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.1...v0.31.2) (2026-06-29)
 
 
