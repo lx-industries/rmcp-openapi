@@ -81,7 +81,7 @@ build:x86_64-unknown-linux-gnu:
 
 # Windows cross-compilation build job
 build:x86_64-pc-windows-msvc:
-  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.96.1-x86_64-pc-windows-msvc@sha256:f7fdc8ecc4f929acf3480a4c007256119adf98e672b25de976c26ed6b11223d2
+  image: registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.96.1-x86_64-pc-windows-msvc@sha256:7d2dae6e0e078838f669374ac3e9560e30ba22c2e1230a04d1755bd84de3bde5
   extends:
     - .sccache-rust
   stage: build
