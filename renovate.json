@@ -1,6 +1,8 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>lx-industries/renovate-config"],
+  "extends": [
+    "local>lx-industries/renovate-config"
+  ],
   "gitlabci": {
     "registryAliases": {
       "${CI_REGISTRY_IMAGE}": "registry.gitlab.com/lx-industries/rmcp-openapi"
@@ -8,7 +10,9 @@
   },
   "packageRules": [
     {
-      "matchPackageNames": ["rmcp{/,}**"],
+      "matchPackageNames": [
+        "rmcp{/,}**"
+      ],
       "groupName": "rmcp crates"
     },
     {
@@ -19,24 +23,34 @@
       "groupName": "Rust images"
     },
     {
-      "matchPackageNames": ["rust"],
-      "matchDatasources": ["docker"],
-      "schedule": ["on the first day of the month"]
+      "matchPackageNames": [
+        "rust"
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "schedule": [
+        "on the first day of the month"
+      ]
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s(ENV|ARG)\\s.*?_VERSION\\s*=?\"(?<currentValue>.*)\""
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>\\S+))?( versioning=(?<versioning>\\S+))?( extractVersion=(?<extractVersion>\\S+))?\\s(ENV|ARG)\\s.*?_VERSION\\s*=?\"(?<currentValue>.*)\""
       ]
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/(^|/).*\\.gitlab-ci\\.yml$/"],
+      "managerFilePatterns": [
+        "/(^|/).*\\.gitlab-ci\\.yml$/"
+      ],
       "matchStrings": [
-        "\\s*# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?( extractVersionTemplate=\"(?<extractVersionTemplate>.*?)\")?\\s*.+_VERSION\\s*:\\s*\"(?<currentValue>.*)\""
+        "\\s*# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>\\S+))?( versioning=(?<versioning>\\S+))?( extractVersion=(?<extractVersion>\\S+))?\\s*.+_VERSION\\s*:\\s*\"(?<currentValue>.*)\""
       ]
     }
   ]

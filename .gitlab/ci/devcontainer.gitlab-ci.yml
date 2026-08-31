@@ -4,6 +4,8 @@
 .devcontainer-changes: &devcontainer-changes
   - ".devcontainer/**/*"
   - ".gitlab/ci/devcontainer.gitlab-ci.yml"
+  - "renovate.json"
+  - "scripts/check-renovate-annotations.py"
 
 # Schema validation — validate devcontainer.json against the official spec
 devcontainer:validate:
@@ -31,4 +33,21 @@ devcontainer:build:
       changes: *devcontainer-changes
   script:
     - docker build .devcontainer/
+  interruptible: true
+
+# Renovate annotation guard — a `# renovate:` field the customManager regex does
+# not capture (registryUrl, versioning, extractVersion) is silently swallowed by
+# the non-greedy depName, and the dependency then never updates, with no error.
+# This is how the devcontainer's glab install rotted from 1.88 to 1.115.
+devcontainer:renovate-annotations:
+  image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim@sha256:531f855bda2c73cd6ef67d56b733b357cea384185b3022bd09f05e002cd144ca
+  stage: lint
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *devcontainer-changes
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *devcontainer-changes
+  script:
+    - python3 scripts/check-renovate-annotations.py
   interruptible: true
