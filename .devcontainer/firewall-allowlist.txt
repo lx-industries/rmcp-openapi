@@ -18,3 +18,9 @@ index.crates.io
 
 # Project forge
 gitlab.com
+
+# Container registries (Docker CLI enabled — host daemon pulls through these)
+registry-1.docker.io
+auth.docker.io
+production.cloudflare.docker.com
+registry.gitlab.com
