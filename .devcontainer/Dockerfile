@@ -97,7 +97,7 @@ RUN arch="$(dpkg --print-architecture)" \
 
 # -- GitHub CLI (gh) -----------------------------------------------------------
 # renovate: datasource=github-releases depName=cli/cli
-ARG GH_VERSION="2.99.0"
+ARG GH_VERSION="2.100.0"
 RUN arch="$(dpkg --print-architecture)" \
     && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.deb" -o /tmp/gh.deb \
     && dpkg -i /tmp/gh.deb \
