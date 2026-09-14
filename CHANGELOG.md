@@ -1,3 +1,17 @@
+## [0.31.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.4...v0.31.5) (2026-09-14)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency gitlab-org/cli to v1.117.0 ([7e857ad](https://gitlab.com/lx-industries/rmcp-openapi/commit/7e857adce86e7466b66ce25bf5b5f3c95bf24fe7))
+* **deps:** update node.js ([54a96e9](https://gitlab.com/lx-industries/rmcp-openapi/commit/54a96e96eb6ad4eadee121a80894355ec0cb7996))
+* **deps:** update node.js to v24.21.0 ([fbe0bee](https://gitlab.com/lx-industries/rmcp-openapi/commit/fbe0beee2683cc0ea7cb58842c5ed644ed2e4313))
+* **deps:** update rust crate bon to v3.10.1 ([aff52e5](https://gitlab.com/lx-industries/rmcp-openapi/commit/aff52e534a90e4c932c92993fb5de479a1559a18))
+* **deps:** update rust crate jsonschema to 0.56.0 ([229b688](https://gitlab.com/lx-industries/rmcp-openapi/commit/229b6884723cf0a3a5a8d20053dbe1cf191cadec))
+* **deps:** update rust crate jsonschema to v0.55.1 ([4365482](https://gitlab.com/lx-industries/rmcp-openapi/commit/4365482c2d59f9869b3509192327cdb553203fda))
+* **deps:** update rust crate reqwest to v0.13.5 ([c2e307b](https://gitlab.com/lx-industries/rmcp-openapi/commit/c2e307bc9ede23719cc98f089b83aafb66b558b3))
+* **deps:** update ubuntu:noble docker digest to 224a186 ([f6acfb5](https://gitlab.com/lx-industries/rmcp-openapi/commit/f6acfb56eadf33035f2fdcdd5f2e20ae154a8f4e))
+
 ## [0.31.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.3...v0.31.4) (2026-09-07)
 
 
