@@ -99,7 +99,8 @@ impl Spec {
                                         continue; // Skip this operation
                                     }
                                 }
-                                (_, true) => continue, // Skip operations without tags when filtering
+                                (Some(_), true) => continue, // Skip operation without tags, only skip when a tag filter was requested
+
                                 _ => {}
                             }
 
@@ -499,7 +500,7 @@ mod tests {
                             }
                         }
                     }
-                }
+                },
             }
         });
 
@@ -948,6 +949,22 @@ mod tests {
     }
 
     #[test]
+    fn test_methods_filter_includes_operation_without_tags() {
+        let spec = create_test_spec_with_tags();
+        let filters = Some(
+            Filters::builder()
+                .methods(Filter::Include(vec![Method::GET]))
+                .build(),
+        );
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false, false)
+            .expect("Failed to generate tools");
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"publicEndpoint")); // no tags, but methods filter shouldn't exclude it
+    }
+
+    #[test]
     fn test_operations_include_filter_empty_filter_list() {
         let spec = create_test_spec_with_methods();
         let filters = Some(Filters::builder().methods(Filter::Include(vec![])).build());
@@ -979,6 +996,24 @@ mod tests {
         let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
         assert!(tool_names.contains(&"listUsers")); // GET /users (has user tag)
         assert!(tool_names.contains(&"patchPet")); // POST /users (has user tag)
+    }
+
+    #[test]
+    fn test_operations_include_filter_operation_has_no_tag() {
+        let spec = create_test_spec_with_tags();
+        let filters = Some(
+            Filters::builder()
+                .operations_id(Filter::Include(vec!["publicEndpoint".to_owned()]))
+                .build(),
+        );
+        let tools = spec
+            .to_tool_metadata(filters.as_ref(), false, false, false)
+            .expect("Failed to generate tools");
+
+        assert_eq!(tools.len(), 1);
+
+        let tool_names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(tool_names.contains(&"publicEndpoint")); // no tags
     }
 
     #[test]
