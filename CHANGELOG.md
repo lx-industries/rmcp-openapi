@@ -1,3 +1,20 @@
+## [0.31.6](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.5...v0.31.6) (2026-09-21)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency cli/cli to v2.101.0 ([9bf0f01](https://gitlab.com/lx-industries/rmcp-openapi/commit/9bf0f0151a49aee617109623c2da7721c79a7caf))
+* **deps:** update dependency crate-ci/typos to v1.50.2 ([a751000](https://gitlab.com/lx-industries/rmcp-openapi/commit/a751000ba8edd78ea044a0fbf1518a088c367bed))
+* **deps:** update dependency gitlab-org/cli to v1.118.0 ([d39df7d](https://gitlab.com/lx-industries/rmcp-openapi/commit/d39df7d151c32a8705a516a74b075265f352d9e8))
+* **deps:** update dependency mozilla/sccache to v0.18.0 ([0d2f47e](https://gitlab.com/lx-industries/rmcp-openapi/commit/0d2f47e84119072e1360171ad9042462fb227c84))
+* **deps:** update docker docker tag to v29.8.1 ([3cb6b4f](https://gitlab.com/lx-industries/rmcp-openapi/commit/3cb6b4f31cd6a0ea18b90f2fda1fb12df11b00ba))
+* **deps:** update docker:29.8.1-dind docker digest to 3f3c01a ([bea2404](https://gitlab.com/lx-industries/rmcp-openapi/commit/bea24047489e5698784baa41b5296ec68b0f5cf6))
+* **deps:** update node.js to 2255392 ([e41f569](https://gitlab.com/lx-industries/rmcp-openapi/commit/e41f569281be2245c7201f70520653c4a3f7ca16))
+* **deps:** update node.js to 64af381 ([ef032a4](https://gitlab.com/lx-industries/rmcp-openapi/commit/ef032a46714b90d12b080ea18847c58d13b837ca))
+* **deps:** update rust crate clap to v4.6.7 ([d7af567](https://gitlab.com/lx-industries/rmcp-openapi/commit/d7af5677c122f6858ee8c637a2ac98fbd6b7fefc))
+* **deps:** update ubuntu:noble docker digest to 008173c ([7e89d4e](https://gitlab.com/lx-industries/rmcp-openapi/commit/7e89d4e9952bebe235a3f0b4489f3f5e79ab37cc))
+* **deps:** update ubuntu:noble docker digest to 69cecf4 ([825066b](https://gitlab.com/lx-industries/rmcp-openapi/commit/825066b3f1ce6c0068708cdcf186925e84bf25d4))
+
 ## [0.31.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.4...v0.31.5) (2026-09-14)
 
 
