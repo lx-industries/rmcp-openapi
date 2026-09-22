@@ -200,9 +200,9 @@ async fn test_png_image_response() {
     assert_eq!(call_result.content.len(), 1);
 
     // Content should be an image
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             // Verify base64 encoding
             use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
@@ -240,9 +240,9 @@ async fn test_jpeg_image_response() {
 
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
             assert_eq!(
@@ -274,9 +274,9 @@ async fn test_gif_image_response() {
 
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
             assert_eq!(
@@ -317,9 +317,9 @@ async fn test_webp_image_response() {
 
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
             assert_eq!(
@@ -353,9 +353,9 @@ async fn test_svg_xml_image_response() {
 
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
             assert_eq!(
@@ -409,9 +409,9 @@ async fn test_bmp_image_response() {
 
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
             assert_eq!(
@@ -450,9 +450,9 @@ async fn test_image_with_charset_parameter() {
     // Should still be recognized as an image despite charset parameter
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             use base64::{Engine as _, engine::general_purpose::STANDARD};
             let decoded = STANDARD.decode(&img.data).expect("Should be valid base64");
             assert_eq!(decoded, png_bytes);
@@ -483,9 +483,9 @@ async fn test_text_response_not_converted() {
     assert_eq!(call_result.content.len(), 1);
 
     // Should be Text content, not Image
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Text(txt) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Text(txt) => {
             assert!(
                 txt.text.contains(text_content),
                 "Should contain the text content"
@@ -515,9 +515,9 @@ async fn test_json_response_not_converted() {
     assert_eq!(call_result.content.len(), 1);
 
     // Should be Text content (JSON serialized), not Image
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Text(txt) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Text(txt) => {
             assert!(
                 txt.text.contains("This is JSON data"),
                 "Should contain the JSON content"
@@ -549,9 +549,9 @@ async fn test_error_image_response_404() {
     // Should have text content with error information
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Text(txt) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Text(txt) => {
             assert!(
                 txt.text.contains("404") || txt.text.contains("Image not found"),
                 "Error message should mention 404 or error details"
@@ -581,9 +581,9 @@ async fn test_base64_encoding_correctness() {
 
     assert_eq!(call_result.content.len(), 1);
 
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             // Verify MIME type
             assert_eq!(&img.mime_type, "image/png");
 
@@ -626,9 +626,9 @@ async fn test_empty_image_response() {
     assert_eq!(call_result.content.len(), 1);
 
     // Even empty images should be returned as Image content
-    use rmcp::model::RawContent;
-    match &call_result.content[0].raw {
-        RawContent::Image(img) => {
+    use rmcp::model::ContentBlock;
+    match &call_result.content[0] {
+        ContentBlock::Image(img) => {
             assert_eq!(&img.mime_type, "image/png");
 
             // Empty data should produce empty base64 string

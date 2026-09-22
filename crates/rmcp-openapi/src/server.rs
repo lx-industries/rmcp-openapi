@@ -2,7 +2,7 @@ use bon::Builder;
 use rmcp::{
     handler::server::ServerHandler,
     model::{
-        CallToolRequestParams, CallToolResult, ErrorData, Implementation, InitializeResult,
+        CallToolRequestParams, CallToolResponse, ErrorData, Implementation, InitializeResult,
         ListToolsResult, PaginatedRequestParams, ProtocolVersion, ServerCapabilities,
         ToolsCapability,
     },
@@ -308,9 +308,9 @@ impl ServerHandler for Server {
         server_info.description = self.extract_openapi_description();
 
         let mut capabilities = ServerCapabilities::default();
-        capabilities.tools = Some(ToolsCapability {
-            list_changed: Some(false),
-        });
+        let mut tools_capability = ToolsCapability::default();
+        tools_capability.list_changed = Some(false);
+        capabilities.tools = Some(tools_capability);
 
         let mut result = InitializeResult::new(capabilities)
             .with_protocol_version(ProtocolVersion::V_2024_11_05)
@@ -350,18 +350,14 @@ impl ServerHandler for Server {
             "MCP list_tools request completed successfully"
         );
 
-        Ok(ListToolsResult {
-            meta: None,
-            tools,
-            next_cursor: None,
-        })
+        Ok(ListToolsResult::with_all_items(tools))
     }
 
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, ErrorData> {
+    ) -> Result<CallToolResponse, ErrorData> {
         use crate::error::{ToolCallError, ToolCallValidationError};
 
         let span = info_span!(
@@ -450,7 +446,7 @@ impl ServerHandler for Server {
                     success = true,
                     "MCP call_tool request completed successfully"
                 );
-                Ok(result)
+                Ok(result.into())
             }
             Err(e) => {
                 warn!(

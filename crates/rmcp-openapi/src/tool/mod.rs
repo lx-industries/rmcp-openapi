@@ -45,7 +45,7 @@ impl Tool {
         authorization: Authorization,
         server_transformer: Option<&dyn ResponseTransformer>,
     ) -> Result<CallToolResult, crate::error::ToolCallError> {
-        use rmcp::model::Content;
+        use rmcp::model::ContentBlock;
         use serde_json::json;
 
         // Create security observer for logging
@@ -108,9 +108,9 @@ impl Tool {
 
                     // Return image content (transformers don't apply to binary responses)
                     return Ok(if response.is_success {
-                        CallToolResult::success(vec![Content::image(base64_data, mime_type)])
+                        CallToolResult::success(vec![ContentBlock::image(base64_data, mime_type)])
                     } else {
-                        CallToolResult::error(vec![Content::image(base64_data, mime_type)])
+                        CallToolResult::error(vec![ContentBlock::image(base64_data, mime_type)])
                     });
                 }
 
@@ -144,7 +144,7 @@ impl Tool {
                     // "For backwards compatibility, a tool that returns structured content SHOULD also
                     // return the serialized JSON in a TextContent block."
                     match serde_json::to_string(structured) {
-                        Ok(json_string) => vec![Content::text(json_string)],
+                        Ok(json_string) => vec![ContentBlock::text(json_string)],
                         Err(e) => {
                             // Return error if we can't serialize the structured content
                             let error = crate::error::ToolCallError::Execution(
@@ -157,7 +157,7 @@ impl Tool {
                         }
                     }
                 } else {
-                    vec![Content::text(response.to_mcp_content())]
+                    vec![ContentBlock::text(response.to_mcp_content())]
                 };
 
                 // Return successful response
