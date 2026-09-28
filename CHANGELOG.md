@@ -1,3 +1,31 @@
+## [0.32.0](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.6...v0.32.0) (2026-09-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* rmcp-openapi now depends on rmcp 3.4.0. Callers that
+match on rmcp content types or implement against rmcp 1 must migrate.
+
+### Features
+
+* migrate to rmcp 3.4.0 ([7dfb07d](https://gitlab.com/lx-industries/rmcp-openapi/commit/7dfb07d31d3ed24784327adfd709fb1a498b4174))
+
+
+### Bug Fixes
+
+* narrow tags filter to skip untagged ops only when tags filter is set ([ffa0e1c](https://gitlab.com/lx-industries/rmcp-openapi/commit/ffa0e1c70b3d8f9e79d831a075fe3290cb4aab81))
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency crate-ci/typos to v1.50.3 ([d359a54](https://gitlab.com/lx-industries/rmcp-openapi/commit/d359a54e0483bc82073ff6b40f05694e839f0cac))
+* **deps:** update dependency gitlab-org/cli to v1.119.0 ([48a4dda](https://gitlab.com/lx-industries/rmcp-openapi/commit/48a4dda03b7c83946c355d2ac62b91d621a3041b))
+* **deps:** update rust crate jsonschema to 0.57.0 ([c9b3d62](https://gitlab.com/lx-industries/rmcp-openapi/commit/c9b3d6271f7dc355ac0622fc69188e7fb870d059))
+* **deps:** update rust crate jsonschema to 0.58.0 ([1bb0848](https://gitlab.com/lx-industries/rmcp-openapi/commit/1bb0848b66649b087e7b97d55908ec00999c5337))
+* **deps:** update rust crate jsonschema to v0.58.1 ([e3113cc](https://gitlab.com/lx-industries/rmcp-openapi/commit/e3113cc922dd0c23c3b0f6abf132eb9c3625d719))
+* **deps:** update rust crate rmcp to v3.4.1 ([f22b551](https://gitlab.com/lx-industries/rmcp-openapi/commit/f22b551d2c66b5639bfdc0793e2e007266f00a86))
+* **deps:** update rust crate thiserror to v2.0.21 ([81cabed](https://gitlab.com/lx-industries/rmcp-openapi/commit/81cabedc3ad1d320ab071fc8cb9bd7c5f93f9ed7))
+
 ## [0.31.6](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.31.5...v0.31.6) (2026-09-21)
 
 
