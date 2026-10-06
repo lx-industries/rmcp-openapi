@@ -42,6 +42,16 @@
         "npm"
       ],
       "allowedVersions": "<10"
+    },
+    {
+      "description": "Hold docker dind at 29.6.x: since 29.7 the containerd image store push to the GitLab registry fails with \"blob unknown to registry\". See https://github.com/moby/moby/issues/53293. Remove this rule once a Docker release fixing that issue is available.",
+      "matchPackageNames": [
+        "docker"
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "allowedVersions": "/^29\\.6\\./"
     }
   ],
   "customManagers": [
