@@ -10,11 +10,11 @@
   "initializeCommand": [
     "sh",
     "-c",
-    "mkdir -p \"$HOME/.config/glab-cli\" \"$HOME/.config/gh\" \"$HOME/.claude\" \"$HOME/.docker\"; touch \"$HOME/.gitconfig\" \"$HOME/.claude.json\"; [ -s \"$HOME/.docker/config.json\" ] || printf '{}' > \"$HOME/.docker/config.json\""
+    "mkdir -p \"$HOME/.config/glab-cli\" \"$HOME/.config/gh\" \"$HOME/.claude\" \"$HOME/.docker\"; touch \"$HOME/.gitconfig\" \"$HOME/.claude.json\"; [ -s \"$HOME/.docker/config.json\" ] || printf '{}' > \"$HOME/.docker/config.json\"; mkdir -p \"$HOME/.cache/glab-devcontainer\"; chmod 700 \"$HOME/.cache/glab-devcontainer\"; GLAB_SEED_DIR=\"$HOME/.cache/glab-devcontainer\" \"${localWorkspaceFolder}/.devcontainer/glab-seed.sh\" >/dev/null || true"
   ],
   "appPort": "0.0.0.0::19452",
   "mounts": [
-    "source=${localEnv:HOME}/.config/glab-cli,target=/tmp/glab-config,type=bind",
+    "source=${localEnv:HOME}/.cache/glab-devcontainer,target=/tmp/glab-config,type=bind,readonly",
     "source=${localEnv:HOME}/.config/gh,target=/tmp/gh-config,type=bind",
     "source=${localEnv:HOME}/.gitconfig,target=/tmp/home/.gitconfig,type=bind,readonly",
     "source=${localEnv:HOME}/.claude,target=/tmp/home/.claude,type=bind",

@@ -58,7 +58,15 @@ fi
 
 # -- Conditional host config mounts -------------------------------------------
 [[ -f "$HOME/.gitconfig" ]] && run_args+=(-v "$HOME/.gitconfig:/tmp/home/.gitconfig:ro")
-[[ -d "$HOME/.config/glab-cli" ]] && run_args+=(-v "$HOME/.config/glab-cli:/tmp/glab-config")
+# glab: a mounted host config never authenticates a container. The token lives
+# in the host OS keyring, and `glab auth login` writes use_keyring: "true" even
+# for a PAT login, which aborts glab at API-client init ("dbus-launch: executable
+# file not found"). glab-seed.sh writes a keyring-free config on the host with
+# the PAT inlined; mount that read-only.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if glab_seed_dir="$("$script_dir/glab-seed.sh")"; then
+    run_args+=(-v "$glab_seed_dir:/tmp/glab-config:ro")
+fi
 [[ -d "$HOME/.config/gh" ]] && run_args+=(-v "$HOME/.config/gh:/tmp/gh-config")
 [[ -d "$HOME/.claude" ]] && run_args+=(
     -v "$HOME/.claude:/tmp/home/.claude"
@@ -68,9 +76,8 @@ fi
 
 # gh keeps its token in the OS keyring, which cannot cross the container
 # boundary; forward it with the pass-through form (-e GH_TOKEN, no inline value)
-# so the secret stays out of the docker argv. glab is NOT forwarded — its OAuth
-# access token does not round-trip as a PRIVATE-TOKEN; log in with a PAT so the
-# token lives in the mounted ~/.config/glab-cli instead.
+# so the secret stays out of the docker argv. No GitLab token is forwarded —
+# glab authenticates from the seeded config above.
 if command -v gh >/dev/null 2>&1; then
     GH_TOKEN="$(gh auth token 2>/dev/null || true)"; export GH_TOKEN
     [[ -n "$GH_TOKEN" ]] && run_args+=(-e GH_TOKEN)
