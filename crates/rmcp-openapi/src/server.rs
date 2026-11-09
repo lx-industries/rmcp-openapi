@@ -8,7 +8,7 @@ use rmcp::{
     },
     service::{RequestContext, RoleServer},
 };
-use rmcp_actix_web::transport::AuthorizationHeader;
+use rmcp_actix_web::transport::{AuthorizationHeader, on_request_extensions};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -419,8 +419,12 @@ impl ServerHandler for Server {
         let arguments = request.arguments.unwrap_or_default();
         let arguments_value = Value::Object(arguments);
 
-        // Extract authorization header from context extensions
-        let auth_header = context.extensions.get::<AuthorizationHeader>().cloned();
+        // Read the header where rmcp-actix-web's default `StreamableHttpService` writes it:
+        // nested inside the request's `http::request::Parts`. The flat shape that its
+        // `legacy-transport` module writes is not supported.
+        let auth_header = on_request_extensions(&context.extensions)
+            .and_then(|extensions| extensions.get::<AuthorizationHeader>())
+            .cloned();
 
         if auth_header.is_some() {
             debug!("Authorization header is present");
