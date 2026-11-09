@@ -313,7 +313,7 @@ impl ServerHandler for Server {
         capabilities.tools = Some(tools_capability);
 
         let mut result = InitializeResult::new(capabilities)
-            .with_protocol_version(ProtocolVersion::V_2024_11_05)
+            .with_protocol_version(ProtocolVersion::LATEST_WITH_INITIALIZE)
             .with_server_info(server_info);
         result.instructions = instructions;
         result
