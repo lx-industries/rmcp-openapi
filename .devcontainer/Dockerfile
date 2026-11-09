@@ -7,7 +7,7 @@
 
 # -- Base: CI image (Rust toolchain + cargo-nextest, typos, sccache) -----------
 # renovate: datasource=docker registryUrl=https://registry.gitlab.com depName=lx-industries/rmcp-openapi/images/rust
-FROM registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.99.1-x86_64-unknown-linux-gnu@sha256:9836ce8870d840327fa55b365abf90826d02c5cce00a2c305a9fee4d765187be
+FROM registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.99.1-x86_64-unknown-linux-gnu@sha256:f0da766c7c8f9d6fe061380472bf3f42df51a25d704413c41a71bde4470d178f
 
 # -- Environment (set early so tool installers use the right paths) -----------
 ENV HOME=/tmp/home
