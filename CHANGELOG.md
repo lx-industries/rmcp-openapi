@@ -1,3 +1,22 @@
+## [0.32.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.32.2...v0.32.3) (2026-11-11)
+
+
+### Bug Fixes
+
+* **deps:** require rmcp 3.9.0 and rmcp-actix-web 0.13.3 ([321e9bf](https://gitlab.com/lx-industries/rmcp-openapi/commit/321e9bfd23bd2cd985d6fd05f8daa75af901e67a)), closes [#105](https://gitlab.com/lx-industries/rmcp-openapi/issues/105)
+* **server:** fall back to the newest initialize-capable protocol version ([1207ddb](https://gitlab.com/lx-industries/rmcp-openapi/commit/1207ddbabd5cf6a7373ecfb202d941a3b9a6955f))
+* **server:** read the forwarded AuthorizationHeader through on_request_extensions ([423fac4](https://gitlab.com/lx-industries/rmcp-openapi/commit/423fac49a5ada763b86bf452c638d3d989284ca6))
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency crate-ci/typos to v1.52.1 ([ae6708b](https://gitlab.com/lx-industries/rmcp-openapi/commit/ae6708bd92dab59c833d2d3c2457cdd26194af63))
+* **deps:** update dependency crate-ci/typos to v1.52.2 ([4aff826](https://gitlab.com/lx-industries/rmcp-openapi/commit/4aff826fa3e77599054fa2a3a792cfdb605646d3))
+* **deps:** update dependency gitlab-org/cli to v1.130.0 ([74d029f](https://gitlab.com/lx-industries/rmcp-openapi/commit/74d029fcb9cfb68f5bcab2b5dc72423eb3a05309))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.99.1-x86_64-unknown-linux-gnu docker digest to f0da766 ([d1eb582](https://gitlab.com/lx-industries/rmcp-openapi/commit/d1eb582369c8aae2a1edc13b210a28e9b433fea8))
+* **deps:** update rust crate jsonschema to v0.61.1 ([ce241b9](https://gitlab.com/lx-industries/rmcp-openapi/commit/ce241b9be7835aa15fb164f2a482707b7609f824))
+* **deps:** update rust crate rmcp-actix-web to v0.13.3 ([09e8cac](https://gitlab.com/lx-industries/rmcp-openapi/commit/09e8cac4b0c7aa25b402a57b26016804130a570c))
+
 ## [0.32.2](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.32.1...v0.32.2) (2026-11-09)
 
 
