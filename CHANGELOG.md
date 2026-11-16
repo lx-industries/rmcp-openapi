@@ -1,3 +1,17 @@
+## [0.32.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.32.3...v0.32.4) (2026-11-16)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency cli/cli to v2.104.0 ([f8b68b2](https://gitlab.com/lx-industries/rmcp-openapi/commit/f8b68b2cecd37e1fef7b82b31fa843c8ccc1bc87))
+* **deps:** update node.js to 9d26675 ([9e08f04](https://gitlab.com/lx-industries/rmcp-openapi/commit/9e08f04e388bfb1a6e9683281967199ca634aa3f))
+* **deps:** update node.js to v24.22.3 ([e97f94c](https://gitlab.com/lx-industries/rmcp-openapi/commit/e97f94c0d5566f5f5ac243f991b2557966285355))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.99.1-x86_64-unknown-linux-gnu docker digest to 7227d06 ([46dd3cc](https://gitlab.com/lx-industries/rmcp-openapi/commit/46dd3ccf526df63473d8dc2cac33d69fe730026f))
+* **deps:** update rust crate jsonschema to v0.61.2 ([55e6e42](https://gitlab.com/lx-industries/rmcp-openapi/commit/55e6e422cd3844089237089aa1e8669460b1cda8))
+* **deps:** update rust crate rmcp to 3.10.0 ([eb16dff](https://gitlab.com/lx-industries/rmcp-openapi/commit/eb16dff2b44c64ad71eb34d017f894a707d04b2f))
+* **deps:** update ubuntu:noble docker digest to 2198e4c ([9d4d1a6](https://gitlab.com/lx-industries/rmcp-openapi/commit/9d4d1a68c8f81a6b92200522a94290053f52b8c9))
+* **deps:** update ubuntu:noble docker digest to 73b9993 ([4a1a80b](https://gitlab.com/lx-industries/rmcp-openapi/commit/4a1a80b7a2e35f82caf4574c3d2c334fff9ede58))
+
 ## [0.32.3](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.32.2...v0.32.3) (2026-11-11)
 
 
