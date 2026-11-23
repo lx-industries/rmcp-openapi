@@ -1,3 +1,21 @@
+## [0.32.5](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.32.4...v0.32.5) (2026-11-23)
+
+
+### Miscellaneous Chores
+
+* **deps:** update dependency cli/cli to v2.105.0 ([3e93173](https://gitlab.com/lx-industries/rmcp-openapi/commit/3e93173d01bb09d4bfe45b9b586593c7a983c220))
+* **deps:** update dependency gitlab-org/cli to v1.131.0 ([992fecc](https://gitlab.com/lx-industries/rmcp-openapi/commit/992fecca04138b5124222519f35d5ca8928c8f4b))
+* **deps:** update dependency rust-cross/cargo-xwin to v0.24.1 ([0803ec3](https://gitlab.com/lx-industries/rmcp-openapi/commit/0803ec3dc31ff3a2ff06663dce0447f1af44b1db))
+* **deps:** update registry.gitlab.com/lx-industries/rmcp-openapi/images/rust:1.99.1-x86_64-pc-windows-msvc docker digest to de146bb ([1087854](https://gitlab.com/lx-industries/rmcp-openapi/commit/1087854bafe9be1529eb27c2f0947cdcfbf94587))
+* **deps:** update rust crate clap to v4.6.8 ([96e29ca](https://gitlab.com/lx-industries/rmcp-openapi/commit/96e29ca2d839b5a76c8e72fdff7df0a87886d95b))
+* **deps:** update rust crate clap to v4.6.9 ([16569f0](https://gitlab.com/lx-industries/rmcp-openapi/commit/16569f06b16ebdf90f1b0f9840cdb985cdb90a84))
+* **deps:** update rust crate jsonschema to 0.62.0 ([f6d6378](https://gitlab.com/lx-industries/rmcp-openapi/commit/f6d63789fb196bacfb211d8bc99ec4bf2e675815))
+* **deps:** update rust crate jsonschema to 0.63.0 ([3576aba](https://gitlab.com/lx-industries/rmcp-openapi/commit/3576aba087e3fd45ad5ec191b182839b163135c7))
+* **deps:** update rust crate regex to v1.13.2 ([cda5677](https://gitlab.com/lx-industries/rmcp-openapi/commit/cda5677dc10b132f922944e259d3ed0b8e1628a5))
+* **deps:** update rust crate rmcp-actix-web to 0.13.4 ([1a7c294](https://gitlab.com/lx-industries/rmcp-openapi/commit/1a7c2948c858cb942a2bdf65ef3d71127b056792))
+* **deps:** update rust crate url to v2.5.9 ([7c8f731](https://gitlab.com/lx-industries/rmcp-openapi/commit/7c8f731233db71a50a7ddb5a474bbb638d04eef5))
+* **deps:** update ubuntu:noble docker digest to 9c7f200 ([e67eb8e](https://gitlab.com/lx-industries/rmcp-openapi/commit/e67eb8e3abd5dee95ad8ffc94ad462e224e999d6))
+
 ## [0.32.4](https://gitlab.com/lx-industries/rmcp-openapi/compare/v0.32.3...v0.32.4) (2026-11-16)
 
 
